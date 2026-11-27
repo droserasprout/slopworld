@@ -45,8 +45,9 @@ See the [Linux installation guide](https://slopworld.space/installation/linux.ht
 
 Get Arch, Debian/Ubuntu, and Fedora packages from [GitHub Releases](https://github.com/droserasprout/slopworld/releases).
 
-See the [installation instructions](https://slopworld.space/installation/linux.html)
-for installing a package, attaching the mod, and starting the daemon.
+For the game client, [attach the mod and start the daemon](https://slopworld.space/installation/linux.html#attach-the-mod-and-launch).
+To use the web version with your local RimWorld installation, follow the
+[packaged slopweb setup](https://slopworld.space/installation/linux.html#launch-the-browser-workspace).
 
 ### From source
 
@@ -64,7 +65,7 @@ slopworld
 
 `RIMWORLD` defaults to `~/.local/share/Steam/steamapps/common/RimWorld`.
 
-For the local browser Eco workspace, use `just web-install`, then `slopweb`.
+For the web version, use `just web-install`, then `slopweb`.
 See [slopweb installation and packaging](slopweb/README.md). It runs without loading
 a colony and prepares game files privately from your own installation.
 

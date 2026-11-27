@@ -1,12 +1,13 @@
 # Linux
 
-For a local installation, install the game client and daemon on the same machine.
+For a local installation, use the game client or the [browser workspace](#launch-the-browser-workspace) with a daemon on the same machine.
 For a [remote connection](#remote-connection), install each component on the machine that runs it.
 To run the daemon in Docker, see [Sidecar mode](sidecar.md).
 
 ## Requirements
 
 - **Game client:** x86_64 Linux, a Wayland desktop session, and the native **RimWorld 1.7.5013** build. Locate the directory containing the `RimWorld` binary before attaching the mod.
+- **Browser workspace** requires x86_64 Linux, a desktop browser, and a local installation of native **RimWorld 1.7**. The `slopweb` package requires the .NET 10 SDK and Fontconfig. Only optional ahead-of-time compilation needs the `wasm-tools` workload.
 - **Native daemon:** x86_64 Linux with systemd user services and scopes. The package manager installs Bubblewrap, passt, and tmux 3.7 or newer. A dedicated daemon host can run headless.
 
 ## Interactive installer
@@ -48,8 +49,9 @@ Checksums detect damaged downloads; they do not independently establish provenan
 See [release verification](../development/releases.md#verify-a-download) for attestation checks.
 
 Run it again to update selected components. Add `--version VERSION` to an
-explicit `--install` command to select a specific stable release. Installation does not attach the mod or start
-services; continue with [Attach the mod and launch](#attach-the-mod-and-launch).
+explicit `--install` command to select a specific stable release. After installation,
+follow [Attach the mod and launch](#attach-the-mod-and-launch) for the game client
+or [Launch the browser workspace](#launch-the-browser-workspace) for `slopweb`.
 
 ### Without the menu
 
@@ -79,18 +81,21 @@ removal fails, successful installations remain applied.
 
 Install a Linux binary package from the
 [release downloads](https://github.com/droserasprout/slopworld/releases).
+
 | Package | Contents | Install on |
 | --- | --- | --- |
 | `slopworld` | Game launcher, mod, assets and OST | Game desktop |
+| `slopweb` | Browser workspace launcher and mod assets | Host with a local RimWorld installation |
 | `slopd` | Daemon and user service; requires `slopctl` | Native agent server |
 | `slopctl` | CLI for local or remote daemons | Server, administration machine, or CI |
 | `slopcar` | Container launcher | Sidecar host |
 
-For a local native setup, install `slopworld`, `slopd`, and `slopctl` together.
+For a local game client, install `slopworld`, `slopd`, and `slopctl` together.
 For a remote game client, install only `slopworld`. For a sidecar game host,
 install `slopworld` and `slopcar`; `slopctl` is optional on that host.
-The commands below install the local native setup.
-The commands below require `wget` and use version {{#constant release_version}}.
+The commands below install the local game client and daemon. For the browser
+workspace, substitute `slopweb` for `slopworld` in both the download and install
+commands. These examples require `wget` and use version {{#constant release_version}}.
 
 ### Arch Linux
 
@@ -161,6 +166,40 @@ on Debian and Fedora). Install the tools for the features you use:
 | Process inspection fallback | `procps-ng` | `procps` | `procps-ng` |
 | Spotify playback | `ncspot` | not packaged | not packaged |
 | Song recognition | `songrec` | not packaged | not packaged |
+
+## Launch the browser workspace
+
+For a local daemon, select `slopweb` and `slopd` in the installer menu. The
+installer includes `slopctl` with the daemon. With a downloaded copy of the
+[installer](#interactive-installer), run the equivalent command.
+
+```sh
+sudo -v
+python3 install.py --install slopweb slopd
+```
+
+Start the daemon and launch the workspace as your normal user.
+
+```sh
+systemctl --user daemon-reload
+systemctl --user enable --now slopd.service
+slopweb
+```
+
+The launcher reads the local daemon's endpoint file. It looks for RimWorld in
+the saved game directory and common install locations. For a custom location,
+run `slopweb --game /path/to/RimWorld/game`, using the directory containing
+the `RimWorld` binary.
+
+On first launch, `slopweb` prepares game files from your installation in
+`$XDG_CACHE_HOME/slopweb` (default `~/.cache/slopweb`). Later launches reuse
+that private cache. Open the URL printed in the terminal, normally
+`http://127.0.0.1:8787/`. Keep the launcher running while using the workspace. Ctrl+C in its terminal stops the web server. Agent sessions
+continue on the daemon.
+
+If you already have a saved daemon connection, install just the browser package
+with `python3 install.py --install slopweb` and launch with
+`slopweb --endpoint NAME`.
 
 ## Attach the mod and launch
 

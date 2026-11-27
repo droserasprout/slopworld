@@ -2,8 +2,9 @@
 
 Set up a project, have an agent write a file, then ask a worker to review it.
 
-First, follow the [installation guide](../installation/linux.md), or set up
-[Sidecar mode](../installation/sidecar.md) to run the daemon in a container.
+First, set up the [game client](../installation/linux.md) or the
+[browser workspace](../installation/linux.md#launch-the-browser-workspace).
+To run the daemon in a container, see [Sidecar mode](../installation/sidecar.md).
 
 ## Prepare your tools
 
@@ -25,8 +26,9 @@ To launch another CLI, add a [custom command preset](../workspace/command-preset
 
 <img src="../images/quickstart-code-settings.jpg" alt="Code appearance settings with pager, syntax highlighter, line numbers, and theme" align="right" width="280">
 
-Launch using the command from your installation guide: `slopworld` for a local
-daemon, `slopworld --endpoint NAME` for a saved remote connection, or
+For the browser workspace, run `slopweb` and open the URL it prints.
+For the game client, use `slopworld` for a local daemon,
+`slopworld --endpoint NAME` for a saved remote connection, or
 `just sidecar-run` from the source checkout for the sidecar workflow.
 
 The sidebar holds your agents, files, and Git changes. Select an agent, then
