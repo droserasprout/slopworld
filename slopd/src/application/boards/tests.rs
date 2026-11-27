@@ -2,6 +2,42 @@
 use super::*;
 use wire::BoardEdit;
 
+#[test]
+fn column_transition_is_recorded_once_across_retries() {
+    let mut db = Connection::open_in_memory().unwrap();
+    db.execute_batch(include_str!("schema.sql")).unwrap();
+    let tx = db.transaction().unwrap();
+    reconcile(&tx, &[]).unwrap();
+    let board = snapshot::read(&tx).unwrap().boards.remove(0);
+    let mut edit = BoardEdit {
+        board: board.id,
+        column: board.columns[0].id.clone(),
+        action: "add-card".into(),
+        text: "Read the feed".into(),
+        ..Default::default()
+    };
+    edits::apply(&tx, &edit, "host").unwrap();
+    edit.card = snapshot::read(&tx).unwrap().boards[0].columns[0].cards[0]
+        .id
+        .clone();
+    edit.action = "move-card".into();
+    edits::apply(&tx, &edit, "host").unwrap();
+    edit.column.clone_from(&board.columns[1].id);
+    for _ in 0..2 {
+        edits::apply(&tx, &edit, "host").unwrap();
+    }
+    let board = snapshot::read(&tx).unwrap().boards.remove(0);
+    let activity = &board.columns[1].cards[0].activity;
+    assert_eq!(activity.len(), 2);
+    assert_eq!(
+        activity[1].text,
+        format!(
+            "Moved: {} → {}",
+            board.columns[0].name, board.columns[1].name
+        )
+    );
+}
+
 #[tokio::test]
 async fn move_from_archive_is_rejected_and_preserves_discussion() {
     let path = std::env::temp_dir().join(format!("boards-{}.sqlite3", uuid::Uuid::new_v4()));

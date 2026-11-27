@@ -56,13 +56,16 @@ namespace SlopWorld.Tests
                         Id = card.Activity.Count + 10,
                         TimestampMs = card.Activity.Count * 10,
                         Author = author,
-                        Text = "Changed the title",
+                        Text = "Moved: Todo → Done",
                     }
                 );
             card.Comments.Add(new Wire.BoardComment { Id = 20, TimestampMs = 15 });
-            Assert.That(BoardDiscussion.Timeline(card, false).Single().Entry.Id, Is.EqualTo(20));
             Assert.That(
-                BoardDiscussion.Timeline(card, true).Select(e => e.Entry.Id),
+                FeedItem.Build(card, System.Array.Empty<TaskInfo>(), "Comments").Single().Entry.Id,
+                Is.EqualTo(20)
+            );
+            Assert.That(
+                FeedItem.Build(card, System.Array.Empty<TaskInfo>(), "All").Select(e => e.Entry.Id),
                 Is.EqualTo(new[] { 13, 12, 20, 11, 10 })
             );
             var entry = card.Activity[1];
@@ -83,7 +86,20 @@ namespace SlopWorld.Tests
         {
             var card = new Wire.BoardCard();
             card.Comments.Add(new Wire.BoardComment { Text = "comment", TimestampMs = 2 });
-            card.Activity.Add(new Wire.BoardComment { Text = "edit", TimestampMs = 4 });
+            foreach (
+                var text in new[]
+                {
+                    "Added to Todo",
+                    "Positioned in Todo",
+                    "Changed the title",
+                    "Positioned in Review",
+                    "Positioned in Review",
+                }
+            )
+                card.Activity.Add(new Wire.BoardComment { Text = text, TimestampMs = 4 });
+            card.Activity.Add(
+                new Wire.BoardComment { Text = "Moved: Review → Done", TimestampMs = 5 }
+            );
             var task = new TaskInfo
             {
                 Body = "request",
@@ -96,13 +112,37 @@ namespace SlopWorld.Tests
                 FeedItem.Build(card, tasks, filter).Select(i => i.Message.Body).ToArray();
             Assert.That(
                 Bodies("All"),
-                Is.EqualTo(new[] { "edit", "result", "comment", "request" })
+                Is.EqualTo(
+                    new[] { "Review → Done", "Todo → Review", "result", "comment", "request" }
+                )
             );
             Assert.That(Bodies("Comments"), Is.EqualTo(new[] { "comment" }));
-            Assert.That(Bodies("Activity"), Is.EqualTo(new[] { "edit" }));
-            task.History.Add(new TaskUpdateInfo { Note = "done", TimestampMs = 3 });
-            Assert.That(Bodies("Tasks"), Is.EqualTo(new[] { "done", "request" }));
-            Assert.That(FeedItem.Build(null, tasks, "All").Count(), Is.EqualTo(2));
+            Assert.That(
+                Bodies("Status changes"),
+                Is.EqualTo(new[] { "Review → Done", "Todo → Review", "result" })
+            );
+            foreach (var note in new[] { "", "", "Waiting", "", "Waiting" })
+                task.History.Add(
+                    new TaskUpdateInfo
+                    {
+                        Status = DelegatedTaskStatus.Working,
+                        Note = note,
+                        TimestampMs = 3,
+                    }
+                );
+            task.History.Add(
+                new TaskUpdateInfo
+                {
+                    Status = DelegatedTaskStatus.Done,
+                    Note = "done",
+                    TimestampMs = 6,
+                }
+            );
+            Assert.That(
+                Bodies("Status changes"),
+                Is.EqualTo(new[] { "done", "Review → Done", "Todo → Review", "Waiting", "" })
+            );
+            Assert.That(FeedItem.Build(null, tasks, "All").Count(), Is.EqualTo(4));
         }
 
         [Test]

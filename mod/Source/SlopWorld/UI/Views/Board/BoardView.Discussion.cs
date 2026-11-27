@@ -33,7 +33,7 @@ namespace SlopWorld
                 header,
                 _filter,
                 () =>
-                    new[] { "All", "Comments", "Tasks", "Activity" }
+                    new[] { "All", "Comments", "Status changes" }
                         .Select(f => new FloatMenuOption(f, () => _filter = f))
                         .ToList()
             );

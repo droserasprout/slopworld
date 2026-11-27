@@ -8,7 +8,7 @@ Use **+ Column** to add a column. Use **+ Add card** at the foot of a column, ty
 
 On a narrow screen, swipe across columns or vertically through cards. Tap a card to open its popup and **×** to return. Use the visible grab handle to pick up a card or header on touchscreens. A mouse wheel scrolls the pointed column, and Shift+wheel moves across columns.
 
-The **Feed** appears beside the card details, or below them on narrow screens. It shows comments, card edits, and visible linked task histories together, newest first. Use the dropdown to show only **Comments**, **Tasks**, or **Activity**. Press Enter or **Post** to send a card comment. Admins can remove a comment or edit with its **×**. Drag to select text, double-click a word, or triple-click a line. Click an active agent’s name or portrait to open its terminal.
+The **Feed** appears beside the card details, or below them on narrow screens. It shows comments, card moves, and linked task requests and status updates together, newest first. Use **Comments** for the conversation or **Status changes** for column transitions and task progress. Repeated task updates appear only when they add a new note. Press Enter or **Post** to send a card comment. Admins can remove a comment or edit with its **×**. Drag to select text, double-click a word, or triple-click a line. Click an active agent’s name or portrait to open its terminal.
 
 Select a task under **Links** to open the feed fullscreen with task actions. Back returns to the card. Opening a task from the mailbox also shows its linked card’s feed. If several cards link to the task, use the card picker. A standalone task shows its own history. Use **Delegate to agent** or **Spawn worker** on the card to create linked assignments.
 

@@ -127,6 +127,15 @@ fn edit_column(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> 
         }
         _ => {
             let position = card_position(tx, e)?;
+            // Capture both names before updating the card. A reorder or retried move
+            // within the destination column has no status transition.
+            tx.execute(
+                "INSERT INTO card_activity(card,author,text,timestamp_ms)
+                 SELECT cards.id,?2,'Moved: ' || src.name || ' → ' || dst.name,CAST(unixepoch('subsec')*1000 AS INTEGER)
+                 FROM cards JOIN columns src ON src.id=cards.col JOIN columns dst ON dst.id=?3
+                 WHERE cards.id=?1 AND src.id!=dst.id",
+                params![e.card, author, e.column],
+            )?;
             ensure!(
                 tx.execute(
                     "UPDATE cards SET col=?,position=? WHERE id=?",
@@ -134,7 +143,6 @@ fn edit_column(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> 
                 )? == 1,
                 "card no longer exists"
             );
-            column_activity(tx, &e.card, author, "Positioned in", &e.column)?;
         }
     }
     Ok(())
