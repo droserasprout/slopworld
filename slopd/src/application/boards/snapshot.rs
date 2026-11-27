@@ -58,12 +58,25 @@ pub(super) fn read(tx: &Transaction<'_>) -> Result<BoardCatalog> {
             for card in &mut column.cards {
                 card.comments = rows(
                     tx,
-                    "SELECT author,text FROM comments WHERE card=? ORDER BY sequence",
+                    "SELECT author,text,timestamp_ms FROM comments WHERE card=? ORDER BY sequence",
                     [&card.id],
                     |r| {
                         Ok(BoardComment {
                             author: r.get(0)?,
                             text: r.get(1)?,
+                            timestamp_ms: r.get(2)?,
+                        })
+                    },
+                )?;
+                card.activity = rows(
+                    tx,
+                    "SELECT author,text,timestamp_ms FROM card_activity WHERE card=? ORDER BY sequence",
+                    [&card.id],
+                    |r| {
+                        Ok(BoardComment {
+                            author: r.get(0)?,
+                            text: r.get(1)?,
+                            timestamp_ms: r.get(2)?,
                         })
                     },
                 )?;

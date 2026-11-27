@@ -45,6 +45,7 @@ namespace SlopWorld.Tests
             var selection = new BoardSelection();
             var card = source.Columns[0].Cards[0];
             selection.Select(card);
+            selection.Title = "draft title";
             selection.Description = "draft description";
             selection.Comment = "draft comment";
             var destination = new Wire.ProjectBoard
@@ -55,9 +56,12 @@ namespace SlopWorld.Tests
                     new Wire.BoardColumn { Id = "review", Cards = { card.Clone() } },
                 },
             };
+            destination.Columns[0].Cards[0].Assignee = "agent";
             source.Columns[0].Cards.RemoveAt(0);
             var next = new Wire.BoardCatalog { Boards = { source, destination } };
             Assert.That(selection.Refresh(next).Id, Is.EqualTo("project"));
+            Assert.That(selection.Title, Is.EqualTo("draft title"));
+            Assert.That(selection.Card.Assignee, Is.EqualTo("agent"));
             Assert.That(selection.Description, Is.EqualTo("draft description"));
             Assert.That(selection.Comment, Is.EqualTo("draft comment"));
             destination.Columns.Clear();

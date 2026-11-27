@@ -12,6 +12,10 @@ namespace SlopWorld
         readonly BoardViewport _viewport = new BoardViewport();
         string _panColumn;
         float _edgeTime;
+        string _adding,
+            _newTitle;
+        bool _focusNew;
+        const float Footer = 36;
 
         void DrawColumns(Rect frame, Wire.ProjectBoard board, bool narrow)
         {
@@ -21,12 +25,12 @@ namespace SlopWorld
             try
             {
                 var area = new Rect(0, 0, frame.width, frame.height);
-                float width = narrow ? Mathf.Max(100, area.width - 36) : 232;
+                float width = narrow ? Mathf.Max(100, area.width - 36) : 264;
                 float limit = Mathf.Max(0, board.Columns.Count * (width + Gap) - Gap - area.width);
                 _viewport.Scroll(0, 0, limit, null, area.height);
                 var e = Event.current;
                 var p = e.mousePosition;
-                bool inside = Focused && area.Contains(p);
+                bool inside = _editor.Card == null && Focused && area.Contains(p);
                 Wire.BoardColumn ColumnAt(float x, out int index, out float inset)
                 {
                     index = Mathf.FloorToInt((x + _viewport.Left) / (width + Gap));
@@ -35,11 +39,12 @@ namespace SlopWorld
                         ? board.Columns[index]
                         : null;
                 }
+                float cardHeight = area.height - (board.Archived ? 0 : Footer);
                 var hovered = ColumnAt(p.x, out _, out _);
                 if (e.type == EventType.ScrollWheel && inside)
                 {
                     var delta = e.shift ? new Vector2(e.delta.y * 36, 0) : e.delta * 36;
-                    _viewport.Scroll(delta.x, delta.y, limit, hovered, area.height);
+                    _viewport.Scroll(delta.x, delta.y, limit, hovered, cardHeight);
                     e.Use();
                 }
                 if (_gesture.Held && e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
@@ -59,7 +64,7 @@ namespace SlopWorld
                             delta.y,
                             limit,
                             board.Columns.FirstOrDefault(c => c.Id == _panColumn),
-                            area.height
+                            cardHeight
                         );
                     }
                     _last = p;
@@ -72,22 +77,57 @@ namespace SlopWorld
                     float step = Mathf.Min(.05f, now - _edgeTime) * 480;
                     retarget = _viewport.Scroll(
                         Edge(p.x, area.width) * step,
-                        _gesture.Card != null ? Edge(p.y, area.height) * step : 0,
+                        _gesture.Card != null ? Edge(p.y, cardHeight) * step : 0,
                         limit,
                         hovered,
-                        area.height
+                        cardHeight
                     );
                     _edgeTime = now;
                 }
                 var hit = ColumnAt(p.x, out int index, out float xInColumn);
-                int row = Mathf.FloorToInt((p.y - Header + _viewport.Top(hit, area.height)) / Row);
+                int row = Mathf.FloorToInt((p.y - Header + _viewport.Top(hit, cardHeight)) / Row);
                 var card =
-                    p.y >= Header && hit != null && row >= 0 && row < hit.Cards.Count
+                    p.y >= Header
+                    && p.y < cardHeight
+                    && hit != null
+                    && row >= 0
+                    && row < hit.Cards.Count
                         ? hit.Cards[row]
                         : null;
                 bool header = p.y < Header;
+                for (int i = 0; i < board.Columns.Count; i++)
+                {
+                    float x = i * (width + Gap) - _viewport.Left;
+                    if (x >= area.width || x + width <= 0)
+                        continue;
+                    GUI.BeginGroup(new Rect(x, 0, width, cardHeight));
+                    try
+                    {
+                        PaintColumn(board, board.Columns[i], 0, width, cardHeight);
+                    }
+                    finally
+                    {
+                        GUI.EndGroup();
+                    }
+                }
+                bool overFooter = false;
+                if (!board.Archived && !_gesture.Held && _editor.Card == null)
+                {
+                    for (int i = 0; i < board.Columns.Count; i++)
+                    {
+                        var column = board.Columns[i];
+                        float x = i * (width + Gap) - _viewport.Left;
+                        if (x >= area.width || x + width <= 0)
+                            continue;
+                        float footerY = Mathf.Min(cardHeight, Header + column.Cards.Count * Row);
+                        var footer = new Rect(x + 4, footerY + 2, width - 8, Footer - 4);
+                        overFooter |= footer.Contains(p);
+                        DrawAddCard(footer, board, column);
+                    }
+                }
                 if (
                     inside
+                    && !overFooter
                     && e.type == EventType.MouseDown
                     && e.button == 0
                     && !_saving
@@ -95,7 +135,7 @@ namespace SlopWorld
                 )
                 {
                     if (hit != null && header && xInColumn > width - 42 && !board.Archived)
-                        ColumnMenu(board, hit);
+                        ColumnMenu(Board, Board.Columns.First(c => c.Id == hit.Id));
                     else
                     {
                         bool item = hit != null && (header || card != null);
@@ -115,18 +155,22 @@ namespace SlopWorld
                     e.Use();
                 }
                 if (retarget && _gesture.Dragging)
-                    Target(board, hit, index, xInColumn, width, area.height, p.y);
+                    Target(board, hit, index, xInColumn, width, cardHeight, p.y);
                 if (_gesture.Held && e.rawType == EventType.MouseUp && e.button == 0)
                 {
                     if (_gesture.Dragging && p != _last)
-                        Target(board, hit, index, xInColumn, width, area.height, p.y);
+                        Target(board, hit, index, xInColumn, width, cardHeight, p.y);
                     if (
                         !_gesture.Panning
                         && !_gesture.Dragging
                         && card != null
                         && card.Id == _gesture.Card
                     )
+                    {
+                        _adding = null;
+                        _submit = null;
                         _editor.Select(card);
+                    }
                     var edit = _gesture.Release(
                         board,
                         hit != null && (_gesture.Card == null || !header)
@@ -135,20 +179,83 @@ namespace SlopWorld
                         Save(edit);
                     e.Use();
                 }
-                if (e.type != EventType.Repaint)
-                    return;
-                for (int i = 0; i < board.Columns.Count; i++)
-                {
-                    float x = i * (width + Gap) - _viewport.Left;
-                    if (x >= area.width || x + width <= 0)
-                        continue;
-                    PaintColumn(board, board.Columns[i], x, width, area.height);
-                }
             }
             finally
             {
                 GUI.EndGroup();
             }
+        }
+
+        static string Preview(Wire.BoardCard card)
+        {
+            var items = new List<string>();
+            if (card.Assignee.Length > 0)
+                items.Add(card.Assignee);
+            if (card.Description.Length > 0)
+                items.Add("≡");
+            if (card.Comments.Count > 0)
+                items.Add($"Comments {card.Comments.Count}");
+            if (card.Links.Count > 0)
+                items.Add($"Links {card.Links.Count}");
+            return string.Join(" · ", items);
+        }
+
+        void DrawAddCard(Rect rect, Wire.ProjectBoard board, Wire.BoardColumn column)
+        {
+            if (_adding != column.Id)
+            {
+                if (UiControls.Button(rect, "+ Add card", on: !_saving))
+                {
+                    _adding = column.Id;
+                    _newTitle = "";
+                    _focusNew = true;
+                }
+                return;
+            }
+            var field = rect;
+            field.width -= 70;
+            string name = "board.add." + column.Id;
+            bool enter = SubmitField(name);
+            _newTitle = UiText.FieldWithPlaceholder(
+                TextBox(field),
+                name,
+                _newTitle,
+                "Card title",
+                !_saving
+            );
+            if (_focusNew && Event.current.type == EventType.Repaint)
+            {
+                GUI.FocusControl(name);
+                _focusNew = false;
+            }
+            bool ready = !_saving && _newTitle.Trim().Length > 0;
+            if (
+                (
+                    UiControls.Button(
+                        new Rect(field.xMax + 2, rect.y, 40, rect.height),
+                        "Add",
+                        on: ready
+                    ) || enter
+                ) && ready
+            )
+                Save(
+                    new Wire.BoardEdit
+                    {
+                        Action = "add-card",
+                        Board = board.Id,
+                        Column = column.Id,
+                        Text = _newTitle,
+                    },
+                    () => _adding = null
+                );
+            if (
+                UiControls.Button(
+                    new Rect(rect.xMax - 26, rect.y, 26, rect.height),
+                    "×",
+                    on: !_saving
+                )
+            )
+                _adding = null;
         }
 
         static float Edge(float coordinate, float extent) =>
@@ -197,7 +304,10 @@ namespace SlopWorld
             float height
         )
         {
-            Slab.Fill(new Rect(x, 0, width, height), UiTheme.Well);
+            Slab.Fill(
+                new Rect(x, 0, width, Mathf.Min(height, Header + column.Cards.Count * Row)),
+                UiTheme.Well
+            );
             float top = _viewport.Top(column, height);
             int first = Mathf.FloorToInt(top / Row);
             for (int i = first; i < column.Cards.Count; i++)
@@ -208,11 +318,26 @@ namespace SlopWorld
                 var card = column.Cards[i];
                 Slab.Box(new Rect(x + 4, y + 2, width - 8, Row - 5), UiTheme.Panel, UiTheme.Edge);
                 UiText.RowLabel(new Rect(x + 6, y + 4, Handle - 8, Row - 12), "≡");
-                UiText.RowLabel(new Rect(x + Handle, y + 2, width - Handle - 8, 30), card.Title);
-                UiText.RowLabel(
-                    new Rect(x + Handle, y + 30, width - Handle - 8, 24),
-                    card.Assignee
+                string preview = Preview(card);
+                UiText.PlainStatusLabel(
+                    new Rect(
+                        x + Handle,
+                        y + 4,
+                        width - Handle - 8,
+                        preview.Length == 0 ? Row - 10 : 30
+                    ),
+                    card.Title,
+                    UiTheme.Name,
+                    anchor: TextAnchor.MiddleLeft
                 );
+                if (preview.Length > 0)
+                    UiText.PlainStatusLabel(
+                        new Rect(x + Handle, y + 33, width - Handle - 8, 22),
+                        preview,
+                        UiTheme.Faint,
+                        GameFont.Tiny,
+                        TextAnchor.MiddleLeft
+                    );
             }
             Slab.Fill(new Rect(x, 0, width, Header), UiTheme.Panel);
             UiText.RowLabel(new Rect(x + 7, 0, Handle - 8, Header), "≡");
@@ -261,10 +386,6 @@ namespace SlopWorld
             UiMenu.Open(
                 new List<FloatMenuOption>
                 {
-                    new FloatMenuOption(
-                        "Add card…",
-                        () => Prompt("Card title", "", s => Save(Edit("add-card", s)))
-                    ),
                     new FloatMenuOption(
                         "Rename column…",
                         () =>

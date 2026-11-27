@@ -70,6 +70,7 @@ impl Store {
             db.busy_timeout(Duration::from_secs(5))?;
             db.execute_batch(include_str!("schema.sql"))?;
             let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            migrate_timestamps(&tx)?;
             reconcile(&tx, &projects)?;
             let result = operation(&tx)?;
             tx.commit()?;
@@ -77,6 +78,24 @@ impl Store {
         })
         .await?
     }
+}
+
+// Old entries have no recorded creation time. Zero preserves that distinction on the wire.
+fn migrate_timestamps(tx: &Transaction<'_>) -> Result<()> {
+    for table in ["comments", "card_activity"] {
+        let present: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info(?) WHERE name='timestamp_ms')",
+            [table],
+            |r| r.get(0),
+        )?;
+        if !present {
+            tx.execute(
+                &format!("ALTER TABLE {table} ADD COLUMN timestamp_ms INTEGER NOT NULL DEFAULT 0"),
+                [],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn reconcile(tx: &Transaction<'_>, projects: &[(String, String)]) -> Result<()> {

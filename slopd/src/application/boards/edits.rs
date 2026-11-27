@@ -34,14 +34,14 @@ pub(super) fn apply(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result
             )?;
         }
         "rename-column" | "move-column" | "remove-column" | "add-card" | "move-card" => {
-            edit_column(tx, e)?;
+            edit_column(tx, e, author)?;
         }
         _ => edit_card(tx, e, author)?,
     }
     Ok(())
 }
 
-fn edit_column(tx: &Transaction<'_>, e: &BoardEdit) -> Result<()> {
+fn edit_column(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
     let exists: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM columns WHERE id=? AND board=?)",
         params![e.column, e.board],
@@ -75,10 +75,12 @@ fn edit_column(tx: &Transaction<'_>, e: &BoardEdit) -> Result<()> {
         "add-card" => {
             required(&e.text, "card title")?;
             let position = card_position(tx, e)?;
+            let id = uuid::Uuid::new_v4().to_string();
             tx.execute(
                 "INSERT INTO cards(id,col,position,title) VALUES(?,?,?,?)",
-                params![uuid::Uuid::new_v4().to_string(), e.column, position, e.text],
+                params![id, e.column, position, e.text],
             )?;
+            column_activity(tx, &id, author, "Added to", &e.column)?;
         }
         _ => {
             let position = card_position(tx, e)?;
@@ -89,8 +91,23 @@ fn edit_column(tx: &Transaction<'_>, e: &BoardEdit) -> Result<()> {
                 )? == 1,
                 "card no longer exists"
             );
+            column_activity(tx, &e.card, author, "Positioned in", &e.column)?;
         }
     }
+    Ok(())
+}
+
+fn column_activity(
+    tx: &Transaction<'_>,
+    card: &str,
+    author: &str,
+    verb: &str,
+    column: &str,
+) -> Result<()> {
+    tx.execute(
+        "INSERT INTO card_activity(card,author,text,timestamp_ms) SELECT ?1,?2,?3 || ' ' || name,CAST(unixepoch('subsec')*1000 AS INTEGER) FROM columns WHERE id=?4",
+        params![card, author, verb, column],
+    )?;
     Ok(())
 }
 
@@ -125,7 +142,7 @@ fn edit_card(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
         "comment" => {
             required(&e.text, "comment")?;
             tx.execute(
-                "INSERT INTO comments(card,author,text) VALUES(?,?,?)",
+                "INSERT INTO comments(card,author,text,timestamp_ms) VALUES(?,?,?,CAST(unixepoch('subsec')*1000 AS INTEGER))",
                 params![e.card, author, e.text],
             )?;
         }
@@ -147,6 +164,20 @@ fn edit_card(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
             tx.execute("DELETE FROM cards WHERE id=?", [&e.card])?;
         }
         _ => bail!("unknown board action"),
+    }
+    let activity = match e.action.as_str() {
+        "title" => "Changed the title",
+        "describe" => "Edited the description",
+        "assign" => "Updated the assignment",
+        "link" => "Attached a link",
+        "unlink" => "Removed a link",
+        _ => return Ok(()),
+    };
+    if tx.changes() > 0 {
+        tx.execute(
+            "INSERT INTO card_activity(card,author,text,timestamp_ms) VALUES(?,?,?,CAST(unixepoch('subsec')*1000 AS INTEGER))",
+            params![e.card, author, activity],
+        )?;
     }
     Ok(())
 }

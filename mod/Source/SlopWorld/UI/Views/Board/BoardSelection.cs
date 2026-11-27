@@ -8,13 +8,17 @@ namespace SlopWorld
     {
         internal Wire.BoardCard Card { get; private set; }
         internal string Comment = "",
+            Title = "",
             Description = "",
             LinkKind = "worktree",
             LinkTarget = "";
 
         internal void Select(Wire.BoardCard card)
         {
-            if (card?.Id != Card?.Id)
+            bool changed = card?.Id != Card?.Id;
+            if (changed || Title == Card?.Title)
+                Title = card?.Title ?? "";
+            if (changed)
             {
                 Comment = LinkTarget = "";
                 LinkKind = "worktree";

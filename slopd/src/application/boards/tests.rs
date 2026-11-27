@@ -66,6 +66,16 @@ async fn move_from_archive_preserves_card_and_rejects_stale_destinations() {
     assert_eq!(card.id, edit.card);
     assert_eq!(card.assignee, "agent");
     assert_eq!(card.comments[0].author, "agent");
+    assert!(card.comments[0].timestamp_ms > 0);
+    assert!(card.activity.iter().all(|entry| entry.timestamp_ms > 0));
+    assert_eq!(card.activity.len(), 4);
+    assert_eq!(card.activity[0].author, "human");
+    assert_eq!(card.activity[1].author, "agent");
+    assert!(
+        card.activity[3]
+            .text
+            .contains(&catalog.boards[0].columns[3].name)
+    );
     assert_eq!(card.links[0].target, "checkout");
     assert!(catalog.boards[1].columns[0].cards.is_empty());
     edit.board = "stable".into();
@@ -148,4 +158,28 @@ fn exact_insertion_and_repeated_link_removal_preserve_neighbors() {
     edit.action = "remove-column".into();
     edits::apply(&tx, &edit, "agent").unwrap();
     assert_eq!(snapshot::read(&tx).unwrap().boards[0].columns.len(), 3);
+}
+
+#[test]
+fn timestamp_migration_preserves_legacy_rows_on_reopen() {
+    let mut db = Connection::open_in_memory().unwrap();
+    let tx = db.transaction().unwrap();
+    for table in ["comments", "card_activity"] {
+        tx.execute_batch(&format!(
+            "CREATE TABLE {table}(text TEXT); INSERT INTO {table} VALUES('legacy');"
+        ))
+        .unwrap();
+    }
+    migrate_timestamps(&tx).unwrap();
+    migrate_timestamps(&tx).unwrap();
+    for table in ["comments", "card_activity"] {
+        let stamp: i64 = tx
+            .query_row(
+                &format!("SELECT timestamp_ms FROM {table} WHERE text='legacy'"),
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(stamp, 0);
+    }
 }

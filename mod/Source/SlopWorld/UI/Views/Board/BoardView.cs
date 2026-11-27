@@ -73,6 +73,11 @@ namespace SlopWorld
                 _gesture.Cancel();
                 return true;
             }
+            if (_adding != null)
+            {
+                _adding = null;
+                return true;
+            }
             if (_submit != null)
             {
                 _submit = null;
@@ -97,6 +102,19 @@ namespace SlopWorld
             )
                 TouchTextRequested = true;
             return rect;
+        }
+
+        static bool SubmitField(string name)
+        {
+            var e = Event.current;
+            if (
+                e.type != EventType.KeyDown
+                || (e.keyCode != KeyCode.Return && e.keyCode != KeyCode.KeypadEnter)
+                || GUI.GetNameOfFocusedControl() != name
+            )
+                return false;
+            e.Use();
+            return true;
         }
 
         bool Active => _open && _endpoint == DaemonClient.BaseUrl;
@@ -154,7 +172,7 @@ namespace SlopWorld
         void Accept(Wire.BoardCatalog value)
         {
             _catalog = value;
-            if (!_gesture.Valid(Board) || (_gesture.Dragging && Board.Archived))
+            if (!_gesture.Valid(VisibleBoard(Board)) || (_gesture.Dragging && Board.Archived))
             {
                 _gesture.Cancel();
                 _error = "Move canceled. The card, column, or insertion point changed.";
@@ -164,8 +182,11 @@ namespace SlopWorld
                 var owner = _editor.Refresh(value);
                 if (owner == null)
                     _error = "The open card was removed.";
-                else
+                else if (_board != owner.Id)
+                {
                     _board = owner.Id;
+                    SetFilters("", null);
+                }
             }
             if (Board == null)
                 PickBoard("root");
@@ -182,10 +203,9 @@ namespace SlopWorld
         void PickBoard(string id)
         {
             _board = id;
-            _viewport.Reset();
+            SetFilters("", null);
             _editor.Select(null);
             _submit = null;
-            _gesture.Cancel();
         }
 
         void Prompt(string label, string initial, Action<string> submit)
@@ -222,7 +242,39 @@ namespace SlopWorld
                     body.yMin += 30;
                 }
                 var board = Board;
-                var picker = new Rect(body.x, body.y, Mathf.Max(85, body.width - 120), 30);
+                bool stacked = body.width < 560;
+                const float gap = 4;
+                float actionWidth = board.Archived ? 116 : 85;
+                float pickerWidth = stacked
+                    ? body.width - actionWidth - gap
+                    : (body.width - actionWidth - 3 * gap) / 3;
+                var picker = new Rect(body.x, body.y, pickerWidth, 30);
+                float toolbarHeight = stacked ? 68 : 34;
+                if (_editor.Card != null)
+                {
+                    if (
+                        Focused
+                        && Event.current.type == EventType.KeyDown
+                        && Event.current.keyCode == KeyCode.Escape
+                    )
+                    {
+                        _editor.Select(null);
+                        Event.current.Use();
+                        return;
+                    }
+                    UiText.RowLabel(picker, BoardLabel(board));
+                    var background = body;
+                    background.yMin += toolbarHeight;
+                    DrawColumns(background, VisibleBoard(board), body.width < 650);
+                    Slab.Fill(body, new Color(0, 0, 0, .65f));
+                    float w = Mathf.Min(920, body.width - 8);
+                    float h = Mathf.Min(600, body.height - 8);
+                    DrawDetails(
+                        new Rect(body.center.x - w / 2, body.center.y - h / 2, w, h),
+                        board
+                    );
+                    return;
+                }
                 UiSelector.DrawInline(
                     picker,
                     BoardLabel(board),
@@ -234,7 +286,15 @@ namespace SlopWorld
                             ))
                             .ToList()
                 );
-                var action = new Rect(picker.xMax + 4, body.y, body.xMax - picker.xMax - 4, 30);
+                float filterWidth = stacked ? (body.width - gap) / 2 : pickerWidth;
+                var filter = new Rect(
+                    stacked ? body.x : picker.xMax + gap,
+                    stacked ? body.y + 34 : body.y,
+                    filterWidth,
+                    30
+                );
+                DrawFilters(filter, board);
+                var action = new Rect(body.xMax - actionWidth, body.y, actionWidth, 30);
                 if (board.Archived)
                 {
                     if (UiControls.Button(action, "Delete archive…", on: !_saving))
@@ -268,7 +328,7 @@ namespace SlopWorld
                                 }
                             )
                     );
-                body.yMin += 34;
+                body.yMin += toolbarHeight;
                 if (_submit != null)
                 {
                     _input = UiText.FieldWithPlaceholder(
@@ -293,20 +353,7 @@ namespace SlopWorld
                         _submit = null;
                     body.yMin += 34;
                 }
-                var canvas = body;
-                bool narrow = body.width < 650;
-                bool detailOpen = _editor.Card != null;
-                if (detailOpen && !narrow)
-                    canvas.width = body.width - Mathf.Min(380, body.width * .45f) - 6;
-                if (!detailOpen || !narrow)
-                    DrawColumns(canvas, board, narrow);
-                if (detailOpen && _editor.Card != null)
-                {
-                    var panel = body;
-                    if (!narrow)
-                        panel.xMin = canvas.xMax + 6;
-                    DrawDetails(panel, board);
-                }
+                DrawColumns(body, VisibleBoard(board), body.width < 650);
             }
         }
     }

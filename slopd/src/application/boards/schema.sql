@@ -15,10 +15,15 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE INDEX IF NOT EXISTS cards_location ON cards(col, position);
 CREATE TABLE IF NOT EXISTS comments (
     sequence INTEGER PRIMARY KEY, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
-    author TEXT NOT NULL, text TEXT NOT NULL
+    author TEXT NOT NULL, text TEXT NOT NULL, timestamp_ms INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS comments_card ON comments(card, sequence);
 CREATE TABLE IF NOT EXISTS links (
     card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE, kind TEXT NOT NULL, target TEXT NOT NULL,
     PRIMARY KEY(card,kind,target)
 );
+CREATE TABLE IF NOT EXISTS card_activity (
+    sequence INTEGER PRIMARY KEY, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
+    author TEXT NOT NULL, text TEXT NOT NULL, timestamp_ms INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS activity_card ON card_activity(card, sequence);

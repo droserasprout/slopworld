@@ -477,16 +477,18 @@ namespace SlopWorld.Wire {
             "IAEoCRIMCgRuYW1lGAIgASgJEhAKCGFyY2hpdmVkGAMgASgIEicKB2NvbHVt",
             "bnMYBCADKAsyFi5zbG9wd29ybGQuQm9hcmRDb2x1bW4iTAoLQm9hcmRDb2x1",
             "bW4SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIjCgVjYXJkcxgDIAMoCzIU",
-            "LnNsb3B3b3JsZC5Cb2FyZENhcmQinQEKCUJvYXJkQ2FyZBIKCgJpZBgBIAEo",
+            "LnNsb3B3b3JsZC5Cb2FyZENhcmQiyAEKCUJvYXJkQ2FyZBIKCgJpZBgBIAEo",
             "CRINCgV0aXRsZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIQCghhc3Np",
             "Z25lZRgEIAEoCRIpCghjb21tZW50cxgFIAMoCzIXLnNsb3B3b3JsZC5Cb2Fy",
             "ZENvbW1lbnQSIwoFbGlua3MYBiADKAsyFC5zbG9wd29ybGQuQm9hcmRMaW5r",
-            "IiwKDEJvYXJkQ29tbWVudBIOCgZhdXRob3IYASABKAkSDAoEdGV4dBgCIAEo",
-            "CSIpCglCb2FyZExpbmsSDAoEa2luZBgBIAEoCRIOCgZ0YXJnZXQYAiABKAki",
-            "hQEKCUJvYXJkRWRpdBIOCgZhY3Rpb24YASABKAkSDQoFYm9hcmQYAiABKAkS",
-            "DgoGY29sdW1uGAMgASgJEgwKBGNhcmQYBCABKAkSDgoGYmVmb3JlGAUgASgJ",
-            "EgwKBHRleHQYBiABKAkSDAoEa2luZBgHIAEoCRIPCgdjb25maXJtGAggASgI",
-            "QhGqAg5TbG9wV29ybGQuV2lyZWIGcHJvdG8z"));
+            "EikKCGFjdGl2aXR5GAcgAygLMhcuc2xvcHdvcmxkLkJvYXJkQ29tbWVudCJC",
+            "CgxCb2FyZENvbW1lbnQSDgoGYXV0aG9yGAEgASgJEgwKBHRleHQYAiABKAkS",
+            "FAoMdGltZXN0YW1wX21zGAMgASgDIikKCUJvYXJkTGluaxIMCgRraW5kGAEg",
+            "ASgJEg4KBnRhcmdldBgCIAEoCSKFAQoJQm9hcmRFZGl0Eg4KBmFjdGlvbhgB",
+            "IAEoCRINCgVib2FyZBgCIAEoCRIOCgZjb2x1bW4YAyABKAkSDAoEY2FyZBgE",
+            "IAEoCRIOCgZiZWZvcmUYBSABKAkSDAoEdGV4dBgGIAEoCRIMCgRraW5kGAcg",
+            "ASgJEg8KB2NvbmZpcm0YCCABKAhCEaoCDlNsb3BXb3JsZC5XaXJlYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -627,8 +629,8 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardCatalog), global::SlopWorld.Wire.BoardCatalog.Parser, new[]{ "Boards" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ProjectBoard), global::SlopWorld.Wire.ProjectBoard.Parser, new[]{ "Id", "Name", "Archived", "Columns" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardColumn), global::SlopWorld.Wire.BoardColumn.Parser, new[]{ "Id", "Name", "Cards" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardCard), global::SlopWorld.Wire.BoardCard.Parser, new[]{ "Id", "Title", "Description", "Assignee", "Comments", "Links" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardComment), global::SlopWorld.Wire.BoardComment.Parser, new[]{ "Author", "Text" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardCard), global::SlopWorld.Wire.BoardCard.Parser, new[]{ "Id", "Title", "Description", "Assignee", "Comments", "Links", "Activity" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardComment), global::SlopWorld.Wire.BoardComment.Parser, new[]{ "Author", "Text", "TimestampMs" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardLink), global::SlopWorld.Wire.BoardLink.Parser, new[]{ "Kind", "Target" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardEdit), global::SlopWorld.Wire.BoardEdit.Parser, new[]{ "Action", "Board", "Column", "Card", "Before", "Text", "Kind", "Confirm" }, null, null, null, null)
           }));
@@ -50068,6 +50070,7 @@ namespace SlopWorld.Wire {
       assignee_ = other.assignee_;
       comments_ = other.comments_.Clone();
       links_ = other.links_.Clone();
+      activity_ = other.activity_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -50147,6 +50150,17 @@ namespace SlopWorld.Wire {
       get { return links_; }
     }
 
+    /// <summary>Field number for the "activity" field.</summary>
+    public const int ActivityFieldNumber = 7;
+    private static readonly pb::FieldCodec<global::SlopWorld.Wire.BoardComment> _repeated_activity_codec
+        = pb::FieldCodec.ForMessage(58, global::SlopWorld.Wire.BoardComment.Parser);
+    private readonly pbc::RepeatedField<global::SlopWorld.Wire.BoardComment> activity_ = new pbc::RepeatedField<global::SlopWorld.Wire.BoardComment>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::SlopWorld.Wire.BoardComment> Activity {
+      get { return activity_; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -50168,6 +50182,7 @@ namespace SlopWorld.Wire {
       if (Assignee != other.Assignee) return false;
       if(!comments_.Equals(other.comments_)) return false;
       if(!links_.Equals(other.links_)) return false;
+      if(!activity_.Equals(other.activity_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -50181,6 +50196,7 @@ namespace SlopWorld.Wire {
       if (Assignee.Length != 0) hash ^= Assignee.GetHashCode();
       hash ^= comments_.GetHashCode();
       hash ^= links_.GetHashCode();
+      hash ^= activity_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -50217,6 +50233,7 @@ namespace SlopWorld.Wire {
       }
       comments_.WriteTo(output, _repeated_comments_codec);
       links_.WriteTo(output, _repeated_links_codec);
+      activity_.WriteTo(output, _repeated_activity_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -50245,6 +50262,7 @@ namespace SlopWorld.Wire {
       }
       comments_.WriteTo(ref output, _repeated_comments_codec);
       links_.WriteTo(ref output, _repeated_links_codec);
+      activity_.WriteTo(ref output, _repeated_activity_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -50269,6 +50287,7 @@ namespace SlopWorld.Wire {
       }
       size += comments_.CalculateSize(_repeated_comments_codec);
       size += links_.CalculateSize(_repeated_links_codec);
+      size += activity_.CalculateSize(_repeated_activity_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -50295,6 +50314,7 @@ namespace SlopWorld.Wire {
       }
       comments_.Add(other.comments_);
       links_.Add(other.links_);
+      activity_.Add(other.activity_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -50338,6 +50358,10 @@ namespace SlopWorld.Wire {
             links_.AddEntriesFrom(input, _repeated_links_codec);
             break;
           }
+          case 58: {
+            activity_.AddEntriesFrom(input, _repeated_activity_codec);
+            break;
+          }
         }
       }
     #endif
@@ -50379,6 +50403,10 @@ namespace SlopWorld.Wire {
           }
           case 50: {
             links_.AddEntriesFrom(ref input, _repeated_links_codec);
+            break;
+          }
+          case 58: {
+            activity_.AddEntriesFrom(ref input, _repeated_activity_codec);
             break;
           }
         }
@@ -50425,6 +50453,7 @@ namespace SlopWorld.Wire {
     public BoardComment(BoardComment other) : this() {
       author_ = other.author_;
       text_ = other.text_;
+      timestampMs_ = other.timestampMs_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -50458,6 +50487,18 @@ namespace SlopWorld.Wire {
       }
     }
 
+    /// <summary>Field number for the "timestamp_ms" field.</summary>
+    public const int TimestampMsFieldNumber = 3;
+    private long timestampMs_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long TimestampMs {
+      get { return timestampMs_; }
+      set {
+        timestampMs_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -50475,6 +50516,7 @@ namespace SlopWorld.Wire {
       }
       if (Author != other.Author) return false;
       if (Text != other.Text) return false;
+      if (TimestampMs != other.TimestampMs) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -50484,6 +50526,7 @@ namespace SlopWorld.Wire {
       int hash = 1;
       if (Author.Length != 0) hash ^= Author.GetHashCode();
       if (Text.Length != 0) hash ^= Text.GetHashCode();
+      if (TimestampMs != 0L) hash ^= TimestampMs.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -50510,6 +50553,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(18);
         output.WriteString(Text);
       }
+      if (TimestampMs != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(TimestampMs);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -50528,6 +50575,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(18);
         output.WriteString(Text);
       }
+      if (TimestampMs != 0L) {
+        output.WriteRawTag(24);
+        output.WriteInt64(TimestampMs);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -50543,6 +50594,9 @@ namespace SlopWorld.Wire {
       }
       if (Text.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Text);
+      }
+      if (TimestampMs != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(TimestampMs);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -50561,6 +50615,9 @@ namespace SlopWorld.Wire {
       }
       if (other.Text.Length != 0) {
         Text = other.Text;
+      }
+      if (other.TimestampMs != 0L) {
+        TimestampMs = other.TimestampMs;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -50589,6 +50646,10 @@ namespace SlopWorld.Wire {
             Text = input.ReadString();
             break;
           }
+          case 24: {
+            TimestampMs = input.ReadInt64();
+            break;
+          }
         }
       }
     #endif
@@ -50614,6 +50675,10 @@ namespace SlopWorld.Wire {
           }
           case 18: {
             Text = input.ReadString();
+            break;
+          }
+          case 24: {
+            TimestampMs = input.ReadInt64();
             break;
           }
         }

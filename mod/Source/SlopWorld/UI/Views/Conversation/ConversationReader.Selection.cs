@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public sealed partial class TaskDetailView
+    internal sealed partial class ConversationReader
     {
         void DrawSelectableText(float viewportHeight)
         {
@@ -79,7 +79,8 @@ namespace SlopWorld
             var type = UiEvent.RawType(e);
             if (type == EventType.KeyDown)
             {
-                _selection.HandleKey(e);
+                if (_inputFocus && string.IsNullOrEmpty(GUI.GetNameOfFocusedControl()))
+                    _selection.HandleKey(e);
                 return;
             }
             if (e.button == 1 && type == EventType.MouseDown && viewport.Contains(e.mousePosition))
@@ -98,6 +99,7 @@ namespace SlopWorld
                     _selectionClicks.Reset();
                     return;
                 }
+                GUI.FocusControl(null);
                 int clicks = _selectionClicks.Observe(e, Time.realtimeSinceStartup);
                 _selection.BeginMouse(viewport, e, clicks, _scroll.Position);
                 if (clicks >= 3)
@@ -109,39 +111,10 @@ namespace SlopWorld
                 _selection.EndMouse(viewport, e, _scroll.Position);
         }
 
-        void ClearSelection()
+        internal void ClearSelection()
         {
             _selection.Clear();
             _selectionClicks.Reset();
-        }
-
-        string DialogueText()
-        {
-            var messages = new List<string>
-            {
-                "Message from " + SenderLabel(_task.From) + "  ·  " + Timestamp(_task.CreatedMs),
-                _task.Body ?? "",
-            };
-            foreach (var update in _task.History)
-            {
-                messages.Add(
-                    TaskInfo.StatusText(update.Status)
-                        + "  ·  Message from "
-                        + SenderLabel(update.Sender)
-                        + "  ·  "
-                        + Timestamp(update.TimestampMs)
-                );
-                if (!string.IsNullOrEmpty(update.Note))
-                    messages.Add(update.Note);
-            }
-            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
-            {
-                messages.Add(
-                    "Message from " + SenderLabel(_task.To) + "  ·  " + Timestamp(_task.UpdatedMs)
-                );
-                messages.Add(_task.Note);
-            }
-            return string.Join("\n\n", messages.ToArray());
         }
     }
 }

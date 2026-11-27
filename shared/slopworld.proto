@@ -1108,10 +1108,12 @@ message BoardCard {
   string assignee = 4;
   repeated BoardComment comments = 5;
   repeated BoardLink links = 6;
+  repeated BoardComment activity = 7;
 }
 message BoardComment {
   string author = 1;
   string text = 2;
+  int64 timestamp_ms = 3;
 }
 message BoardLink {
   string kind = 1;
