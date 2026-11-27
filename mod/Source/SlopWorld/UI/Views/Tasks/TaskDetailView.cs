@@ -10,11 +10,11 @@ namespace SlopWorld
     // Full task reader shown as a WorkspaceWindow content view.
     public sealed class TaskDetailView : ContentView
     {
-        readonly List<FloatMenuOption> _cards = new List<FloatMenuOption>();
+        readonly BoardView _feed = new BoardView();
+        BoardView _origin;
         readonly string _taskId;
         TaskInfo _task;
         IDisposable _pollingDemand;
-        readonly ConversationReader _reader = new ConversationReader();
 
         public TaskDetailView(TaskInfo task)
         {
@@ -47,30 +47,18 @@ namespace SlopWorld
                 return;
             if (remember)
                 Sidebar.RememberTask(task.Id);
-            WorkspaceWindow.OpenContent(new TaskDetailView(task), returnTo);
+            WorkspaceWindow.OpenContent(
+                new TaskDetailView(task) { _origin = returnTo as BoardView },
+                returnTo
+            );
         }
 
         public override string Title => "Task " + (_taskId ?? "");
 
         public override void Opened()
         {
-            _cards.Clear();
-            DaemonClient.Get<Wire.BoardCatalog>(
-                WireProtocol.Routes.Boards + "?task=" + Uri.EscapeDataString(_taskId),
-                catalog =>
-                {
-                    _cards.Clear();
-                    foreach (var board in catalog.Boards)
-                    foreach (var card in board.Columns.SelectMany(column => column.Cards))
-                        _cards.Add(
-                            new FloatMenuOption(
-                                card.Key + " · " + card.Title,
-                                () => BoardView.OpenLinkedCard(board.Id, card.Id, _taskId)
-                            )
-                        );
-                },
-                _ => _cards.Clear()
-            );
+            _feed.OpenTaskFeed(_origin);
+            _origin = null;
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
         }
 
@@ -78,7 +66,7 @@ namespace SlopWorld
         {
             _pollingDemand?.Dispose();
             _pollingDemand = null;
-            _reader.Reset();
+            _feed.CloseTaskFeed();
         }
 
         public override void Draw(Rect body)
@@ -92,19 +80,9 @@ namespace SlopWorld
             UiLayout.Title(rect, Title);
 
             var current = SessionHub.Instance.Tasks.FirstOrDefault(task => task.Id == _taskId);
-            if (!ReferenceEquals(current, _task))
-            {
-                if (
-                    current?.Body != _task?.Body
-                    || current?.Note != _task?.Note
-                    || current?.History.Count != _task?.History.Count
-                )
-                    _reader.ClearSelection();
-                _task = current;
-            }
+            _task = current;
             if (_task == null)
             {
-                _reader.Reset();
                 UiText.PlainStatusLabel(
                     new Rect(rect.x, rect.y + UiTheme.HeaderH, rect.width, UiTheme.LineH * 2f),
                     "This task is no longer available.",
@@ -119,26 +97,13 @@ namespace SlopWorld
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float bottom = rect.yMax - UiTheme.BtnH - UiTheme.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
-            _reader.Draw(
-                outer,
-                _task,
-                Messages(),
-                _task.Direction
-                    + "  ·  "
-                    + TaskInfo.StatusText(_task.Status)
-                    + "  ·  Created: "
-                    + Timestamp(_task.CreatedMs)
-                    + "  ·  Updated: "
-                    + Timestamp(_task.UpdatedMs)
+            UiText.RowLabel(
+                new Rect(outer.x, outer.y, outer.width, 24),
+                _task.Direction + " · " + TaskInfo.StatusText(_task.Status)
             );
+            outer.yMin += 26;
+            _feed.DrawTaskFeed(outer, _task);
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
-            if (_cards.Count > 0 && foot.Left("Open card", UiTheme.Btn.Default))
-            {
-                if (_cards.Count == 1)
-                    _cards[0].action();
-                else
-                    UiMenu.Open(_cards);
-            }
             if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
                 DesktopClipboard.Copy(DialogueText());
 
@@ -156,25 +121,6 @@ namespace SlopWorld
 
             if (foot.Right("Close", UiTheme.Btn.Ghost))
                 Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
-        }
-
-        IEnumerable<(string, string, long, string)> Messages()
-        {
-            yield return (_task.Body ?? "", _task.From, _task.CreatedMs, null);
-            foreach (var update in _task.History)
-                yield return (
-                    update.Note ?? "",
-                    update.Sender,
-                    update.TimestampMs,
-                    TaskInfo.StatusText(update.Status)
-                );
-            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
-                yield return (
-                    _task.Note,
-                    _task.To,
-                    _task.UpdatedMs,
-                    TaskInfo.StatusText(_task.Status)
-                );
         }
 
         string DialogueText()

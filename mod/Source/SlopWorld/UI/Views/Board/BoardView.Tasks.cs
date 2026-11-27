@@ -22,44 +22,10 @@ namespace SlopWorld
                     );
                     return;
                 }
-                _editor.TaskTarget = id;
-                Save(
-                    CardEdit(board, card, "link", id, "task"),
-                    () =>
-                    {
-                        if (_editor.Card?.Id == card.Id && _editor.TaskTarget == id)
-                            _editor.TaskTarget = "";
-                    }
-                );
-            }
-            foreach (var task in _editor.LinkedTasks(SessionHub.Instance.Tasks))
-            {
-                if (task == null)
-                    l.Label("Unavailable task");
-                else if (
-                    UiControls.Button(
-                        l.GetRect(32),
-                        task.Summary + " · " + task.To + " · " + TaskInfo.StatusText(task.Status)
-                    )
-                )
-                    TaskDetailView.Open(task, this);
+                Save(CardEdit(board, card, "link", id, "task"));
             }
             if (!editable)
                 return;
-            _editor.TaskTarget = UiText.FieldWithPlaceholder(
-                TextBox(l.GetRect(30)),
-                "board.task." + card.Id,
-                _editor.TaskTarget,
-                "Task ID"
-            );
-            if (
-                UiControls.Button(
-                    l.GetRect(32),
-                    "Attach task",
-                    on: _editor.TaskTarget.Trim().Length > 0
-                )
-            )
-                Attach(_editor.TaskTarget.Trim());
             if (UiControls.Button(l.GetRect(32), "Delegate to agent"))
                 Find.WindowStack.Add(new DelegateTaskDialog(card.Assignee, card.Title, Attach));
             if (UiControls.Button(l.GetRect(32), "Spawn worker"))

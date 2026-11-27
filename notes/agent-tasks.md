@@ -41,3 +41,5 @@ Cancellation preserves the latest result note and prevents subsequent recipient
 updates. It does not stop the process.
 
 The host task reader and task menus share this policy through `TaskInfo.CanCancel`.
+
+The card panel and fullscreen task reader share the board feed. Board permissions govern comments and activity, and the visible task mailbox supplies linked task histories. The fullscreen reader owns its own card selection and comment draft.

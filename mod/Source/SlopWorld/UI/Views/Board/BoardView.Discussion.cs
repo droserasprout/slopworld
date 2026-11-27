@@ -9,49 +9,36 @@ namespace SlopWorld
     {
         readonly ConversationReader _discussion = new ConversationReader();
         Wire.BoardCard _discussionCard;
+        List<TaskInfo> _mailbox;
+        TaskInfo _standalone;
+        string _filter = "All",
+            _shownFilter;
+        List<FeedItem> _items;
         List<(string Body, string Sender, long Time, string Status)> _entries;
 
-        static IEnumerable<(string Body, string Sender, long Time, string Status)> Messages(
-            Wire.BoardCard card
+        void DrawDiscussion(
+            Rect area,
+            Wire.ProjectBoard board,
+            Wire.BoardCard card,
+            bool editable,
+            TaskInfo standalone = null
         )
-        {
-            return card
-                .Comments.Reverse()
-                .Select(c => (c.Text, c.Author, c.TimestampMs, "Comment"));
-        }
-
-        void DrawDiscussion(Rect area, Wire.ProjectBoard board, Wire.BoardCard card, bool editable)
         {
             Slab.Fill(area, UiTheme.Well);
             area = area.ContractedBy(6);
-            UiText.RowLabel(new Rect(area.x, area.y, area.width, 24), "Comments and activity");
-            area.yMin += 26;
-            if (
-                UiControls.Button(
-                    new Rect(area.x, area.y, area.width / 2, 24),
-                    _activity ? "Hide activity" : "Show activity"
-                )
-            )
-                _activity = !_activity;
-            if (
-                CanAdmin
-                && editable
-                && card.Comments.Count > 0
-                && UiControls.Button(
-                    new Rect(area.center.x, area.y, area.width / 2, 24),
-                    "Remove comment…"
-                )
-            )
-                UiMenu.Open(
-                    card.Comments.Reverse()
-                        .Select(c => new FloatMenuOption(
-                            "#" + c.Id + " " + c.Author + " · " + c.Text,
-                            () => Save(BoardDiscussion.Remove(board.Id, card.Id, c, false))
-                        ))
+            var header = new Rect(area.x, area.y, area.width, 26);
+            UiText.RowLabel(header, "Feed");
+            header.xMin = header.xMax - Mathf.Min(140, header.width * .65f);
+            UiSelector.DrawInline(
+                header,
+                _filter,
+                () =>
+                    new[] { "All", "Comments", "Tasks", "Activity" }
+                        .Select(f => new FloatMenuOption(f, () => _filter = f))
                         .ToList()
-                );
-            area.yMin += 28;
-            if (Writable(board))
+            );
+            area.yMin += 30;
+            if (card != null && Writable(board))
             {
                 var row = new Rect(area.x, area.y, area.width, 32);
                 area.yMin += 36;
@@ -84,64 +71,51 @@ namespace SlopWorld
                     );
                 }
             }
-            if (!ReferenceEquals(_discussionCard, card))
+            var mailbox = SessionHub.Instance.Tasks;
+            if (
+                !ReferenceEquals(card, _discussionCard)
+                || !ReferenceEquals(mailbox, _mailbox)
+                || !ReferenceEquals(standalone, _standalone)
+                || _filter != _shownFilter
+            )
             {
-                bool changedCard = _discussionCard?.Id != card.Id;
-                if (changedCard || !_discussionCard.Comments.Equals(card.Comments))
+                var tasks =
+                    card == null
+                        ? new[] { standalone }.AsEnumerable()
+                        : _editor.LinkedTasks(mailbox);
+                var items = FeedItem.Build(card, tasks, _filter).ToList();
+                var entries = items.Select(i => i.Message).ToList();
+                if (_discussionCard?.Id != card?.Id || _filter != _shownFilter)
+                    _discussion.Reset();
+                if (_entries == null || !_entries.SequenceEqual(entries))
                 {
-                    if (changedCard)
-                        _discussion.Reset();
-                    else
-                        _discussion.ClearSelection();
-                    _entries = Messages(card).ToList();
+                    _discussion.ClearSelection();
+                    _entries = entries;
                 }
+                _items = items;
                 _discussionCard = card;
+                _mailbox = mailbox;
+                _standalone = standalone;
+                _shownFilter = _filter;
             }
-            if (_activity)
-            {
-                var events = area;
-                events.height *= .45f;
-                area.yMin = events.yMax + 4;
-                _events.Draw(
-                    events,
-                    l =>
-                    {
-                        foreach (var (end, start) in BoardDiscussion.ActivityGroups(card))
+            if (_items.Count == 0)
+                UiText.RowLabel(area.TopPartPixels(30), "No entries in this feed.");
+            else
+                _discussion.Draw(
+                    area,
+                    _entries,
+                    _entries,
+                    remove: CanAdmin && editable
+                        ? i =>
                         {
-                            var first = card.Activity[end];
-                            int count = end - start + 1;
-                            var row = l.GetRect(23);
-                            UiText.PlainStatusLabel(
-                                row,
-                                first.Author + " · " + first.Text + (count > 1 ? " ×" + count : ""),
-                                UiTheme.Dim
+                            var item = _items[i];
+                            Save(
+                                BoardDiscussion.Remove(board.Id, card.Id, item.Entry, item.Activity)
                             );
-                            if (Widgets.ButtonInvisible(row) && !_expanded.Remove(first.Id))
-                                _expanded.Add(first.Id);
-                            if (_expanded.Contains(first.Id))
-                                for (int j = end; j >= start; j--)
-                                {
-                                    var entry = card.Activity[j];
-                                    if (
-                                        UiControls.Button(
-                                            l.GetRect(24),
-                                            "#"
-                                                + entry.Id
-                                                + " · "
-                                                + ConversationReader.Timestamp(entry.TimestampMs)
-                                                + (CanAdmin && editable ? " · Remove" : ""),
-                                            on: CanAdmin && editable
-                                        )
-                                    )
-                                        Save(
-                                            BoardDiscussion.Remove(board.Id, card.Id, entry, true)
-                                        );
-                                }
                         }
-                    }
+                        : (System.Action<int>)null,
+                    canRemove: i => _items[i].Entry != null
                 );
-            }
-            _discussion.Draw(area, _entries, _entries);
         }
     }
 }

@@ -64,6 +64,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Board/BoardGesture.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Board/BoardViewport.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Board/BoardDiscussion.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Board/FeedItem.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Board/BoardSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/WidgetState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />

@@ -6,23 +6,17 @@ namespace SlopWorld
 {
     internal static class BoardDiscussion
     {
-        // Groups are newest first. The range indexes the original entries so removal
-        // always targets one immutable sequence number, even after regrouping.
-        internal static IEnumerable<(int Newest, int Oldest)> ActivityGroups(Wire.BoardCard card)
+        internal static IEnumerable<(Wire.BoardComment Entry, bool Activity)> Timeline(
+            Wire.BoardCard card,
+            bool showActivity
+        )
         {
-            for (int end = card.Activity.Count - 1; end >= 0; )
-            {
-                int start = end;
-                var entry = card.Activity[end];
-                while (
-                    start > 0
-                    && card.Activity[start - 1].Author == entry.Author
-                    && card.Activity[start - 1].Text == entry.Text
-                )
-                    start--;
-                yield return (end, start);
-                end = start - 1;
-            }
+            var entries = card.Comments.Select(c => (Entry: c, Activity: false));
+            if (showActivity)
+                entries = entries.Concat(card.Activity.Select(a => (a, true)));
+            return entries
+                .OrderByDescending(e => e.Entry.TimestampMs)
+                .ThenByDescending(e => e.Entry.Id);
         }
 
         internal static Wire.BoardEdit Remove(

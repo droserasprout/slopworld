@@ -11,8 +11,8 @@ namespace SlopWorld
             Title = "",
             Description = "",
             LinkKind = "worktree",
-            LinkTarget = "",
-            TaskTarget = "";
+            LinkTarget = "";
+        internal bool AddingLink;
 
         internal IEnumerable<TaskInfo> LinkedTasks(IEnumerable<TaskInfo> visibleTasks) =>
             Card
@@ -38,7 +38,8 @@ namespace SlopWorld
                 Title = card?.Title ?? "";
             if (changed)
             {
-                Comment = LinkTarget = TaskTarget = "";
+                Comment = LinkTarget = "";
+                AddingLink = false;
                 LinkKind = "worktree";
                 Description = card?.Description ?? "";
             }

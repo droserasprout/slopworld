@@ -25,7 +25,7 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public void ExpandedEditsAndCommentsTargetIndividualStableEntryIds()
+        public void TimelineInterleavesEditsAndCommentsAndTargetsStableEntryIds()
         {
             var card = new Wire.BoardCard { Id = "card" };
             foreach (var author in new[] { "agent", "host", "host", "agent" })
@@ -33,13 +33,16 @@ namespace SlopWorld.Tests
                     new Wire.BoardComment
                     {
                         Id = card.Activity.Count + 10,
+                        TimestampMs = card.Activity.Count * 10,
                         Author = author,
                         Text = "Changed the title",
                     }
                 );
+            card.Comments.Add(new Wire.BoardComment { Id = 20, TimestampMs = 15 });
+            Assert.That(BoardDiscussion.Timeline(card, false).Single().Entry.Id, Is.EqualTo(20));
             Assert.That(
-                BoardDiscussion.ActivityGroups(card),
-                Is.EqualTo(new[] { (3, 3), (2, 1), (0, 0) })
+                BoardDiscussion.Timeline(card, true).Select(e => e.Entry.Id),
+                Is.EqualTo(new[] { 13, 12, 20, 11, 10 })
             );
             var entry = card.Activity[1];
             var remove = BoardDiscussion.Remove("root", card.Id, entry, true);
@@ -52,6 +55,33 @@ namespace SlopWorld.Tests
             var comment = new Wire.BoardComment { Id = 22 };
             remove = BoardDiscussion.Remove("root", card.Id, comment, false);
             Assert.That((remove.Action, remove.Text), Is.EqualTo(("remove-comment", "22")));
+        }
+
+        [Test]
+        public void FeedFiltersPreserveTimelineOrderAndSkipUnavailableTasks()
+        {
+            var card = new Wire.BoardCard();
+            card.Comments.Add(new Wire.BoardComment { Text = "comment", TimestampMs = 2 });
+            card.Activity.Add(new Wire.BoardComment { Text = "edit", TimestampMs = 4 });
+            var task = new TaskInfo
+            {
+                Body = "request",
+                CreatedMs = 1,
+                Note = "result",
+                UpdatedMs = 3,
+            };
+            var tasks = new[] { task, null };
+            string[] Bodies(string filter) =>
+                FeedItem.Build(card, tasks, filter).Select(i => i.Message.Body).ToArray();
+            Assert.That(
+                Bodies("All"),
+                Is.EqualTo(new[] { "edit", "result", "comment", "request" })
+            );
+            Assert.That(Bodies("Comments"), Is.EqualTo(new[] { "comment" }));
+            Assert.That(Bodies("Activity"), Is.EqualTo(new[] { "edit" }));
+            task.History.Add(new TaskUpdateInfo { Note = "done", TimestampMs = 3 });
+            Assert.That(Bodies("Tasks"), Is.EqualTo(new[] { "done", "request" }));
+            Assert.That(FeedItem.Build(null, tasks, "All").Count(), Is.EqualTo(2));
         }
 
         [Test]

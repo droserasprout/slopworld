@@ -123,14 +123,15 @@ namespace SlopWorld
 
         bool Active => _open && _endpoint == DaemonClient.BaseUrl;
 
-        void Refresh()
+        void Refresh(string taskId = null)
         {
             if (_reading || _saving || Time.unscaledTime < _nextRead)
                 return;
             _reading = true;
             int revision = _revision;
             DaemonClient.Get<Wire.BoardCatalog>(
-                WireProtocol.Routes.Boards,
+                WireProtocol.Routes.Boards
+                    + (taskId == null ? "" : "?task=" + Uri.EscapeDataString(taskId)),
                 value =>
                 {
                     _reading = false;

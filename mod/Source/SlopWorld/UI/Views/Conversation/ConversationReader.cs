@@ -63,7 +63,9 @@ namespace SlopWorld
             Rect outer,
             object source,
             IEnumerable<(string Body, string Sender, long Time, string Status)> entries,
-            string heading = null
+            string heading = null,
+            Action<int> remove = null,
+            Func<int, bool> canRemove = null
         )
         {
             if (outer.height <= 0 || outer.width <= 0)
@@ -73,7 +75,8 @@ namespace SlopWorld
             else if (Event.current.rawType == EventType.MouseDown)
                 _inputFocus = outer.Contains(Event.current.mousePosition);
             float width = Mathf.Max(1f, outer.width - UiTheme.ScrollbarW);
-            EnsureLayout(width, source, entries, heading != null);
+            float messageWidth = remove == null ? width : Mathf.Max(1, width - 24);
+            EnsureLayout(messageWidth, source, entries, heading != null);
             float contentH = _contentHeight;
 
             using (WidgetState.Save())
@@ -87,19 +90,30 @@ namespace SlopWorld
                         UiTheme.Dim,
                         GameFont.Tiny
                     );
-                foreach (var message in _messages)
+                for (int i = 0; i < _messages.Count; i++)
                 {
+                    var message = _messages[i];
                     if (message.Y + message.Height < _scroll.Position.y)
                         continue;
                     if (message.Y > _scroll.Position.y + outer.height)
                         break;
                     DrawMessage(
-                        new Rect(0f, message.Y, width, message.Height),
+                        new Rect(0f, message.Y, messageWidth, message.Height),
                         message.Sender,
                         message.Timestamp,
                         message.Status,
                         message.TimestampBelow
                     );
+                    if (remove != null && (canRemove == null || canRemove(i)))
+                    {
+                        var cross = new Rect(messageWidth, message.Y, 22, 22);
+                        TooltipHandler.TipRegion(
+                            cross,
+                            "Remove " + message.Status.ToLowerInvariant()
+                        );
+                        if (UiControls.Button(cross, "×"))
+                            remove(i);
+                    }
                 }
                 DrawSelectableText(outer.height);
             }
