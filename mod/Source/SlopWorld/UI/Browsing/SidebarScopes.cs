@@ -128,6 +128,14 @@ namespace SlopWorld
             return p == null ? new List<BrowseScope>() : Catalog.All(BrowseScope.ProjectIdOf(p));
         }
 
+        internal static IEnumerable<BrowseScope> LinkTargets(string projectName)
+        {
+            Update(true);
+            return SessionHub
+                .Instance.Projects.Where(p => projectName == null || p.Name == projectName)
+                .SelectMany(p => Catalog.All(BrowseScope.ProjectIdOf(p)));
+        }
+
         public static List<BrowseScope> EnabledScopes()
         {
             Update();

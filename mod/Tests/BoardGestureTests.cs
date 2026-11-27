@@ -25,6 +25,27 @@ namespace SlopWorld.Tests
         }
 
         [Test]
+        public void CardLinksKeepTheirDestinationAcrossDuplicateKeysAndRenames()
+        {
+            var catalog = new Wire.BoardCatalog();
+            var first = Board();
+            var second = Board();
+            second.Id = "other";
+            var local = first.Columns[0].Cards[0];
+            var remote = second.Columns[0].Cards[0];
+            remote.Id = "remote";
+            local.Key = remote.Key = "SW-3";
+            catalog.Boards.Add(first);
+            catalog.Boards.Add(second);
+            var links = new BoardCardLinks();
+            Assert.That(links.Resolve(catalog, first, "sw-3").Card, Is.SameAs(local));
+            Assert.That(links.Resolve(catalog, new Wire.ProjectBoard(), "SW-3").Card, Is.Null);
+            var updated = catalog.Clone();
+            updated.Boards[1].Columns[0].Cards[0].Key = "NEW-3";
+            Assert.That(links.Resolve(updated, first, remote.Id).Card.Key, Is.EqualTo("NEW-3"));
+        }
+
+        [Test]
         public void TimelineInterleavesEditsAndCommentsAndTargetsStableEntryIds()
         {
             var card = new Wire.BoardCard { Id = "card" };

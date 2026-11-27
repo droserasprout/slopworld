@@ -80,6 +80,7 @@ namespace SlopWorld
                 panel.yMax = discussion.yMin - 6;
             }
             DrawDiscussion(discussion, board, card, editable);
+            var viewport = new Rect(UI.GUIToScreenPoint(panel.position), panel.size);
             _details.Draw(
                 panel,
                 l =>
@@ -141,10 +142,15 @@ namespace SlopWorld
                             link.Kind == "task"
                                 ? SessionHub.Instance.Tasks.FirstOrDefault(t => t.Id == link.Target)
                                 : null;
+                        var destination =
+                            link.Kind == "card"
+                                ? _cardLinks.Resolve(_catalog, board, link.Target)
+                                : default;
                         string label =
-                            task == null
-                                ? link.Kind + ":" + link.Target
-                                : task.Summary + " · " + TaskInfo.StatusText(task.Status);
+                            destination.Card != null
+                                ? destination.Card.Key + " · " + destination.Card.Title
+                            : task == null ? link.Kind + ":" + link.Target
+                            : task.Summary + " · " + TaskInfo.StatusText(task.Status);
                         float width = Mathf.Max(1, l.ColumnWidth - (!Writable(board) ? 0 : 32));
                         var row = l.GetRect(
                             Mathf.Max(28, Text.CalcHeight(label, Mathf.Max(1, width - 6)) + 6)
@@ -156,7 +162,17 @@ namespace SlopWorld
                             row.height
                         );
                         Slab.Fill(badge, UiTheme.Well);
-                        if (task == null)
+                        if (destination.Card != null)
+                        {
+                            if (UiControls.Button(badge, label))
+                            {
+                                if (destination.Board.Id != _board)
+                                    PickBoard(destination.Board.Id);
+                                SelectCard(destination.Card);
+                                return;
+                            }
+                        }
+                        else if (task == null)
                             Widgets.Label(badge.ContractedBy(3), label);
                         else if (UiControls.Button(badge, label))
                             TaskDetailView.Open(task, this);
@@ -167,7 +183,7 @@ namespace SlopWorld
                             Save(CardEdit(board, card, "unlink", link.Target, link.Kind));
                     }
                     if (Writable(board))
-                        DrawLinkEditor(l, board, card, editable);
+                        DrawLinkEditor(l, board, card, editable, viewport);
                     Field(
                         "Description",
                         "describe",
