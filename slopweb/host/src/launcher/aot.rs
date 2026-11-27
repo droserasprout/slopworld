@@ -646,12 +646,28 @@ pub(super) fn inherit_lock(command: &mut Command, lock: &File) {
     }
 }
 
+#[cfg(test)]
 pub fn prepare(
     bundle: files::PinnedBundle,
     prepared: &Path,
     cache: &Path,
     toolchain: &Toolchain,
 ) -> Result<PathBuf> {
+    prepare_candidate(bundle, prepared, cache, toolchain).map(|output| output.root)
+}
+
+pub(super) struct CandidateRuntime {
+    pub root: PathBuf,
+    pub compilation: PathBuf,
+    pub workspace: PathBuf,
+}
+
+pub(super) fn prepare_candidate(
+    bundle: files::PinnedBundle,
+    prepared: &Path,
+    cache: &Path,
+    toolchain: &Toolchain,
+) -> Result<CandidateRuntime> {
     let mut snapshot = files::files(prepared)?;
     // The stamp binds the digest to a particular inode. Bind the verified copy below.
     snapshot.remove(crate::archive_identity::MARKER);
@@ -677,8 +693,8 @@ pub fn prepare(
     }
     // Compilation and composition read only captured files, so staging can resume.
     drop(bundle);
+    let workspace = cache.join("aot-workspaces").join(workspace_key);
     let published = if needs_publish {
-        let workspace = cache.join("aot-workspaces").join(workspace_key);
         fs::create_dir_all(&workspace)?;
         let workspace_lock = files::lock(&workspace.join("build.lock"))?;
         sync_candidate(&compilation.join("candidate"), &workspace.join("candidate"))?;
@@ -707,9 +723,13 @@ pub fn prepare(
     )?;
     let runtimes = cache.join("aot-runtimes");
     fs::create_dir_all(&runtimes)?;
-    let destination = runtimes.join(&runtime_key);
+    let destination = files::selected(&runtimes, &runtime_key)?;
     if files::ready(&destination, &runtime_key)? {
-        return Ok(destination);
+        return Ok(CandidateRuntime {
+            root: destination,
+            compilation,
+            workspace,
+        });
     }
     if destination.exists() {
         bail!(
@@ -733,7 +753,11 @@ pub fn prepare(
     }
     fs::write(root.join(".ready"), runtime_key)?;
     fs::rename(root, &destination)?;
-    Ok(destination)
+    Ok(CandidateRuntime {
+        root: destination,
+        compilation,
+        workspace,
+    })
 }
 #[cfg(test)]
 #[path = "aot_tests.rs"]

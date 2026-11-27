@@ -297,6 +297,20 @@ fn plan(
 }
 
 impl PreparationPlan {
+    fn output(&self, cache: &Path, root: PathBuf) -> Result<Candidate> {
+        let components = self
+            .components
+            .iter()
+            .map(|(phase, planned)| {
+                files::selected(
+                    &cache.join("prepared-components").join(phase.directory()),
+                    &planned.key,
+                )
+            })
+            .collect::<Result<_>>()?;
+        Ok(Candidate { root, components })
+    }
+
     fn copy_authored(&self, bundle: &Path, directory: &str, target: &Path) -> Result<()> {
         // A package manager or local editor can replace a file without taking the
         // stager's lock. Verify the private copy, and copy only the hashed manifest.
@@ -308,6 +322,7 @@ impl PreparationPlan {
     }
 }
 
+#[cfg(test)]
 pub fn prepare(
     bundle: &files::PinnedBundle,
     game: &Path,
@@ -317,6 +332,32 @@ pub fn prepare(
     font_inventory: &str,
     build: impl Fn(Phase, &Path, &Path, &Map<String, Value>) -> Result<()>,
 ) -> Result<PathBuf> {
+    prepare_candidate(
+        bundle,
+        game,
+        cache,
+        rebuild,
+        appearance,
+        font_inventory,
+        build,
+    )
+    .map(|output| output.root)
+}
+
+pub(super) struct Candidate {
+    pub root: PathBuf,
+    pub components: Vec<PathBuf>,
+}
+
+pub(super) fn prepare_candidate(
+    bundle: &files::PinnedBundle,
+    game: &Path,
+    cache: &Path,
+    rebuild: bool,
+    appearance: &Map<String, Value>,
+    font_inventory: &str,
+    build: impl Fn(Phase, &Path, &Path, &Map<String, Value>) -> Result<()>,
+) -> Result<Candidate> {
     let _transaction = files::lock(&cache.join(".prepare.lock"))?;
     let bundle = bundle.path();
     let plan = plan(bundle, game, cache, appearance, font_inventory)?;
@@ -324,7 +365,7 @@ pub fn prepare(
     let mut destination = files::selected(cache, key)?;
     if !rebuild && files::ready(&destination, key)? {
         println!("Reusing prepared runtime");
-        return Ok(destination);
+        return plan.output(cache, destination);
     }
     let mut pointers = Vec::new();
     let mut prepare_component = |phase: Phase| -> Result<PathBuf> {
@@ -417,7 +458,7 @@ pub fn prepare(
             .context("Missing destination filename")?
             .as_encoded_bytes(),
     )?;
-    Ok(destination)
+    plan.output(cache, destination)
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ mod appearance;
 mod cli;
 mod files;
 mod preparation;
+mod publication;
 #[cfg(test)]
 mod tests;
 
@@ -80,6 +81,9 @@ fn run_local(options: &cli::Options, command: &cli::LocalCommand) -> Result<()> 
 }
 
 pub async fn run() -> Result<()> {
+    if env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new(publication::RETIRE_READER)) {
+        return publication::retire_inherited();
+    }
     let options = cli::Options::parse();
     if let Some(command) = &options.command {
         return run_local(&options, command);
@@ -89,11 +93,8 @@ pub async fn run() -> Result<()> {
         libc::umask(0o077);
     }
     if let Some(root) = &options.serve_prepared {
-        let root = std::fs::canonicalize(root).context("Open prepared runtime")?;
-        anyhow::ensure!(
-            root.join(".ready").is_file() && root.join("_framework/dotnet.js").is_file(),
-            "Expected a completed browser runtime"
-        );
+        let runtime = publication::Runtime::open(root)?;
+        let root = runtime.root.clone();
         let fonts = FontService::from_publication(&root, &options.query("web-cache")?)
             .context("Open prepared fonts")?;
         let connection = connection(&options)
@@ -133,7 +134,8 @@ pub async fn run() -> Result<()> {
     let appearance = appearance::preferences(&profile)?;
     // The installed font inventory is a phase input, including changed file bytes.
     let font_inventory = fonts.startup_fingerprint()?;
-    let prepared = preparation::prepare(
+    let publication = publication::Publication::begin(&cache)?;
+    let prepared = preparation::prepare_candidate(
         &bundle,
         &game,
         &cache,
@@ -146,15 +148,24 @@ pub async fn run() -> Result<()> {
             })
         },
     );
-    let result = prepared.and_then(|root| match &sdk {
-        Some(sdk) => aot::prepare(bundle, &root, &cache, sdk),
-        None => Ok(root),
+    let result = prepared.and_then(|prepared| {
+        let mut inputs = prepared.components;
+        let root = if let Some(sdk) = &sdk {
+            let compiled = aot::prepare_candidate(bundle, &prepared.root, &cache, sdk)?;
+            inputs.extend([prepared.root, compiled.compilation, compiled.workspace]);
+            compiled.root
+        } else {
+            prepared.root
+        };
+        publication.commit(&root, &inputs)
     });
     println!(
         "Runtime preparation summary: {:.2}s",
         started.elapsed().as_secs_f64()
     );
-    let root = result?;
+    let runtime = result?;
+    drop(publication);
+    let root = runtime.root.clone();
     if options.prepare {
         println!("Prepared local runtime: {}", root.display());
         return Ok(());

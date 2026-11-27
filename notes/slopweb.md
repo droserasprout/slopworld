@@ -249,7 +249,12 @@ launcher captures an allowlist once for SDK inspection and publishing. Publicati
 locks span composition. Workspace locks span input synchronization, compilation,
 and output capture, including orphaned compiler processes. Compiler output writes directly to its durable log and is mirrored live
 to the host terminal; dynamic font diagnostics also stream to the host, while helper
-stdout remains a machine-readable cache path. Only completed publications are served. The `--serve-prepared` path accepts a trusted
+stdout remains a machine-readable cache path. The launcher serializes preparation through selection, validates the final framework,
+and renames a relative `current` symlink into place under the cache root. Selection
+ends at successful validation, independently of service startup. Readers pin the
+resolved directory with a shared lock. Builder-side retirement rechecks selection
+and directory identity before reclaiming a released generation, including when the
+serving account has read-only access. The `--serve-prepared` path accepts a trusted
 publication directory, reads rasterizer flags from its startup font manifest, and uses the
 serving account's separate font cache. It bypasses game and compiler discovery. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
 `SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.

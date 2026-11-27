@@ -63,8 +63,8 @@ the saved `<CONFIG>/game.toml`, then usual installation locations. `--port` defa
 to 8787. First launch prepares local game files under `$XDG_CACHE_HOME/slopweb`
 (default `~/.cache/slopweb`); subsequent launches reuse that private runtime.
 `--prepare` prepares without serving; `--rebuild` refreshes after game data changes.
-For a separate serving account, pass the completed runtime directory printed by
-`--prepare` to `--serve-prepared DIR` and give it a separate writable `--cache`
+For a separate serving account, run `slopweb --serve-prepared /path/to/build-cache/current`
+after preparation succeeds. Give the serving account a separate writable `--cache`
 for fonts. The listener needs read access to the publication and its daemon
 credential. The build cache, SDK, and game installation can stay private to the builder.
 
@@ -149,7 +149,13 @@ compose a new runtime using the existing compiled framework. `--rebuild` refresh
 all preparation components, including installed font and native background-cache
 changes; unchanged compiler inputs still reuse compiled AOT.
 Failed or interrupted publishes resume in the same compiler workspace. Only complete
-runtimes are served, and existing serving roots survive refreshes.
+runtimes are served. After verifying the SDK boot resources, the launcher atomically
+updates the relative `current` symlink inside the cache. A failed prepare leaves the
+last successful runtime selected. A server pins its runtime at startup, so a running
+session continues using the same files until its process exits. Restart the service
+to pick up the new selection. Superseded runtimes are reclaimed after their last
+reader exits. The active AOT build retains its preparation inputs and incremental
+compiler workspace for the next build.
 
 Compiler intermediates stay under `--cache/aot-workspaces/`; completed publications
 and per-input logs stay in `aot-builds/`. Immutable serving roots live in
