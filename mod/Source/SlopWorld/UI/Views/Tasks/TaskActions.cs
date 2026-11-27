@@ -8,7 +8,11 @@ namespace SlopWorld
     // Menus and confirmations for task state changes.
     public static class TaskActions
     {
-        public static void OpenMenu(TaskInfo task, Action<TaskInfo> updated = null)
+        public static void OpenMenu(
+            TaskInfo task,
+            Action<TaskInfo> updated = null,
+            List<TaskInfo> selection = null
+        )
         {
             if (task == null)
                 return;
@@ -22,8 +26,17 @@ namespace SlopWorld
                 AddStatus(options, task, DelegatedTaskStatus.Failed, updated);
             }
 
-            if (task.CanCancel)
-                options.Add(new FloatMenuOption("Cancel", () => CancelTask(task, updated)));
+            var selected = selection ?? new List<TaskInfo> { task };
+            var cancelable = selected.Where(t => t.CanCancel).ToList();
+            if (cancelable.Count > 0)
+                options.Add(
+                    new FloatMenuOption(
+                        cancelable.Count == 1
+                            ? "Cancel"
+                            : $"Cancel {cancelable.Count} selected tasks",
+                        () => CancelTasks(cancelable, updated)
+                    )
+                );
 
             var counterpart = SessionHub.Instance.Get(task.Counterpart);
             if (counterpart != null)
@@ -36,8 +49,16 @@ namespace SlopWorld
                 options.Add(terminal);
             }
 
-            if (task.Terminal)
-                options.Add(new FloatMenuOption("Remove", () => RemoveTask(task)));
+            var removable = selected.Where(t => t.Terminal).ToList();
+            if (removable.Count > 0)
+                options.Add(
+                    new FloatMenuOption(
+                        removable.Count == 1
+                            ? "Remove"
+                            : $"Remove {removable.Count} selected tasks",
+                        () => RemoveTasks(removable)
+                    )
+                );
 
             if (options.Count > 0)
                 WorkspaceWindow.OpenOverPane(new UiMenu(options));

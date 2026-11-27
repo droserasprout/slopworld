@@ -7,6 +7,7 @@ namespace SlopWorld
         Search,
         Git,
         Library,
+        Tasks,
     }
 
     public readonly struct SidebarTabActionContext

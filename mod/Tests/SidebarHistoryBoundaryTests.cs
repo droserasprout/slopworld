@@ -14,14 +14,14 @@ namespace SlopWorld.Tests
             Assert.That(empty, Is.EqualTo(default(SidebarViewLocation)));
             Assert.That(history.Forward(out empty), Is.False);
             Assert.That(empty, Is.EqualTo(default(SidebarViewLocation)));
-            Assert.That(history.TryLast(SidebarTab.Agents, out _), Is.False);
+            Assert.That(history.TryLast(SidebarTab.Tasks, out _), Is.False);
             var task = SidebarViewLocation.Task("task-id");
             history.Visit(task);
             history.Visit(task);
             Assert.That(history.HasCurrent, Is.True);
             Assert.That(history.Current, Is.EqualTo(task));
             Assert.That(history.CanBack, Is.False, "duplicate visits do not add history");
-            Assert.That(history.TryLast(SidebarTab.Agents, out var last), Is.True);
+            Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
             Assert.That(last, Is.EqualTo(task));
             Assert.That(history.Back(out _), Is.False);
             Assert.That(
@@ -44,7 +44,7 @@ namespace SlopWorld.Tests
                     Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)))
                 );
                 Assert.That(history.Current, Is.EqualTo(location));
-                Assert.That(history.TryLast(SidebarTab.Agents, out var last), Is.True);
+                Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "back updates remembered target");
             }
             Assert.That(history.Back(out _), Is.False, "oldest five visits were evicted");
@@ -56,7 +56,7 @@ namespace SlopWorld.Tests
                     location,
                     Is.EqualTo(SidebarViewLocation.Task(i.ToString(CultureInfo.InvariantCulture)))
                 );
-                Assert.That(history.TryLast(SidebarTab.Agents, out var last), Is.True);
+                Assert.That(history.TryLast(SidebarTab.Tasks, out var last), Is.True);
                 Assert.That(last, Is.EqualTo(location), "forward updates remembered target");
             }
             Assert.That(history.Forward(out _), Is.False);
@@ -68,17 +68,14 @@ namespace SlopWorld.Tests
             var history = new SidebarViewHistory();
             var file = SidebarViewLocation.File("project", "a.cs");
             history.Visit(file);
-            history.VisitTab(SidebarTab.Agents);
+            history.VisitTab(SidebarTab.Tasks);
             history.VisitTab(SidebarTab.Files);
             Assert.That(history.TryLast(SidebarTab.Files, out var last), Is.True);
             Assert.That(last, Is.EqualTo(file));
             Assert.That(history.Current.HasTarget, Is.False);
             history.Back(out _);
-            Assert.That(
-                history.Current,
-                Is.EqualTo(SidebarViewLocation.TabOnly(SidebarTab.Agents))
-            );
-            history.VisitTab(SidebarTab.Agents);
+            Assert.That(history.Current, Is.EqualTo(SidebarViewLocation.TabOnly(SidebarTab.Tasks)));
+            history.VisitTab(SidebarTab.Tasks);
             Assert.That(
                 history.CanForward,
                 Is.True,
@@ -96,7 +93,7 @@ namespace SlopWorld.Tests
         {
             var locations = new[]
             {
-                SidebarViewLocation.TabOnly(SidebarTab.Agents),
+                SidebarViewLocation.TabOnly(SidebarTab.Tasks),
                 SidebarViewLocation.Task("same"),
                 SidebarViewLocation.Agent("same"),
                 SidebarViewLocation.File("p", "same"),

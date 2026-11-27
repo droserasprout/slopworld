@@ -182,6 +182,13 @@
   </KeyBindingDef>
 
   <KeyBindingDef>
+    <defName>SlopSidebarTasks</defName>
+    <label>Sidebar: tasks view</label>
+    <category>SlopNavigation</category>
+    <defaultKeyCodeA>F5</defaultKeyCodeA>
+  </KeyBindingDef>
+
+  <KeyBindingDef>
     <defName>SlopSidebarLibrary</defName>
     <label>Sidebar: library view</label>
     <category>SlopNavigation</category>

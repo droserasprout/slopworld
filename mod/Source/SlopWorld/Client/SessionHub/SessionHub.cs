@@ -117,7 +117,7 @@ namespace SlopWorld
             _transport.Update();
             ShowLandlockWarning();
             // TaskStore also retains demand from open task readers, independently of the sidebar.
-            _tasks.Update(false);
+            _tasks.Update(Sidebar.TasksVisible);
             PerfTraceReport.Report();
         }
 

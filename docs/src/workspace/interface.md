@@ -10,6 +10,7 @@ menu. With the terminal window open, clicking a session switches to it.
 Drag the grip to resize the sidebar.
 Use the sidebar to switch sessions and browse project work. Session context menus
 include access to an [agent shell](../terminals/agent-shells.md).
+Open **Tasks** (**F5**) for the global mailbox. Filter assignments by status, direction, or agent, and select a row to read its feed.
 The chessboard button opens [Board](board.md) for shared project work.
 [Library](library.md) keeps reusable prompts, commands, and templates.
 

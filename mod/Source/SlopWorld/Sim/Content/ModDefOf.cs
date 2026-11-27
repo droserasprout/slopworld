@@ -68,6 +68,8 @@ namespace SlopWorld
         public static KeyBindingDef SlopSidebarSearch;
 
         /// F5: focus the tasks view in the sidebar.
+        public static KeyBindingDef SlopSidebarTasks;
+
         /// F6: focus the Library view in the sidebar.
         public static KeyBindingDef SlopSidebarLibrary;
 

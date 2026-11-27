@@ -179,6 +179,7 @@ namespace SlopWorld
                 || Bound(ModDefOf.SlopSidebarFiles, e)
                 || Bound(ModDefOf.SlopSidebarGit, e)
                 || Bound(ModDefOf.SlopSidebarSearch, e)
+                || Bound(ModDefOf.SlopSidebarTasks, e)
                 || Bound(ModDefOf.SlopSidebarLibrary, e)
                 || Bound(ModDefOf.SlopToggleOpenFiles, e)
                 || Bound(ModDefOf.SlopTogglePlanner, e)
@@ -206,6 +207,8 @@ namespace SlopWorld
             if (SidebarFunction(ModDefOf.SlopSidebarGit, SidebarTab.Git, e))
                 return true;
             if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e))
+                return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e))
                 return true;
             if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e))
                 return true;

@@ -23,6 +23,7 @@ Press **?** in game to show current shortcuts.
 | F2 | Sidebar: Files view | yes |
 | F3 | Sidebar: Git view | yes |
 | F4 | Sidebar: Search view | yes |
+| F5 | Sidebar: Tasks view | yes |
 | F6 | Sidebar: Library view | yes |
 
 ## Built-in navigation

@@ -41,6 +41,10 @@ namespace SlopWorld
 
         public static void ShowGit() => Show(SidebarTab.Git);
 
+        public static void ShowTasks() => Show(SidebarTab.Tasks);
+
+        internal static bool TasksVisible => CurrentTab == SidebarTab.Tasks && Wanted();
+
         public static void ShowLibrary() => Show(SidebarTab.Library);
 
         // The sidebar owns all view-specific routed readers. Keep terminal teardown in the

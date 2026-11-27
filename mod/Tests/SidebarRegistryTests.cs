@@ -45,7 +45,7 @@ namespace SlopWorld.Tests
             var registry = new SidebarTabRegistry();
             var agents = registry.For(SidebarTab.Agents);
             var files = registry.For(SidebarTab.Files);
-            var expected = new[] { "agents", "files", "git", "search", "library" };
+            var expected = new[] { "agents", "files", "git", "search", "tasks", "library" };
             Assert.That(
                 registry.Definitions.Select(tab => tab.PersistedName),
                 Is.EqualTo(expected)
@@ -70,7 +70,7 @@ namespace SlopWorld.Tests
                 Assert.That(tab.IconKey, Is.EqualTo(tab.PersistedName));
                 Assert.That(tab.Tooltip, Is.Not.Empty);
                 Assert.That(tab.HasActions, Is.True);
-                Assert.That(tab.CanFold, Is.True);
+                Assert.That(tab.CanFold, Is.EqualTo(tab.Tab != SidebarTab.Tasks));
                 Assert.That(tab.CanToggleDotfiles, Is.EqualTo(tab.Tab == SidebarTab.Files));
             }
         }

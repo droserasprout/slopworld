@@ -36,6 +36,12 @@ namespace SlopWorld
                     _ => { },
                     subAction: TaskStatusSub
                 ),
+                new CommandDef(
+                    "task.filter",
+                    "Task: Filter",
+                    "Task",
+                    _ => TasksView.OpenFilterMenu()
+                ),
             };
 
         static List<CommandDef> GitCommands() =>
