@@ -343,7 +343,18 @@ impl Projects {
         let _worktrees = self.workspace.worktrees.mutation.lock().await;
         self.configuration().reload_if_changed().await;
         settle(&mut p);
-        p.id = self.sessions.allocate_project_identity().await?;
+        let config = self.configuration().config().await;
+        let retained = self
+            .services
+            .boards
+            .sync_projects(super::boards::identities(&config))
+            .await?;
+        loop {
+            p.id = self.sessions.allocate_project_identity().await?;
+            if !retained.contains(&p.id) {
+                break;
+            }
+        }
         check_project(&p)?;
         self.configuration()
             .update_cfg(ConfigMutation::Projects, |cfg| add(cfg, p))
@@ -394,6 +405,11 @@ impl Projects {
             &self.workspace.configuration.records.worktrees(),
             name,
         )?;
+        // Materialize even an unopened board before its project identity disappears.
+        self.services
+            .boards
+            .sync_projects(super::boards::identities(&cfg))
+            .await?;
         self.configuration()
             .update_cfg(ConfigMutation::ProjectReferences, |cfg| remove(cfg, name))
             .await?;
@@ -405,6 +421,15 @@ impl Projects {
 /// Publish from accepted configuration, including callers holding runtime transaction guards.
 pub(crate) async fn publish(authority: &super::ConfigAuthority, services: &super::Services) {
     let projects = list(&*authority.read_config().await);
+    // Project configuration is already committed. Publish it even if SQLite is
+    // temporarily unavailable. Startup and every board access repeat this projection.
+    let ids = projects
+        .iter()
+        .map(|p| (p.config.id.clone(), p.config.name.clone()))
+        .collect();
+    if let Err(error) = services.boards.sync_projects(ids).await {
+        tracing::warn!("refreshing project boards: {error:#}");
+    }
     services.emit(super::Event::Projects { projects });
 }
 

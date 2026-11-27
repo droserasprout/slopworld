@@ -38,7 +38,7 @@ namespace SlopWorld
             },
             new PolicyTarget
             {
-                Label = "Tasks in sidebar",
+                Label = "Delegated tasks",
                 GetPolicy = config => config.TaskSummaries,
                 SetPolicy = (config, policy) => config.TaskSummaries = policy,
             },

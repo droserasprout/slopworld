@@ -91,6 +91,9 @@ public sealed partial class WorkspaceRuntime : IWorkspaceRuntime
     public int WorkspaceFont(byte[] font, string bake, int defaultIndex) =>
         BrowserFontBank.Install(font, bake, defaultIndex);
 
+    public bool WorkspaceTouchKeyboard() =>
+        SlopWorld.WorkspaceWindow.Showing is not BoardView board || board.TouchTextRequested;
+
     public string WorkspaceTitle() => WindowTitle.Current();
 
     public bool WorkspaceFullscreenKey(string key) => BrowserKeyBindings.FullscreenKey(key);

@@ -13,14 +13,6 @@ namespace SlopWorld
             if (task == null)
                 return;
 
-            var selected = TasksView.SelectionFor(task);
-            var cancelable = selected
-                .Where(candidate => candidate != null && candidate.CanCancel)
-                .ToList();
-            var removable = selected
-                .Where(candidate => candidate != null && candidate.Terminal)
-                .ToList();
-
             var options = new List<FloatMenuOption>();
             if (task.Incoming && !task.Terminal)
             {
@@ -30,12 +22,8 @@ namespace SlopWorld
                 AddStatus(options, task, DelegatedTaskStatus.Failed, updated);
             }
 
-            if (cancelable.Count > 0)
-            {
-                string label =
-                    cancelable.Count == 1 ? "Cancel" : $"Cancel {cancelable.Count} selected tasks";
-                options.Add(new FloatMenuOption(label, () => CancelTasks(cancelable)));
-            }
+            if (task.CanCancel)
+                options.Add(new FloatMenuOption("Cancel", () => CancelTask(task, updated)));
 
             var counterpart = SessionHub.Instance.Get(task.Counterpart);
             if (counterpart != null)
@@ -48,12 +36,8 @@ namespace SlopWorld
                 options.Add(terminal);
             }
 
-            if (removable.Count > 0)
-            {
-                string label =
-                    removable.Count == 1 ? "Remove" : $"Remove {removable.Count} selected tasks";
-                options.Add(new FloatMenuOption(label, () => RemoveTasks(removable)));
-            }
+            if (task.Terminal)
+                options.Add(new FloatMenuOption("Remove", () => RemoveTask(task)));
 
             if (options.Count > 0)
                 WorkspaceWindow.OpenOverPane(new UiMenu(options));

@@ -53,6 +53,7 @@ namespace SlopWorld
         public const float MaxNavigationWidth = 460f;
         public const float MinContentWidth = 1f;
 
+        internal static bool CompactBoardOpen { get; set; }
         static LayoutKey _lastKey;
         static int _revision;
         static int _currentFrame = -1;
@@ -79,7 +80,8 @@ namespace SlopWorld
                 float width = Mathf.Max(0f, UI.screenWidth);
                 float height = Mathf.Max(0f, UI.screenHeight);
                 bool shown = !Cutscene.Playing;
-                bool visible = shown && !Settings.SidebarHidden;
+                bool visible =
+                    shown && !Settings.SidebarHidden && !(CompactBoardOpen && width < 650f);
                 float requested = Settings.SidebarWidth;
                 string side = NavigationSide.Normalize(Settings.SidebarSide);
                 float top = shown ? TopBar.H : 0f;

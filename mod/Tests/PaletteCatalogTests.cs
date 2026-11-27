@@ -173,7 +173,6 @@ namespace SlopWorld
                 var previousRemoved = TaskActions.Removed;
                 var previousShown = TaskDetailView.Shown;
                 var previousReturn = TaskDetailView.ReturnTo;
-                int previousFilters = TasksView.FiltersOpened;
                 try
                 {
                     var commands = TaskCommands();
@@ -187,8 +186,6 @@ namespace SlopWorld
                     replacement.Status = DelegatedTaskStatus.Accepted;
                     commands.Single(c => c.Id == "task.cancel").Action("t");
                     Assert.That(TaskActions.Canceled, Is.SameAs(replacement));
-                    commands.Single(c => c.Id == "task.filter").Action(null);
-                    Assert.That(TasksView.FiltersOpened, Is.EqualTo(previousFilters + 1));
                 }
                 finally
                 {
@@ -196,7 +193,6 @@ namespace SlopWorld
                     TaskActions.Removed = previousRemoved;
                     TaskDetailView.Shown = previousShown;
                     TaskDetailView.ReturnTo = previousReturn;
-                    TasksView.FiltersOpened = previousFilters;
                 }
             }
 

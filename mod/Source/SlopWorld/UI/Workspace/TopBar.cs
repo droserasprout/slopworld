@@ -37,8 +37,8 @@ namespace SlopWorld
         internal struct DoorLayout
         {
             public Rect Config;
-            public Rect Planner;
-            public bool HasPlanner;
+            public Rect Board;
+            public bool HasBoard;
             public Rect Jukebox;
             public Rect Core;
             public bool HasConfig;
@@ -55,7 +55,7 @@ namespace SlopWorld
         static Map _doorsMap;
         static bool _doorsShowJukebox,
             _doorsShowCore,
-            _doorsShowPlanner;
+            _doorsShowBoard;
         static bool _doorsReady;
 
         public static Rect Rect => WorkspaceLayout.Current.TopBar;
@@ -181,14 +181,8 @@ namespace SlopWorld
         static float Doors(Rect r, bool live)
         {
             PrepareDoors(r);
-            if (_doors.HasPlanner)
-                Thing(
-                    _doors.Planner,
-                    ModDefOf.SlopPlannerBench,
-                    new TipSignal("Planner · TODO.txt"),
-                    PlannerView.Toggle,
-                    live
-                );
+            if (_doors.HasBoard)
+                BoardButton(_doors.Board, live);
             if (_doors.HasConfig)
                 SettingsButton(_doors.Config, live);
             if (_doors.HasCore)
@@ -207,7 +201,7 @@ namespace SlopWorld
         static void PrepareDoors(Rect r)
         {
             var map = Find.CurrentMap;
-            bool showPlanner = Settings.StatusbarPlanner;
+            bool showBoard = Settings.StatusbarPlanner;
             bool showJukebox = Settings.StatusbarJukebox;
             bool showCore = Settings.StatusbarGM;
             if (
@@ -216,7 +210,7 @@ namespace SlopWorld
                 && _doorsRect == r
                 && _doorsMap == map
                 && _doorsShowJukebox == showJukebox
-                && _doorsShowPlanner == showPlanner
+                && _doorsShowBoard == showBoard
                 && _doorsShowCore == showCore
             )
                 return;
@@ -224,7 +218,7 @@ namespace SlopWorld
             float x = r.xMax;
             _doors = new DoorLayout();
             _doors.HasConfig = TrySlot(r, ref x, out _doors.Config);
-            _doors.HasPlanner = showPlanner && TrySlot(r, ref x, out _doors.Planner);
+            _doors.HasBoard = showBoard && TrySlot(r, ref x, out _doors.Board);
 
             if (showCore && CoreAvailable(map) && TrySlot(r, ref x, out _doors.Core))
             {
@@ -243,7 +237,7 @@ namespace SlopWorld
             _doorsMap = map;
             _doorsShowJukebox = showJukebox;
             _doorsShowCore = showCore;
-            _doorsShowPlanner = showPlanner;
+            _doorsShowBoard = showBoard;
             _doorsReady = true;
         }
 
@@ -262,6 +256,43 @@ namespace SlopWorld
         // Full-height targets keep the shared glyph size centered inside their hover face.
         internal static Rect DoorIconRect(Rect slot) =>
             new Rect(slot.center.x - IconW / 2f, slot.center.y - IconW / 2f, IconW, IconW);
+
+        static void BoardButton(Rect rect, bool live)
+        {
+            TooltipHandler.TipRegion(rect, "Board");
+            bool over = ColonistBarStrip.Hover(rect);
+            if (Event.current.type == EventType.Repaint)
+            {
+                UiLayout.IconButtonBackground(rect, over, over && Input.GetMouseButton(0));
+                DrawChessboard(DoorIconRect(rect));
+            }
+            Press(over, BoardView.Toggle, live);
+        }
+
+        static Texture2D _chessboard;
+
+        static void DrawChessboard(Rect rect)
+        {
+            if (_chessboard == null)
+            {
+                _chessboard = new Texture2D(8, 8, TextureFormat.RGBA32, false)
+                {
+                    name = "Board",
+                    filterMode = FilterMode.Point,
+                };
+                var pixels = new Color32[64];
+                for (int i = 0; i < pixels.Length; i++)
+                    pixels[i] = (i % 8 + i / 8) % 2 == 0 ? Color.white : Color.clear;
+                _chessboard.SetPixels32(pixels);
+                _chessboard.Apply(false, false);
+            }
+            using (WidgetState.Save())
+            {
+                Slab.Fill(rect, UiTheme.Well);
+                GUI.color = UiTheme.Lead;
+                GUI.DrawTexture(rect, _chessboard);
+            }
+        }
 
         static void SettingsButton(Rect rect, bool live)
         {
@@ -343,9 +374,9 @@ namespace SlopWorld
                     );
                     return;
                 }
-                bool planner = view is PlannerView;
+                bool board = view is BoardView;
                 bool settings = view is OptionsView;
-                if (planner || settings)
+                if (board || settings)
                 {
                     float viewIconW = ReaderRowChrome.IconW;
                     float inset = viewIconW + UiTheme.GapXS;
@@ -358,8 +389,8 @@ namespace SlopWorld
                         viewIconW
                     );
                     GUI.color = Color.white;
-                    if (planner)
-                        Widgets.ThingIcon(icon, ModDefOf.SlopPlannerBench);
+                    if (board)
+                        DrawChessboard(icon);
                     else
                     {
                         GUI.color = UiTheme.Lead;
@@ -371,7 +402,7 @@ namespace SlopWorld
                 UiText.RowLabel(
                     r,
                     view.Title,
-                    centered && !planner && !settings
+                    centered && !board && !settings
                         ? TextAnchor.MiddleCenter
                         : TextAnchor.MiddleLeft
                 );

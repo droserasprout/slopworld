@@ -11,6 +11,7 @@ impl Fixture {
         let root = std::env::temp_dir().join(format!("slopd-application-{}", uuid::Uuid::new_v4()));
         let tasks = crate::tasks::Tasks::load_records(&root).unwrap();
         let services = Arc::new(Services::new(
+            &root,
             crate::tasks::io::TaskStore::new(tasks),
             Arc::new(crate::title::SummaryCache::load(
                 root.join("summary-cache.toml"),

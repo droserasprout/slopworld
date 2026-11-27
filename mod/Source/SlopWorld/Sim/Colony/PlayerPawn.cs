@@ -153,7 +153,7 @@ namespace SlopWorld
                     cargo.Add(bench);
                 // Each item arrives in its own pod.
                 ArrivalDrops.Drop(cell, map, cargo, PodOpenDelay);
-                Log.Message("[SlopWorld] player, jukebox, and planner are on their way down");
+                Log.Message("[SlopWorld] player, jukebox, and board are on their way down");
                 return pawn;
             }
 

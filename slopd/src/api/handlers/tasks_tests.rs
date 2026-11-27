@@ -2,24 +2,6 @@ use super::*;
 
 use axum::http::HeaderValue;
 
-#[tokio::test]
-async fn scoped_workers_cannot_attach_planner_links() {
-    let app = crate::application::test_application(crate::config::Config::default());
-    let result = spawn_worker(
-        State(app),
-        Extension(scoped("caller")),
-        caller("caller"),
-        Proto(wire::SpawnWorkerReq {
-            template: Some("review".into()),
-            body: Some("Work".into()),
-            planner_id: uuid::Uuid::new_v4().to_string(),
-            ..Default::default()
-        }),
-    )
-    .await;
-    assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
-}
-
 #[test]
 fn root_worker_requests_use_the_explicit_session_caller() {
     let mut headers = HeaderMap::new();
@@ -694,7 +676,6 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
                     template: Some("review".into()),
                     project: Some("repo".into()),
                     body: Some("inspect API wiring".into()),
-                    planner_id: String::new(),
                     name: new_worktree.then(|| "custom-review".into()),
                     durable: Some(durable),
                     new_worktree: Some(new_worktree),

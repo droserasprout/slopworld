@@ -145,11 +145,28 @@ Explicit host commands and file actions are temporary. See
 
 Cancellation and removal validate the whole selection before changing it.
 Disk failures can still leave partial completion: replies distinguish committed,
-unchanged or absent, failed, and unattempted IDs. The task board applies committed
-changes and refreshes even on failure.
+unchanged or absent, failed, and unattempted IDs. Clients can refresh their task lists after partial failure.
 
 Retries are safe: canceled tasks stay canceled and removed tasks stay absent.
 Storage requests may finish after the client disconnects.
+
+### Project boards
+
+`GET /api/boards` returns a `BoardCatalog`. Array order is display order. Root and all project boards, including archives, are visible to authenticated collaborators. `POST /api/boards` accepts one `BoardEdit` and returns the committed catalog. All IDs are opaque except the fixed board ID `root`. A move identifies its destination board, column and optional insertion anchor by ID. A stale destination fails the transaction.
+
+| Action | Fields in addition to `action` and `board` |
+| --- | --- |
+| `add-column` | Name in `text`, optional column ID in `before` |
+| `rename-column`, `remove-column` | `column`, new name in `text` for rename. Removal requires an empty column. |
+| `move-column` | `column`, optional column ID in `before` |
+| `add-card` | `column`, title in `text`, optional card ID in `before` |
+| `move-card` | `card`, destination `column`, optional card ID in `before` |
+| `title`, `describe`, `assign`, `comment` | `card`, value in `text`. Empty assignment clears the assignee. Comments use the authenticated author. |
+| `link`, `unlink` | `card`, resource `kind`, target in `text` |
+| `remove-card` | `card` |
+| `delete-archive` | `confirm` set to true |
+
+Archived boards support browsing, moving a card out, and confirmed permanent deletion. Project removal archives the board. Moving to Done only changes the card’s position.
 
 ## Workspace and files
 

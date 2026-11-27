@@ -1,0 +1,24 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS boards (
+    id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS columns (
+    id TEXT PRIMARY KEY NOT NULL, board TEXT NOT NULL REFERENCES boards ON DELETE CASCADE,
+    position INTEGER NOT NULL, name TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS columns_location ON columns(board, position);
+CREATE TABLE IF NOT EXISTS cards (
+    id TEXT PRIMARY KEY NOT NULL, col TEXT NOT NULL REFERENCES columns ON DELETE CASCADE,
+    position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+    assignee TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS cards_location ON cards(col, position);
+CREATE TABLE IF NOT EXISTS comments (
+    sequence INTEGER PRIMARY KEY, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
+    author TEXT NOT NULL, text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS comments_card ON comments(card, sequence);
+CREATE TABLE IF NOT EXISTS links (
+    card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE, kind TEXT NOT NULL, target TEXT NOT NULL,
+    PRIMARY KEY(card,kind,target)
+);

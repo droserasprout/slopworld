@@ -8,6 +8,8 @@ namespace BrowserAdapters;
 
 public static class BrowserGuiInput
 {
+    public static Action<bool>? PointerDevice;
+    public static Action? CancelPointer;
     public static bool Profile;
     static bool skipDiscardedDrawing = true;
 
@@ -87,11 +89,14 @@ public static class BrowserGuiInput
                                 | System.Reflection.BindingFlags.NonPublic
                         )!
                         .SetValue(null, false);
+                CancelPointer?.Invoke();
                 GUIUtility.ResetGlobalState();
                 GUIUtility.keyboardControl = 0;
                 GUIUtility.hotControl = 0;
                 continue;
             }
+            if (item.TryGetProperty("pointerType", out var device))
+                PointerDevice?.Invoke(device.GetString() == "touch");
             if (item.TryGetProperty("x", out var x))
                 pointer = new Vector2(x.GetSingle(), item.GetProperty("y").GetSingle());
             var type = kind switch

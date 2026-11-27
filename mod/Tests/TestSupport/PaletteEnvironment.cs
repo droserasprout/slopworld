@@ -128,11 +128,4 @@ namespace SlopWorld
 
         public static void RemoveTask(TaskInfo task) => Removed = task;
     }
-
-    static class TasksView
-    {
-        public static int FiltersOpened;
-
-        public static void OpenFilterMenu() => FiltersOpened++;
-    }
 }

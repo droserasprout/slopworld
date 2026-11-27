@@ -344,7 +344,7 @@ namespace SlopWorld
 
         static bool Wanted()
         {
-            return ColonistBarStrip.BarShown && !Cutscene.Playing && !Settings.SidebarHidden;
+            return ColonistBarStrip.BarShown && WorkspaceLayout.Current.NavigationVisible;
         }
 
         public static void ToggleOpenFiles() =>

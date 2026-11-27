@@ -15,7 +15,7 @@ namespace SlopWorld.Tests
         static void Registry()
         {
             var registry = NewRegistry();
-            var expected = new[] { "agents", "files", "git", "search", "tasks", "library" };
+            var expected = new[] { "agents", "files", "git", "search", "library" };
             int index = 0;
             foreach (var definition in registry.Definitions)
             {

@@ -102,15 +102,6 @@ namespace SlopWorld
                         canToggleDotfiles: false
                     ),
                     new SidebarTabDefinition(
-                        SidebarTab.Tasks,
-                        "tasks",
-                        "tasks",
-                        "Tasks: view and manage delegated tasks.",
-                        hasActions: true,
-                        canFold: false,
-                        canToggleDotfiles: false
-                    ),
-                    new SidebarTabDefinition(
                         SidebarTab.Library,
                         "library",
                         "library",

@@ -11,7 +11,7 @@ Press **?** in game to show current shortcuts.
 | --- | --- | --- |
 | Ctrl+backquote | Command palette | yes (key only, Ctrl is fixed) |
 | F9 | Show/hide open files | yes |
-| F10 | Open/close planner | yes |
+| F10 | Open/close Board | yes |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
 
@@ -23,7 +23,6 @@ Press **?** in game to show current shortcuts.
 | F2 | Sidebar: Files view | yes |
 | F3 | Sidebar: Git view | yes |
 | F4 | Sidebar: Search view | yes |
-| F5 | Sidebar: Tasks view | yes |
 | F6 | Sidebar: Library view | yes |
 
 ## Built-in navigation

@@ -233,3 +233,69 @@ fn lifecycle_occupied_listener_fails_without_publishing_discovery_or_starting_tm
     }));
     assert!(!daemon.root.join("data").exists());
 }
+
+#[test]
+fn board_cli_edits_are_transactional_and_survive_restart() {
+    let reservation = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut daemon = Daemon::new(reservation.local_addr().unwrap());
+    drop(reservation);
+    daemon.start();
+    daemon.ready();
+    let board = |daemon: &Daemon, args: &[&str]| -> serde_json::Value {
+        let output = Command::new(env!("CARGO_BIN_EXE_slopctl"))
+            .arg("board")
+            .args(args)
+            .env("SLOPD_URL", format!("http://{}", daemon.address))
+            .env("SLOPD_TOKEN", "lifecycle-secret")
+            .env("SLOPWORLD_SESSION", "host")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).unwrap()
+    };
+    assert_eq!(board(&daemon, &["list"])[0]["id"], "root");
+    let added = board(&daemon, &["add-column", "root", "Review"]);
+    let columns = added["boards"][0]["columns"].as_array().unwrap();
+    let backlog = columns[0]["id"].as_str().unwrap();
+    let review = columns[4]["id"].as_str().unwrap();
+    let added = board(&daemon, &["add-card", "root", backlog, "Check protocol"]);
+    let card = added["boards"][0]["columns"][0]["cards"][0]["id"]
+        .as_str()
+        .unwrap();
+    board(&daemon, &["assign", "root", card, "reviewer"]);
+    board(&daemon, &["link", "root", card, "worktree", "checkout"]);
+    board(&daemon, &["comment", "root", card, "Ready"]);
+    board(&daemon, &["move-card", "root", review, card]);
+    board(
+        &daemon,
+        &["move-column", "root", review, "--before", backlog],
+    );
+    // Inspect through an independent connection while the daemon is live.
+    {
+        let db = rusqlite::Connection::open(daemon.root.join("data/boards.sqlite3")).unwrap();
+        let location: String = db
+            .query_row("SELECT col FROM cards WHERE id=?", [card], |r| r.get(0))
+            .unwrap();
+        assert_eq!(location, review);
+    }
+    assert!(
+        Command::new("kill")
+            .args(["-TERM", &daemon.child.as_ref().unwrap().id().to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(daemon.wait().success());
+    daemon.start();
+    daemon.ready();
+    let shown = board(&daemon, &["show"]);
+    let reviewed = &shown["columns"][0]["cards"][0];
+    assert_eq!(reviewed["id"], card);
+    assert_eq!(reviewed["assignee"], "reviewer");
+    assert_eq!(reviewed["comments"][0]["text"], "Ready");
+    assert_eq!(reviewed["links"][0]["target"], "checkout");
+}

@@ -96,6 +96,9 @@ public partial class Probe
     public static void WorkspaceAppearance(string json) => Runtime.WorkspaceAppearance(json);
 
     [JSExport]
+    public static bool WorkspaceTouchKeyboard() => Runtime.WorkspaceTouchKeyboard();
+
+    [JSExport]
     public static string WorkspaceTitle() => Runtime.WorkspaceTitle();
 
     [JSExport]

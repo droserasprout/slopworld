@@ -2,6 +2,8 @@
 //! argument schemas; `cli` owns the command tree, help, and task ID resolution.
 
 mod agent;
+mod board;
+pub(crate) use board::BoardArgs;
 mod common;
 mod config;
 mod diagnostics;
@@ -45,6 +47,7 @@ pub(crate) enum RemoteCommand {
     },
     AgentAction(AgentAction),
     Project(ProjectArgs),
+    Board(BoardArgs),
     AgentCreate {
         name: String,
         project: String,
@@ -111,6 +114,7 @@ impl RemoteCommand {
             ),
             Self::AgentAction(action) => action.run(endpoint, session, json_output),
             Self::Project(args) => project::run(endpoint, session, json_output, args),
+            Self::Board(args) => board::run(endpoint, session, args),
             Self::AgentCreate {
                 name,
                 project,

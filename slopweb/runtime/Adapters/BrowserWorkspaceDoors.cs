@@ -35,7 +35,7 @@ public static class BrowserWorkspaceDoors
             new { visible, rect = new[] { rect.x, rect.y, rect.width, rect.height } };
         return new
         {
-            planner = Door(doors.HasPlanner, doors.Planner),
+            board = Door(doors.HasBoard, doors.Board),
             config = Door(doors.HasConfig, doors.Config),
             core = Door(doors.HasCore, doors.Core),
             jukebox = Door(doors.HasJukebox, doors.Jukebox),
@@ -78,6 +78,8 @@ public static class BrowserWorkspaceDoors
                 ModDefOf.SlopJukebox = definition;
         }
         ModDefOf.Ship_ComputerCore = DefDatabase<ThingDef>.GetNamed("Ship_ComputerCore");
+        BrowserGuiInput.PointerDevice = touch => BoardView.TouchPointer = touch;
+        BrowserGuiInput.CancelPointer = BoardView.CancelPointer;
         installed = true;
     }
 }

@@ -15,7 +15,6 @@ namespace SlopWorld
         string ChoiceKey => DaemonClient.BaseUrl + "\n" + _project;
         readonly string _fixedCaller;
         readonly string _project;
-        readonly string _plannerId;
         readonly Action _settled;
         readonly List<SessionInfo> _agents;
         string _caller;
@@ -36,7 +35,6 @@ namespace SlopWorld
             string caller,
             string project,
             string body = "",
-            string plannerId = "",
             Action settled = null
         )
         {
@@ -44,7 +42,6 @@ namespace SlopWorld
             _fixedCaller = caller;
             _project = project ?? "";
             _body = body ?? "";
-            _plannerId = plannerId;
             _settled = settled;
             if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice))
             {
@@ -412,8 +409,7 @@ namespace SlopWorld
                     BaseRevision = _basePreview.Commit,
                     WorktreeName = _worktreeName,
                 },
-                _name.Trim(),
-                _plannerId
+                _name.Trim()
             );
         }
     }

@@ -117,7 +117,7 @@ namespace SlopWorld
             _transport.Update();
             ShowLandlockWarning();
             // TaskStore also retains demand from open task readers, independently of the sidebar.
-            _tasks.Update(Sidebar.TasksVisible);
+            _tasks.Update(false);
             PerfTraceReport.Report();
         }
 
@@ -232,8 +232,7 @@ namespace SlopWorld
             Action<WorkerSpawnResult> started,
             Action<string> fail,
             WorkerWorktreeOptions worktree = null,
-            string name = null,
-            string plannerId = null
+            string name = null
         )
         {
             var request = new Wire.SpawnWorkerReq
@@ -243,7 +242,6 @@ namespace SlopWorld
                 Template = template ?? "",
                 Body = body ?? "",
                 Durable = durable,
-                PlannerId = plannerId ?? "",
             };
             (worktree ?? new WorkerWorktreeOptions()).ApplyTo(request);
             DaemonClient.Send<Wire.WorkerResult>(

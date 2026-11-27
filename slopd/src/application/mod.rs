@@ -30,8 +30,8 @@ mod music;
 pub(crate) mod projects;
 pub(crate) mod stored_state;
 pub(crate) use library::{LibraryCatalog, LibraryMutation, LibraryRuntime};
+pub(crate) mod boards;
 mod maintenance;
-pub(crate) mod planner;
 pub(crate) mod startup;
 mod task_summaries;
 pub(crate) mod timers;
@@ -44,7 +44,7 @@ use tokio::sync::{RwLock, broadcast};
 
 pub(crate) struct Services {
     tasks: TaskStore,
-    pub(crate) planner: planner::Store,
+    pub(crate) boards: boards::Store,
     pub(crate) timers: timers::Timers,
     pub(crate) title_cache: Arc<crate::title::SummaryCache>,
     pub(crate) catalogs: catalogs::CatalogState,
@@ -72,14 +72,13 @@ impl Services {
         let cache = Arc::new(crate::title::SummaryCache::load(crate::title::cache_path(
             &config.join("config.toml"),
         )));
-        let mut services = Self::new(tasks, cache, tmux, 256, templates);
-        services.planner = planner::Store::new(data.join("TODO.txt"));
-        services.timers = timers::Timers::new(data.join("timer-state.json"));
+        let mut services = Self::new(data, tasks, cache, tmux, 256, templates);
         services.catalogs = catalogs::CatalogState::load();
         Ok(Arc::new(services))
     }
 
     pub(crate) fn new(
+        data: &std::path::Path,
         tasks: TaskStore,
         title_cache: Arc<crate::title::SummaryCache>,
         tmux: crate::tmux::Tmux,
@@ -90,8 +89,8 @@ impl Services {
         Self {
             tasks,
             title_cache,
-            planner: planner::Store::new(crate::paths::data_root().join("TODO.txt")),
-            timers: timers::Timers::new(crate::paths::data_root().join("timer-state.json")),
+            boards: boards::Store::new(data.join("boards.sqlite3")),
+            timers: timers::Timers::new(data.join("timer-state.json")),
             catalogs: catalogs::CatalogState::new(None, None),
             library: LibraryCatalog::default(),
             templates,

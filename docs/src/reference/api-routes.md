@@ -14,6 +14,8 @@ session creation requires root. See [Authorization](api.md#authorization).
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/audio` | `root-only` | `Empty` | `AudioState` |
 | `GET` | `/api/audio/outputs` | `root-only` | `Empty` | `AudioOutputs` |
+| `GET` | `/api/boards` | `scoped` | `Empty` | `BoardCatalog` |
+| `POST` | `/api/boards` | `scoped` | `BoardEdit` | `BoardCatalog` |
 | `GET` | `/api/capabilities` | `root-only` | `Empty` | `Capabilities` |
 | `GET` | `/api/health` | `scoped` | `Empty` | `Health` |
 | `GET` | `/api/jukebox` | `root-only` | `Empty` | `JukeboxCatalog` |
@@ -22,11 +24,6 @@ session creation requires root. See [Authorization](api.md#authorization).
 | `DELETE` | `/api/jukebox/presets/:id` | `root-only` | `Empty` | `Ack` |
 | `PUT` | `/api/jukebox/presets/:id` | `root-only` | `Station` | `Ack` |
 | `POST` | `/api/ncspot` | `root-only` | `RedrawReq` | `SessionResult` |
-| `GET` | `/api/planner` | `root-only` | `Empty` | `PlannerDocument` |
-| `PUT` | `/api/planner` | `root-only` | `PlannerSaveReq` | `PlannerDocument` |
-| `GET` | `/api/planner/items/:id/description` | `root-only` | `Empty` | `PlannerDescription` |
-| `PUT` | `/api/planner/items/:id/description` | `root-only` | `PlannerSaveReq` | `PlannerDescription` |
-| `PUT` | `/api/planner/items/:id/links` | `root-only` | `PlannerLinksReq` | `PlannerDocument` |
 | `POST` | `/api/timers/:name/run` | `root-only` | `Empty` | `Ack` |
 | `POST` | `/api/timers/preview` | `root-only` | `TimerConfig` | `TimerPreview` |
 | `GET` | `/api/usage` | `root-only` | `Empty` | `UsageSnapshot` |

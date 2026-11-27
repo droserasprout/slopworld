@@ -2,8 +2,8 @@
 //! Command and log modules own reusable argument schemas and execution.
 
 use super::commands::{
-    AgentAction, ConfigArgs, InboxFilter, ProjectArgs, RemoteCommand, SpawnArgs, UpdateAction,
-    WorktreeArgs,
+    AgentAction, BoardArgs, ConfigArgs, InboxFilter, ProjectArgs, RemoteCommand, SpawnArgs,
+    UpdateAction, WorktreeArgs,
 };
 use super::logs::{LogsArgs, LogsOptions};
 use super::shared::application_paths::{self, Mode};
@@ -57,6 +57,9 @@ enum CliCommand {
     /// Inspect configured projects (requires the root token)
     #[command(subcommand)]
     Project(ProjectArgs),
+    /// Collaborate on Root, project, and archived boards
+    #[command(subcommand)]
+    Board(BoardArgs),
     /// Discover and inspect agent templates
     #[command(subcommand)]
     Template(TemplateCommand),
@@ -338,6 +341,7 @@ impl CliCommand {
             }),
             Self::Agent(AgentCommand::Action(action)) => RemoteCommand::AgentAction(action),
             Self::Project(args) => RemoteCommand::Project(args),
+            Self::Board(args) => RemoteCommand::Board(args),
             Self::Agent(AgentCommand::Create {
                 name,
                 template,

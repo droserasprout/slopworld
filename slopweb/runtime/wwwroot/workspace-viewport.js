@@ -18,7 +18,7 @@ export function workspaceViewport(parameters, view = globalThis) {
     const uiScale = Math.max(.5, Math.min(4, density));
     return {
       width: Math.max(320, Math.min(7680, Math.round(view.innerWidth * uiScale))),
-      height: Math.max(200, Math.min(4320, Math.round(view.innerHeight * uiScale))),
+      height: Math.max(200, Math.min(4320, Math.round((view.visualViewport?.height ?? view.innerHeight) * uiScale))),
       uiScale,
     };
   }

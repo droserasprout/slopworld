@@ -12,9 +12,7 @@ any registered project and template. Scoped callers stay in their own project an
 use templates allowed by their agent policy. Host terminals cannot own workers. See
 [templates](daemon-agent-templates.md) and [grants](agent-grants.md).
 
-A root spawn with a Planner item ID saves its Task and Worker links before
-registration. If saving fails, the Task fails and startup is withheld. Planner owns
-link storage and removal.
+Board assignments and worker links are independent of spawning.
 
 ## Startup and recovery
 

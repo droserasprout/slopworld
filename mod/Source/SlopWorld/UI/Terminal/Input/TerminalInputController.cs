@@ -138,7 +138,8 @@ namespace SlopWorld
             {
                 if (_panel.Content == null && HandleEscapeKey(e))
                     return;
-                _panel.Leave();
+                if (!(_panel.Content is BoardView board && board.Back()))
+                    _panel.Leave();
                 e.Use();
                 return;
             }
@@ -178,7 +179,6 @@ namespace SlopWorld
                 || Bound(ModDefOf.SlopSidebarFiles, e)
                 || Bound(ModDefOf.SlopSidebarGit, e)
                 || Bound(ModDefOf.SlopSidebarSearch, e)
-                || Bound(ModDefOf.SlopSidebarTasks, e)
                 || Bound(ModDefOf.SlopSidebarLibrary, e)
                 || Bound(ModDefOf.SlopToggleOpenFiles, e)
                 || Bound(ModDefOf.SlopTogglePlanner, e)
@@ -207,8 +207,6 @@ namespace SlopWorld
                 return true;
             if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e))
                 return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e))
-                return true;
             if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e))
                 return true;
             if (Bound(ModDefOf.SlopToggleOpenFiles, e))
@@ -220,7 +218,7 @@ namespace SlopWorld
             if (Bound(ModDefOf.SlopTogglePlanner, e))
             {
                 UiMenu.CloseAll();
-                PlannerView.Toggle();
+                BoardView.Toggle();
                 return true;
             }
             if (Bound(ModDefOf.SlopQuickTerminal, e))

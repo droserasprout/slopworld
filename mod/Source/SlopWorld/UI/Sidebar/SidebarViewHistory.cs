@@ -76,7 +76,7 @@ namespace SlopWorld
             new SidebarViewLocation(SidebarTab.Git, SidebarViewLocationKind.Git, project, path, 0);
 
         public static SidebarViewLocation Task(string id) =>
-            new SidebarViewLocation(SidebarTab.Tasks, SidebarViewLocationKind.Task, id, null, 0);
+            new SidebarViewLocation(SidebarTab.Agents, SidebarViewLocationKind.Task, id, null, 0);
 
         public static SidebarViewLocation Library(string name, bool template = false) =>
             new SidebarViewLocation(

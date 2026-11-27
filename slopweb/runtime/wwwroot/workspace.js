@@ -15,7 +15,7 @@ import { WorkspaceScheduler } from './workspace-scheduler.js';
 
 export function startWorkspace(managed, canvas, initialTime = 0) {
   canvas.tabIndex = 0;
-  canvas.style.cssText = `display:block;width:100%;max-width:${canvas.width}px;outline:none`;
+  canvas.style.cssText = `display:block;touch-action:none;width:100%;max-width:${canvas.width}px;outline:none`;
   document.body.prepend(canvas);
   const started = performance.now();
   const backgroundAbort = new AbortController();
@@ -39,6 +39,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   const resize = () => {
     if (!parameters.has('responsive')) return;
     const viewport = workspaceViewport(parameters);
+    document.body.style.setProperty('--workspace-height', (viewport.height / viewport.uiScale) + 'px');
     if (canvas.width === viewport.width && canvas.height === viewport.height && scale === viewport.uiScale) return;
     managed.ConfigureWorkspaceViewport(viewport.width, viewport.height, viewport.uiScale);
     canvas.width = viewport.width; canvas.height = viewport.height; scale = viewport.uiScale;
@@ -59,6 +60,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
     // Clipboard activation flushes synchronously on pointer/key events too.
     // Native capture must see the matching physical button state in that frame.
     beforeFrame: () => device.frame(),
+    touchKeyboard: () => managed.WorkspaceTouchKeyboard(),
     activationKey: key => managed.WorkspaceFullscreenKey(key),
     get allowFrameReuse() { return reuseCanvas && !managed.WorkspaceBackgroundVisible(); },
     drawBackground(context) {
@@ -86,6 +88,7 @@ export function startWorkspace(managed, canvas, initialTime = 0) {
   for(const event of ['input','compositionstart','compositionupdate','keydown','keyup','pointerdown','pointerup','pointermove','pointercancel','wheel','paste','copy','compositionend','blur'])
     target.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});
   for(const event of ['resize','focus','blur'])window.addEventListener(event,()=>scheduler.wake(true),{signal:activity.signal});
+  window.visualViewport?.addEventListener('resize',()=>scheduler.wake(true),{signal:activity.signal});
   document.addEventListener('visibilitychange',()=>scheduler.wake(true),{signal:activity.signal});
   managed.WorkspaceWake(()=>scheduler.wake());
   const state = { status: 'starting', frames: 0, source: 'SlopWorld WindowStack' };

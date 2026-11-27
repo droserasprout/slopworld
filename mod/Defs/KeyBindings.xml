@@ -138,7 +138,7 @@
 
   <KeyBindingDef>
     <defName>SlopTogglePlanner</defName>
-    <label>Open/close planner</label>
+    <label>Open/close board</label>
     <category>SlopInterface</category>
     <defaultKeyCodeA>F10</defaultKeyCodeA>
   </KeyBindingDef>
@@ -179,13 +179,6 @@
     <label>Sidebar: search view</label>
     <category>SlopNavigation</category>
     <defaultKeyCodeA>F4</defaultKeyCodeA>
-  </KeyBindingDef>
-
-  <KeyBindingDef>
-    <defName>SlopSidebarTasks</defName>
-    <label>Sidebar: tasks view</label>
-    <category>SlopNavigation</category>
-    <defaultKeyCodeA>F5</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>

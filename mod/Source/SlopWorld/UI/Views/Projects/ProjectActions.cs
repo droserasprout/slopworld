@@ -14,7 +14,7 @@ namespace SlopWorld
 
         public static Verse.Window RemoveProject(string name) =>
             ConfirmDialog.Create(
-                $"Remove project '{name}'? This keeps the directory. It removes only the entry in config.toml.",
+                $"Remove project '{name}'? Its board will be archived with its cards. The working directory is kept.",
                 () => SessionHub.Instance.Catalog.RemoveProject(name, UiLayout.Fail),
                 destructive: true
             );

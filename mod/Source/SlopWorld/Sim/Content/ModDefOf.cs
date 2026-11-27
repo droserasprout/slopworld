@@ -46,7 +46,7 @@ namespace SlopWorld
         /// F9: show or hide open files independently of the selected sidebar tab.
         public static KeyBindingDef SlopToggleOpenFiles;
 
-        /// F10: opens and closes the planner.
+        /// F10: opens and closes the board.
         public static KeyBindingDef SlopTogglePlanner;
 
         /// Toggles the window-manager fullscreen state.
@@ -68,8 +68,6 @@ namespace SlopWorld
         public static KeyBindingDef SlopSidebarSearch;
 
         /// F5: focus the tasks view in the sidebar.
-        public static KeyBindingDef SlopSidebarTasks;
-
         /// F6: focus the Library view in the sidebar.
         public static KeyBindingDef SlopSidebarLibrary;
 

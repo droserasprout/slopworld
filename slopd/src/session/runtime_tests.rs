@@ -42,7 +42,8 @@ pub(crate) fn test_manager_with_socket(
         config,
         crate::credentials::CredentialStore::default(),
     ));
-    let mut application = crate::application::Services::new(
+    let application = crate::application::Services::new(
+        &directory,
         crate::tasks::io::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),
@@ -56,9 +57,6 @@ pub(crate) fn test_manager_with_socket(
             directory.join("agent_templates"),
         ),
     );
-    application.planner = crate::application::planner::Store::new(directory.join("TODO.txt"));
-    application.timers =
-        crate::application::timers::Timers::new(directory.join("timer-state.json"));
     let application = Arc::new(application);
     let services = application.session_services();
     let storage = workspace.session_storage();

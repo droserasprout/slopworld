@@ -24,7 +24,7 @@ namespace SlopWorld
             public Action<string> Fail;
         }
 
-        public static string BaseUrl = "http://planner-test";
+        public static string BaseUrl = "http://daemon-test";
 
         public static readonly List<Request> Requests = new List<Request>();
 

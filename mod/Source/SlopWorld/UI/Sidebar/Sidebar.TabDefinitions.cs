@@ -75,17 +75,6 @@ namespace SlopWorld
                     definition.Close = SearchView.Closed;
                     definition.Entered = SearchView.Entered;
                     break;
-                case SidebarTab.Tasks:
-                    definition.Draw = () => TasksView.Draw(Body);
-                    definition.Click = TasksView.Clicks;
-                    definition.DrawActions = DrawTasksActions;
-                    definition.Refresh = () =>
-                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
-                    definition.Entered = () =>
-                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
-                    definition.Reselected = () =>
-                        SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail);
-                    break;
                 case SidebarTab.Library:
                     definition.Draw = () => LibraryView.Draw(Body);
                     definition.Click = LibraryView.Clicks;
@@ -241,32 +230,6 @@ namespace SlopWorld
                 resetFilter: LibraryView.ResetProjectFilter
             );
             r.x -= TabIcon + TabGap;
-        }
-
-        static void DrawTasksActions(SidebarTabActionContext context)
-        {
-            var r = ActionRect(context);
-            Tab(
-                r,
-                Icons.Refresh,
-                false,
-                "Refresh the task list.",
-                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
-                onPress: false
-            );
-            r.x -= TabIcon + TabGap;
-            var anchor = UiSelector.ScreenBox(TabHitRect(r));
-            Tab(
-                r,
-                Icons.Filter,
-                TasksView.Filtering,
-                TasksView.Filtering
-                    ? "Task filters are active. Click to change the filters."
-                    : "Showing all tasks. Click to filter by status, direction, or agent.",
-                () => TasksView.OpenFilterMenu(anchor),
-                filter: true,
-                resetFilter: TasksView.ResetFilters
-            );
         }
 
         static void DrawFoldAction(ref Rect r)

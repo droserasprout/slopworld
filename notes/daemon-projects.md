@@ -10,7 +10,7 @@ Temporary mode is fixed at creation. Rename updates saved agent, host-shell, and
 library references in one transaction, checking library revisions before record writes.
 Captured definitions and mount shortcuts hold copied values, not project references.
 Removal is blocked while any saved reference or [worktree record](daemon-worktrees.md)
-remains, including stopped sessions.
+remains, including stopped sessions. Successful removal archives the [project board](project-boards.md).
 
 Configured temporary projects persist until removed. Library errands use in-memory
 project records discarded with the session. Their directories follow the host's `/tmp`

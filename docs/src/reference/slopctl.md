@@ -113,6 +113,10 @@ slopctl task progress --id ID -- --help is now working
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
 Stdout (including `--json`) contains only the final task result.
 
+## Board
+
+Use `slopctl board list` for board IDs and `slopctl board show BOARD` for ordered columns and card IDs. Show defaults to Root. Use `slopctl board --help` for all mutations. In `move-card BOARD COLUMN CARD --before OTHER_CARD`, the board and column are the destination. Omit `--before` to append. See [Board](../workspace/board.md) for a collaboration example.
+
 ## Projects
 
 With the root token, use `slopctl project list` to print one configured project name

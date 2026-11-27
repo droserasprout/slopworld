@@ -51,6 +51,7 @@ export function attachInput(canvas, managed, browserClipboard = false) {
         enqueue({ kind: event.repeat ? 'repeat' : 'key', key, down: type === 'keydown' });
     });
     for (const type of ['pointerdown', 'pointerup', 'pointermove']) listen(canvas, type, event => {
+        if (event.isPrimary === false) return;
         const action = pointerAction(event);
         if (!action) return;
         if (action.kind === 'move' || action.kind === 'drag') {
@@ -58,7 +59,8 @@ export function attachInput(canvas, managed, browserClipboard = false) {
             return;
         }
         if (type === 'pointerdown') {
-            proxy ? proxy.focus(event) : canvas.focus();
+            if (!proxy) canvas.focus();
+            else if (event.pointerType !== 'touch') proxy.focus(event);
             if (event.isTrusted) canvas.setPointerCapture(event.pointerId);
         }
         if (!(browserClipboard && event.button === 1)) event.preventDefault();
