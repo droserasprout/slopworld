@@ -60,24 +60,30 @@ namespace SlopWorld
                     .ToArray(),
                 out _
             );
-            l.Label("Visible boards");
-            value.OwnProjectBoard = UiControls.Checkbox(
-                l,
-                "Agent’s project",
-                !value.HasOwnProjectBoard || value.OwnProjectBoard
-            );
+            bool own = !value.HasOwnProjectBoard || value.OwnProjectBoard;
+            var options = new List<(string Label, bool Enabled, Action Toggle)>
+            {
+                ("Agent’s project", own, () => value.OwnProjectBoard = !own),
+            };
             var shown = new HashSet<string>();
             void Board(string id, string label)
             {
                 if (string.IsNullOrEmpty(id) || !shown.Add(id))
                     return;
                 bool current = value.VisibleBoards.Contains(id);
-                if (UiControls.Checkbox(l, label, current) == current)
-                    return;
-                if (current)
-                    value.VisibleBoards.Remove(id);
-                else
-                    value.VisibleBoards.Add(id);
+                options.Add(
+                    (
+                        label,
+                        current,
+                        () =>
+                        {
+                            if (current)
+                                value.VisibleBoards.Remove(id);
+                            else
+                                value.VisibleBoards.Add(id);
+                        }
+                    )
+                );
             }
             Board("root", "Root");
             if (catalog != null)
@@ -90,8 +96,16 @@ namespace SlopWorld
                 foreach (var project in SessionHub.Instance.Projects)
                     Board(project.Id, project.Name);
             }
-            foreach (var id in value.VisibleBoards.ToArray())
+            foreach (var id in value.VisibleBoards)
                 Board(id, id);
+            var selectedBoards = options.Where(o => o.Enabled).Select(o => o.Label);
+            UiControls.Select(
+                l,
+                "Visible boards",
+                string.Join(", ", selectedBoards.DefaultIfEmpty("None")),
+                options.Select(o => UiLayout.MenuToggle(o.Label, o.Enabled, o.Toggle)),
+                out _
+            );
         }
 
         static void Scope(Listing_Standard l, string label, string value, Action<string> set)
