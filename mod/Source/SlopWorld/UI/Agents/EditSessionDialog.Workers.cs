@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
@@ -30,36 +32,42 @@ namespace SlopWorld
             var policy = _s.Workers;
             policy.Enabled = UiControls.Checkbox(l, "Allow spawning workers", policy.Enabled);
             UiLayout.Note(l, "Applies to new workers. Edit existing workers separately.");
-            UiLayout.SectionHeading(l, "Templates");
             var allowed = SessionHub.Instance.Templates.Select(t => t.Name).ToList();
-            policy.AllTemplates = UiControls.Checkbox(
-                l,
-                "All templates",
-                policy.AllTemplates,
-                locked: !policy.Enabled
-            );
+            var choices = new List<(string Label, Func<bool> Selected, Action Toggle)>
+            {
+                (
+                    "All templates",
+                    () => policy.AllTemplates,
+                    () => policy.AllTemplates = !policy.AllTemplates
+                ),
+            };
             foreach (var template in SessionHub.Instance.Templates)
             {
-                bool selected = policy.AllTemplates || policy.Templates.Contains(template.Name);
-                bool next = UiControls.Checkbox(
-                    l,
-                    template.DisplayLabel,
-                    selected,
-                    locked: !policy.Enabled
+                choices.Add(
+                    (
+                        template.DisplayLabel,
+                        () => policy.AllTemplates || policy.Templates.Contains(template.Name),
+                        () =>
+                        {
+                            if (policy.AllTemplates)
+                            {
+                                policy.AllTemplates = false;
+                                policy.Templates.Clear();
+                                policy.Templates.Add(allowed);
+                            }
+                            if (!policy.Templates.Remove(template.Name))
+                                policy.Templates.Add(template.Name);
+                        }
+                    )
                 );
-                if (next == selected)
-                    continue;
-                if (policy.AllTemplates)
-                {
-                    policy.AllTemplates = false;
-                    policy.Templates.Clear();
-                    policy.Templates.Add(allowed);
-                }
-                if (next)
-                    policy.Templates.Add(template.Name);
-                else
-                    policy.Templates.Remove(template.Name);
             }
+            UiSelector.MultiSelectRow(
+                l,
+                "Available templates",
+                choices,
+                policy.Enabled,
+                policy.AllTemplates ? "All templates" : null
+            );
             if (allowed.Count == 0)
                 UiLayout.Note(l, "No templates. Create one in Library.");
             UiLayout.SectionHeading(l, "Advanced");

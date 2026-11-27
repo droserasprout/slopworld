@@ -60,24 +60,24 @@ namespace SlopWorld
                     .ToArray(),
                 out _
             );
-            bool own = !value.HasOwnProjectBoard || value.OwnProjectBoard;
-            var options = new List<(string Label, bool Enabled, Action Toggle)>
+            bool Own() => !value.HasOwnProjectBoard || value.OwnProjectBoard;
+            var options = new List<(string Label, Func<bool> Selected, Action Toggle)>
             {
-                ("Agent’s project", own, () => value.OwnProjectBoard = !own),
+                ("Agent’s project", Own, () => value.OwnProjectBoard = !Own()),
             };
             var shown = new HashSet<string>();
             void Board(string id, string label)
             {
                 if (string.IsNullOrEmpty(id) || !shown.Add(id))
                     return;
-                bool current = value.VisibleBoards.Contains(id);
+                bool Current() => value.VisibleBoards.Contains(id);
                 options.Add(
                     (
                         label,
-                        current,
+                        Current,
                         () =>
                         {
-                            if (current)
+                            if (Current())
                                 value.VisibleBoards.Remove(id);
                             else
                                 value.VisibleBoards.Add(id);
@@ -92,14 +92,7 @@ namespace SlopWorld
             }
             foreach (var id in value.VisibleBoards)
                 Board(id, id);
-            var selectedBoards = options.Where(o => o.Enabled).Select(o => o.Label);
-            UiControls.Select(
-                l,
-                "Visible boards",
-                string.Join(", ", selectedBoards.DefaultIfEmpty("None")),
-                options.Select(o => UiLayout.MenuToggle(o.Label, o.Enabled, o.Toggle)),
-                out _
-            );
+            UiSelector.MultiSelectRow(l, "Visible boards", options);
         }
 
         static void Scope(Listing_Standard l, string label, string value, Action<string> set)
