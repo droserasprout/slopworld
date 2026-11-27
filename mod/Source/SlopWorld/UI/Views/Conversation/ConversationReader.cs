@@ -65,7 +65,9 @@ namespace SlopWorld
             IEnumerable<(string Body, string Sender, long Time, string Status)> entries,
             string heading = null,
             Action<int> remove = null,
-            Func<int, bool> canRemove = null
+            Func<int, bool> canRemove = null,
+            Action<int> edit = null,
+            Func<int, bool> canEdit = null
         )
         {
             if (outer.height <= 0 || outer.width <= 0)
@@ -75,7 +77,8 @@ namespace SlopWorld
             else if (Event.current.rawType == EventType.MouseDown)
                 _inputFocus = outer.Contains(Event.current.mousePosition);
             float width = Mathf.Max(1f, outer.width - UiTheme.ScrollbarW);
-            float messageWidth = remove == null ? width : Mathf.Max(1, width - 24);
+            float messageWidth =
+                remove == null ? width : Mathf.Max(1, width - (edit == null ? 24 : 60));
             EnsureLayout(messageWidth, source, entries, heading != null);
             float contentH = _contentHeight;
 
@@ -105,6 +108,12 @@ namespace SlopWorld
                         message.TimestampBelow,
                         width
                     );
+                    if (edit != null && canEdit(i))
+                    {
+                        var button = new Rect(width - 60, message.Y + 2, 34, 22);
+                        if (UiControls.Button(button, "Edit"))
+                            edit(i);
+                    }
                     if (remove != null && (canRemove == null || canRemove(i)))
                     {
                         var cross = new Rect(width - 24, message.Y + 2, 22, 22);

@@ -14,6 +14,8 @@ namespace SlopWorld
             LinkTarget = "";
         internal bool AddingLink;
         internal BrowseScope SelectedWorktree;
+        internal long EditingComment;
+        internal string CommentRevision = "";
 
         internal IEnumerable<TaskInfo> LinkedTasks(IEnumerable<TaskInfo> visibleTasks) =>
             Card
@@ -40,6 +42,8 @@ namespace SlopWorld
             if (changed)
             {
                 Comment = LinkTarget = "";
+                EditingComment = 0;
+                CommentRevision = "";
                 SelectedWorktree = null;
                 AddingLink = false;
                 LinkKind = "worktree";
@@ -49,6 +53,8 @@ namespace SlopWorld
             {
                 Description = card?.Description ?? "";
             }
+            if (EditingComment != 0 && !card.Comments.Any(entry => entry.Id == EditingComment))
+                EditingComment = 0;
             Card = card;
         }
 

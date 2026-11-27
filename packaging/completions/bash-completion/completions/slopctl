@@ -121,6 +121,9 @@ _slopctl() {
             slopctl__subcmd__board,describe)
                 cmd="slopctl__subcmd__board__subcmd__describe"
                 ;;
+            slopctl__subcmd__board,edit-comment)
+                cmd="slopctl__subcmd__board__subcmd__edit__subcmd__comment"
+                ;;
             slopctl__subcmd__board,help)
                 cmd="slopctl__subcmd__board__subcmd__help"
                 ;;
@@ -183,6 +186,9 @@ _slopctl() {
                 ;;
             slopctl__subcmd__board__subcmd__help,describe)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__describe"
+                ;;
+            slopctl__subcmd__board__subcmd__help,edit-comment)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__edit__subcmd__comment"
                 ;;
             slopctl__subcmd__board__subcmd__help,help)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__help"
@@ -327,6 +333,9 @@ _slopctl() {
                 ;;
             slopctl__subcmd__help__subcmd__board,describe)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__describe"
+                ;;
+            slopctl__subcmd__help__subcmd__board,edit-comment)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__edit__subcmd__comment"
                 ;;
             slopctl__subcmd__help__subcmd__board,link)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__link"
@@ -881,7 +890,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__board)
-            opts="-h --json --sidecar --endpoint --help list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            opts="-h --json --sidecar --endpoint --help list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1014,8 +1023,26 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board__subcmd__edit__subcmd__comment)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__board__subcmd__help)
-            opts="list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            opts="list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1099,6 +1126,20 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__board__subcmd__help__subcmd__describe)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__edit__subcmd__comment)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1823,7 +1864,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__board)
-            opts="list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive"
+            opts="list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1907,6 +1948,20 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__board__subcmd__describe)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__edit__subcmd__comment)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

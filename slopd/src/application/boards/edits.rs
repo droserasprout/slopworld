@@ -183,6 +183,16 @@ fn edit_card(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
                 params![e.text.trim(), e.card],
             )?;
         }
+        "edit-comment" => {
+            required(&e.text, "comment")?;
+            ensure!(
+                tx.execute(
+                    "UPDATE comments SET text=? WHERE card=? AND sequence=?",
+                    params![e.text, e.card, e.entry_id],
+                )? == 1,
+                "comment no longer exists"
+            );
+        }
         "remove-comment" | "remove-activity" => {
             let table = if e.action == "remove-comment" {
                 "comments"

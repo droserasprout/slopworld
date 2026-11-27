@@ -345,6 +345,19 @@ _arguments "${_arguments_options[@]}" : \
 ':prefix:_default' \
 && ret=0
 ;;
+(edit-comment)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
+':text:_default' \
+&& ret=0
+;;
 (remove-comment)
 _arguments "${_arguments_options[@]}" : \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
@@ -570,6 +583,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (set-prefix)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit-comment)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -1336,6 +1353,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(edit-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (remove-comment)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -1719,6 +1740,7 @@ _slopctl__subcmd__board_commands() {
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
 'set-prefix:' \
+'edit-comment:' \
 'remove-comment:' \
 'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
@@ -1770,12 +1792,18 @@ _slopctl__subcmd__board__subcmd__describe_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board describe commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board edit-comment commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__board__subcmd__help_commands] )) ||
 _slopctl__subcmd__board__subcmd__help_commands() {
     local commands; commands=(
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
 'set-prefix:' \
+'edit-comment:' \
 'remove-comment:' \
 'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
@@ -1826,6 +1854,11 @@ _slopctl__subcmd__board__subcmd__help__subcmd__delete-archive_commands() {
 _slopctl__subcmd__board__subcmd__help__subcmd__describe_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board help describe commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help edit-comment commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__help_commands] )) ||
 _slopctl__subcmd__board__subcmd__help__subcmd__help_commands() {
@@ -2089,6 +2122,7 @@ _slopctl__subcmd__help__subcmd__board_commands() {
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
 'set-prefix:' \
+'edit-comment:' \
 'remove-comment:' \
 'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
@@ -2138,6 +2172,11 @@ _slopctl__subcmd__help__subcmd__board__subcmd__delete-archive_commands() {
 _slopctl__subcmd__help__subcmd__board__subcmd__describe_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help board describe commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board edit-comment commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__link_commands] )) ||
 _slopctl__subcmd__help__subcmd__board__subcmd__link_commands() {

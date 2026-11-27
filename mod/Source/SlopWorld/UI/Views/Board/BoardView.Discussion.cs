@@ -44,33 +44,49 @@ namespace SlopWorld
                 var row = new Rect(area.x, area.y, area.width, 32);
                 area.yMin += 36;
                 var box = row;
-                box.width -= 58;
+                long entryId = _editor.EditingComment;
+                bool editing = entryId != 0;
+                box.width -= editing ? 86 : 58;
                 string name = "board.comment." + card.Id;
                 bool enter = SubmitField(name);
-                _editor.Comment = UiText.FieldWithPlaceholder(
+                var draft = UiText.FieldWithPlaceholder(
                     TextBox(box),
                     name,
-                    _editor.Comment,
+                    editing ? _editor.CommentRevision : _editor.Comment,
                     "Write a comment…"
                 );
-                bool ready = editable && _editor.Comment.Trim().Length > 0;
+                if (editing)
+                    _editor.CommentRevision = draft;
+                else
+                    _editor.Comment = draft;
+                bool ready = editable && draft.Trim().Length > 0;
                 if (
                     (
-                        UiControls.Button(new Rect(box.xMax + 4, row.y, 54, 32), "Post", on: ready)
-                        || enter
+                        UiControls.Button(
+                            new Rect(box.xMax + 4, row.y, 54, 32),
+                            editing ? "Save" : "Post",
+                            on: ready
+                        ) || enter
                     ) && ready
                 )
                 {
-                    string sent = _editor.Comment;
+                    var edit = CardEdit(board, card, editing ? "edit-comment" : "comment", draft);
+                    edit.EntryId = entryId;
                     Save(
-                        CardEdit(board, card, "comment", sent),
+                        edit,
                         () =>
                         {
-                            if (_editor.Card?.Id == card.Id && _editor.Comment == sent)
+                            if (_editor.Card?.Id != card.Id || _editor.EditingComment != entryId)
+                                return;
+                            if (editing && _editor.CommentRevision == draft)
+                                _editor.EditingComment = 0;
+                            else if (!editing && _editor.Comment == draft)
                                 _editor.Comment = "";
                         }
                     );
                 }
+                if (editing && UiControls.Button(new Rect(row.xMax - 24, row.y, 24, 32), "×"))
+                    _editor.EditingComment = 0;
             }
             var dismissed = Verse.Current.Game?.GetComponent<TaskFeedDismissals>();
             var mailbox = SessionHub.Instance.Tasks;
@@ -127,7 +143,15 @@ namespace SlopWorld
                         }
                         : (System.Action<int>)null,
                     canRemove: i =>
-                        _items[i].Entry != null ? CanAdmin && editable : dismissed != null
+                        _items[i].Entry != null ? CanAdmin && editable : dismissed != null,
+                    edit: CanAdmin && editable
+                        ? i =>
+                        {
+                            _editor.EditingComment = _items[i].Entry.Id;
+                            _editor.CommentRevision = _items[i].Entry.Text;
+                        }
+                        : (System.Action<int>)null,
+                    canEdit: i => _items[i].Entry != null && !_items[i].Activity
                 );
         }
     }

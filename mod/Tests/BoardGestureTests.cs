@@ -191,6 +191,9 @@ namespace SlopWorld.Tests
             selection.Title = "draft title";
             selection.Description = "draft description";
             selection.Comment = "draft comment";
+            card.Comments.Add(new Wire.BoardComment { Id = 7, Text = "original" });
+            selection.EditingComment = 7;
+            selection.CommentRevision = "revised";
             var destination = source.Columns[1];
             destination.Cards.Add(card.Clone());
             destination.Cards[0].Assignee = "agent";
@@ -200,6 +203,12 @@ namespace SlopWorld.Tests
             Assert.That(selection.Title, Is.EqualTo("draft title"));
             Assert.That(selection.Card.Assignee, Is.EqualTo("agent"));
             Assert.That(selection.Description, Is.EqualTo("draft description"));
+            Assert.That(selection.Comment, Is.EqualTo("draft comment"));
+            Assert.That(selection.EditingComment, Is.EqualTo(7));
+            Assert.That(selection.CommentRevision, Is.EqualTo("revised"));
+            destination.Cards[0].Comments.Clear();
+            selection.Refresh(next);
+            Assert.That(selection.EditingComment, Is.Zero);
             Assert.That(selection.Comment, Is.EqualTo("draft comment"));
             destination.Cards.Clear();
             Assert.That(selection.Refresh(next), Is.Null);

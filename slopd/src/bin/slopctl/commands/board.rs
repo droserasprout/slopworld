@@ -20,6 +20,12 @@ pub(crate) enum BoardArgs {
         board: String,
         prefix: String,
     },
+    EditComment {
+        board: String,
+        card: String,
+        entry: i64,
+        text: String,
+    },
     RemoveComment {
         board: String,
         card: String,
@@ -126,6 +132,14 @@ pub(super) fn run(endpoint: &Endpoint, session: &str, args: BoardArgs) -> Result
             return show(&catalog, args);
         }
         SetPrefix { board, prefix } => json!({"action":"set-prefix","board":board,"text":prefix}),
+        EditComment {
+            board,
+            card,
+            entry,
+            text,
+        } => {
+            json!({"action":"edit-comment","board":board,"card":card,"entry_id":entry,"text":text})
+        }
         RemoveComment { board, card, entry } => {
             json!({"action":"remove-comment","board":board,"card":card,"text":entry.to_string()})
         }

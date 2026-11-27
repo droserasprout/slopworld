@@ -186,6 +186,8 @@ namespace SlopWorld
         {
             if (!value.CanWrite || (_catalog?.CanAdmin == true && !value.CanAdmin))
                 _inlineEdit = null;
+            if (!value.CanAdmin)
+                _editor.EditingComment = 0;
             _catalog = value;
             if (!_gesture.Valid(VisibleBoard(Board)) || (_gesture.Dragging && !Writable(Board)))
             {

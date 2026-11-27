@@ -134,6 +134,22 @@ async fn agent_and_human_observe_one_ordered_card_with_its_discussion() {
         StatusCode::CONFLICT
     );
     assert_eq!(call(&app, &Cap::Root, None).await, committed);
+    let original = &card["comments"][0];
+    let mut revision = edit("edit-comment");
+    revision["card"] = id.clone();
+    revision["entry_id"] = original["id"].clone();
+    revision["text"] = json!("Reviewed");
+    assert_eq!(
+        response(&app, &agent, Some(revision.clone())).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let revised = call(&app, &Cap::Root, Some(revision)).await;
+    let mut expected = original.clone();
+    expected["text"] = json!("Reviewed");
+    assert_eq!(
+        revised["boards"][1]["columns"][0]["cards"][0]["comments"],
+        json!([expected])
+    );
     let mut repeated = edit("title");
     repeated["card"] = card["key"].clone();
     repeated["text"] = json!("Updated");
