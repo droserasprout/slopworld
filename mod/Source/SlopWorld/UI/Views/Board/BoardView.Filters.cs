@@ -77,7 +77,7 @@ namespace SlopWorld
             _search = search;
             _assigneeFilter = assignee;
             _filterSource = null;
-            _adding = null;
+            _inlineEdit = null;
             _gesture.Cancel();
             _viewport.Reset();
         }
@@ -103,7 +103,11 @@ namespace SlopWorld
                     column.Cards.Where(card =>
                         (_assigneeFilter == null || card.Assignee == _assigneeFilter)
                         && (
-                            card.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            card.Key.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            || card.PreviousKeys.Any(key =>
+                                key.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            )
+                            || card.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
                             || card.Description.Contains(query, StringComparison.OrdinalIgnoreCase)
                         )
                     )

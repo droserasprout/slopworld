@@ -1,17 +1,39 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SlopWorld
 {
-    // Card identity owns the editor across polling and moves, including moves out
-    // of the displayed board. Untouched descriptions follow the shared snapshot.
+    // Card identity owns the editor across polling and column moves. Untouched descriptions follow the shared snapshot.
     internal sealed class BoardSelection
     {
+        internal string Tab = "Discussion";
         internal Wire.BoardCard Card { get; private set; }
         internal string Comment = "",
             Title = "",
             Description = "",
             LinkKind = "worktree",
-            LinkTarget = "";
+            LinkTarget = "",
+            TaskTarget = "";
+
+        internal IEnumerable<TaskInfo> LinkedTasks(IEnumerable<TaskInfo> visibleTasks) =>
+            Card
+                .Links.Where(link => link.Kind == "task")
+                .Select(link => visibleTasks.FirstOrDefault(task => task.Id == link.Target));
+
+        internal bool SelectLinkedTaskCard(Wire.ProjectBoard board, string cardId, string taskId)
+        {
+            var card = board
+                ?.Columns.SelectMany(c => c.Cards)
+                .FirstOrDefault(c =>
+                    c.Id == cardId
+                    && c.Links.Any(link => link.Kind == "task" && link.Target == taskId)
+                );
+            Select(card);
+            if (card == null)
+                return false;
+            Tab = "Tasks";
+            return true;
+        }
 
         internal void Select(Wire.BoardCard card)
         {
@@ -20,7 +42,8 @@ namespace SlopWorld
                 Title = card?.Title ?? "";
             if (changed)
             {
-                Comment = LinkTarget = "";
+                Tab = "Discussion";
+                Comment = LinkTarget = TaskTarget = "";
                 LinkKind = "worktree";
                 Description = card?.Description ?? "";
             }

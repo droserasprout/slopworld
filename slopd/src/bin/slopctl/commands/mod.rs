@@ -34,6 +34,7 @@ pub(crate) enum RemoteCommand {
     Config(config::ConfigArgs),
     Worktree(worktree::WorktreeArgs),
     Delegate {
+        card: Option<String>,
         to: String,
         body: String,
     },
@@ -98,8 +99,8 @@ impl RemoteCommand {
         match self {
             Self::Config(args) => config::run(endpoint, session, json_output, args),
             Self::Worktree(args) => worktree::run(endpoint, session, json_output, args),
-            Self::Delegate { to, body } => {
-                task::run_delegate(endpoint, session, json_output, &to, &body)
+            Self::Delegate { to, body, card } => {
+                task::run_delegate(endpoint, session, json_output, &to, &body, card.as_deref())
             }
             Self::Spawn(args) => worker::run_spawn(endpoint, session, json_output, &args),
             Self::Templates { project } => {

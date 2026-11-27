@@ -1,17 +1,24 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace SlopWorld
 {
     static class WorkerPermissionFields
     {
-        public static void Draw(Listing_Standard l, Wire.AgentPermissions value)
+        public static void Draw(
+            Listing_Standard l,
+            Wire.AgentPermissions value,
+            Wire.BoardCatalog catalog
+        )
         {
             UiLayout.SectionHeading(l, "Permissions");
             UiLayout.Note(
                 l,
                 "Own workers means direct children. Project agents excludes host terminals."
             );
+            BoardPermissions(l, value, catalog);
             Scope(l, "Send follow-ups", value.Followup, next => value.Followup = next);
             Scope(l, "Cancel tasks", value.Cancel, next => value.Cancel = next);
             Scope(l, "Type in terminals", value.Terminal, next => value.Terminal = next);
@@ -28,6 +35,63 @@ namespace SlopWorld
                 },
                 out _
             );
+        }
+
+        static void BoardPermissions(
+            Listing_Standard l,
+            Wire.AgentPermissions value,
+            Wire.BoardCatalog catalog
+        )
+        {
+            string[] levels = { "Off", "Read", "Write", "Admin" };
+            var selected =
+                levels.FirstOrDefault(level =>
+                    string.Equals(level, value.BoardAccess, StringComparison.OrdinalIgnoreCase)
+                ) ?? "Write";
+            UiControls.SelectRow(
+                l,
+                "Board access",
+                selected,
+                levels
+                    .Select(level => new SelectorOption(
+                        level,
+                        () => value.BoardAccess = level.ToLowerInvariant()
+                    ))
+                    .ToArray(),
+                out _
+            );
+            l.Label("Visible boards");
+            value.OwnProjectBoard = UiControls.Checkbox(
+                l,
+                "Agent’s project",
+                !value.HasOwnProjectBoard || value.OwnProjectBoard
+            );
+            var shown = new HashSet<string>();
+            void Board(string id, string label)
+            {
+                if (string.IsNullOrEmpty(id) || !shown.Add(id))
+                    return;
+                bool current = value.VisibleBoards.Contains(id);
+                if (UiControls.Checkbox(l, label, current) == current)
+                    return;
+                if (current)
+                    value.VisibleBoards.Remove(id);
+                else
+                    value.VisibleBoards.Add(id);
+            }
+            Board("root", "Root");
+            if (catalog != null)
+            {
+                foreach (var board in catalog.Boards)
+                    Board(board.Id, board.Name + (board.Archived ? " (archived)" : ""));
+            }
+            else
+            {
+                foreach (var project in SessionHub.Instance.Projects)
+                    Board(project.Id, project.Name);
+            }
+            foreach (var id in value.VisibleBoards.ToArray())
+                Board(id, id);
         }
 
         static void Scope(Listing_Standard l, string label, string value, Action<string> set)

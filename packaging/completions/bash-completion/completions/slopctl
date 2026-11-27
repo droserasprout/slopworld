@@ -136,14 +136,23 @@ _slopctl() {
             slopctl__subcmd__board,move-column)
                 cmd="slopctl__subcmd__board__subcmd__move__subcmd__column"
                 ;;
+            slopctl__subcmd__board,remove-activity)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__activity"
+                ;;
             slopctl__subcmd__board,remove-card)
                 cmd="slopctl__subcmd__board__subcmd__remove__subcmd__card"
                 ;;
             slopctl__subcmd__board,remove-column)
                 cmd="slopctl__subcmd__board__subcmd__remove__subcmd__column"
                 ;;
+            slopctl__subcmd__board,remove-comment)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__comment"
+                ;;
             slopctl__subcmd__board,rename-column)
                 cmd="slopctl__subcmd__board__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__board,set-prefix)
+                cmd="slopctl__subcmd__board__subcmd__set__subcmd__prefix"
                 ;;
             slopctl__subcmd__board,show)
                 cmd="slopctl__subcmd__board__subcmd__show"
@@ -190,14 +199,23 @@ _slopctl() {
             slopctl__subcmd__board__subcmd__help,move-column)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__move__subcmd__column"
                 ;;
+            slopctl__subcmd__board__subcmd__help,remove-activity)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__activity"
+                ;;
             slopctl__subcmd__board__subcmd__help,remove-card)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__card"
                 ;;
             slopctl__subcmd__board__subcmd__help,remove-column)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__column"
                 ;;
+            slopctl__subcmd__board__subcmd__help,remove-comment)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__comment"
+                ;;
             slopctl__subcmd__board__subcmd__help,rename-column)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__board__subcmd__help,set-prefix)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__set__subcmd__prefix"
                 ;;
             slopctl__subcmd__board__subcmd__help,show)
                 cmd="slopctl__subcmd__board__subcmd__help__subcmd__show"
@@ -322,14 +340,23 @@ _slopctl() {
             slopctl__subcmd__help__subcmd__board,move-column)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__move__subcmd__column"
                 ;;
+            slopctl__subcmd__help__subcmd__board,remove-activity)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__activity"
+                ;;
             slopctl__subcmd__help__subcmd__board,remove-card)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__card"
                 ;;
             slopctl__subcmd__help__subcmd__board,remove-column)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__column"
                 ;;
+            slopctl__subcmd__help__subcmd__board,remove-comment)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__comment"
+                ;;
             slopctl__subcmd__help__subcmd__board,rename-column)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__help__subcmd__board,set-prefix)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__set__subcmd__prefix"
                 ;;
             slopctl__subcmd__help__subcmd__board,show)
                 cmd="slopctl__subcmd__help__subcmd__board__subcmd__show"
@@ -854,7 +881,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__board)
-            opts="-h --json --sidecar --endpoint --help list show add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            opts="-h --json --sidecar --endpoint --help list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -988,7 +1015,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__board__subcmd__help)
-            opts="list show add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            opts="list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1155,6 +1182,20 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__activity)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__card)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -1183,7 +1224,35 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__board__subcmd__help__subcmd__rename__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__set__subcmd__prefix)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1333,6 +1402,24 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__activity)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__board__subcmd__remove__subcmd__card)
             opts="-h --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
@@ -1369,7 +1456,43 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__comment)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__board__subcmd__rename__subcmd__column)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__set__subcmd__prefix)
             opts="-h --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1700,7 +1823,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__board)
-            opts="list show add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive"
+            opts="list show set-prefix remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1853,6 +1976,20 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__activity)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__card)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -1881,7 +2018,35 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__help__subcmd__board__subcmd__rename__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__set__subcmd__prefix)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -2796,12 +2961,16 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__task__subcmd__delegate)
-            opts="-h --json --sidecar --endpoint --help"
+            opts="-h --card --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --card)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --endpoint)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -3370,12 +3539,16 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__worker__subcmd__spawn)
-            opts="-h --name --project --template --one-shot --worktree --json --sidecar --endpoint --help"
+            opts="-h --card --name --project --template --one-shot --worktree --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --card)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

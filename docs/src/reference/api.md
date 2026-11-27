@@ -152,10 +152,12 @@ Storage requests may finish after the client disconnects.
 
 ### Project boards
 
-`GET /api/boards` returns a `BoardCatalog`. Array order is display order. Root and all project boards, including archives, are visible to authenticated collaborators. `POST /api/boards` accepts one `BoardEdit` and returns the committed catalog. All IDs are opaque except the fixed board ID `root`. A move identifies its destination board, column and optional insertion anchor by ID. A stale destination fails the transaction.
+`GET /api/boards` returns a `BoardCatalog`. Use `?task=TASK_ID` to return only linked cards and their containing columns and boards. Array order is display order. Reads and mutation replies contain only the caller’s selected boards. The catalog reports effective write and admin capabilities. Off denies board requests, Read permits queries, and Write permits card and column edits and link changes. Admin is required to change prefixes or delete cards, columns, discussion entries, or archives. `POST /api/boards` accepts one `BoardEdit` and returns the committed catalog. Card references accept either an internal ID or the issued public key. Moves stay within one board. A move identifies its destination board, column and optional insertion anchor by ID. A stale destination fails the transaction.
 
 | Action | Fields in addition to `action` and `board` |
 | --- | --- |
+| `set-prefix` | New prefix in `text`. Rekeys every card on the board in one transaction, preserving card numbers and accepting previous keys as aliases. |
+| `remove-comment`, `remove-activity` | `card`, decimal entry ID in `text`. Requires Admin. |
 | `add-column` | Name in `text`, optional column ID in `before` |
 | `rename-column`, `remove-column` | `column`, new name in `text` for rename. Removal requires an empty column. |
 | `move-column` | `column`, optional column ID in `before` |

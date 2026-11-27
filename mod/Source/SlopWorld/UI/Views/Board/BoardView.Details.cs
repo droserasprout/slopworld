@@ -7,41 +7,43 @@ namespace SlopWorld
 {
     public sealed partial class BoardView
     {
-        readonly ConversationReader _discussion = new ConversationReader();
-        Wire.BoardCard _discussionCard;
-        List<(string Body, string Sender, long Time, string Status)> _entries;
+        static readonly string[] Tabs = { "Discussion", "Tasks", "Details" };
+        bool _activity;
+        readonly HashSet<long> _expanded = new HashSet<long>();
+        readonly ScrollableListing _events = new ScrollableListing();
 
-        static IEnumerable<(string Body, string Sender, long Time, string Status)> Messages(
-            Wire.BoardCard card
-        )
+        void SelectCard(Wire.BoardCard card)
         {
-            return card
-                .Comments.Reverse()
-                .Select(c => (c.Text, c.Author, c.TimestampMs, "Comment"))
-                .Concat(
-                    card.Activity.Reverse()
-                        .Select(c => (c.Text, c.Author, c.TimestampMs, "Activity"))
-                )
-                .OrderByDescending(entry => entry.TimestampMs);
+            _editor.Tab = "Discussion";
+            _activity = false;
+            _expanded.Clear();
+            _editor.Select(card);
         }
+
+        static Wire.BoardEdit CardEdit(
+            Wire.ProjectBoard board,
+            Wire.BoardCard card,
+            string action,
+            string text = "",
+            string kind = ""
+        ) =>
+            new Wire.BoardEdit
+            {
+                Action = action,
+                Board = board.Id,
+                Card = card.Id,
+                Text = text,
+                Kind = kind,
+            };
 
         void DrawDetails(Rect panel, Wire.ProjectBoard board)
         {
             var card = _editor.Card;
-            Wire.BoardEdit Edit(string action, string text = "", string kind = "") =>
-                new Wire.BoardEdit
-                {
-                    Action = action,
-                    Board = board.Id,
-                    Card = card.Id,
-                    Text = text,
-                    Kind = kind,
-                };
             Slab.Box(panel, UiTheme.Panel, UiTheme.Edge);
             panel = panel.ContractedBy(8);
             var column = board.Columns.First(c => c.Cards.Any(item => item.Id == card.Id));
             var selector = new Rect(panel.x, panel.y, Mathf.Min(250, panel.width - 40), 30);
-            bool editable = !board.Archived && !_saving;
+            bool editable = Writable(board) && !_saving;
             if (editable)
                 UiSelector.DrawInline(
                     selector,
@@ -73,73 +75,37 @@ namespace SlopWorld
                 return;
             }
             panel.yMin += 36;
-            bool wide = panel.width >= 620;
-            var fields = panel;
-            if (wide)
-                fields.width = panel.width * .56f;
-            void Comments(Rect area)
+            float tabWidth = panel.width / Tabs.Length;
+            for (int index = 0; index < Tabs.Length; index++)
             {
-                Slab.Fill(area, UiTheme.Well);
-                area = area.ContractedBy(6);
-                UiText.RowLabel(new Rect(area.x, area.y, area.width, 24), "Comments and activity");
-                area.yMin += 28;
-                if (!board.Archived)
-                {
-                    var row = new Rect(area.x, area.y, area.width, 32);
-                    area.yMin += 36;
-                    var box = row;
-                    box.width -= 58;
-                    string name = "board.comment." + card.Id;
-                    bool enter = SubmitField(name);
-                    _editor.Comment = UiText.FieldWithPlaceholder(
-                        TextBox(box),
-                        name,
-                        _editor.Comment,
-                        "Write a comment…"
-                    );
-                    bool ready = editable && _editor.Comment.Trim().Length > 0;
-                    if (
-                        (
-                            UiControls.Button(
-                                new Rect(box.xMax + 4, row.y, 54, 32),
-                                "Post",
-                                on: ready
-                            ) || enter
-                        ) && ready
+                var tab = Tabs[index];
+                if (
+                    UiControls.Button(
+                        new Rect(panel.x + index * tabWidth, panel.y, tabWidth, 28),
+                        tab,
+                        on: _editor.Tab != tab
                     )
-                    {
-                        string sent = _editor.Comment;
-                        Save(
-                            Edit("comment", sent),
-                            () =>
-                            {
-                                if (_editor.Card?.Id == card.Id && _editor.Comment == sent)
-                                    _editor.Comment = "";
-                            }
-                        );
-                    }
-                }
-                if (!ReferenceEquals(_discussionCard, card))
-                {
-                    bool changedCard = _discussionCard?.Id != card.Id;
-                    if (
-                        changedCard
-                        || !_discussionCard.Comments.Equals(card.Comments)
-                        || !_discussionCard.Activity.Equals(card.Activity)
-                    )
-                    {
-                        if (changedCard)
-                            _discussion.Reset();
-                        else
-                            _discussion.ClearSelection();
-                        _entries = Messages(card).ToList();
-                    }
-                    _discussionCard = card;
-                }
-                _discussion.Draw(area, _entries, _entries);
+                )
+                    _editor.Tab = tab;
+            }
+            panel.yMin += 32;
+            UiText.RowLabel(
+                new Rect(panel.x, panel.y, panel.width, 24),
+                card.Key + "  " + card.Title
+            );
+            panel.yMin += 28;
+            if (_editor.Tab == "Discussion")
+            {
+                DrawDiscussion(panel, board, card, editable);
+                return;
+            }
+            if (_editor.Tab == "Tasks")
+            {
+                DrawTasks(panel, board, card, editable);
+                return;
             }
             _details.Draw(
-                fields,
+                panel,
                 l =>
                 {
                     void Field(
@@ -157,13 +123,13 @@ namespace SlopWorld
                             box.width -= 54;
                         string name = "board." + action + "." + card.Id;
                         draft = multiline
-                            ? UiText.Area(TextBox(box), name, draft, on: !board.Archived)
+                            ? UiText.Area(TextBox(box), name, draft, on: Writable(board))
                             : UiText.FieldWithPlaceholder(
                                 TextBox(box),
                                 name,
                                 draft,
                                 caption,
-                                !board.Archived
+                                Writable(board)
                             );
                         if (
                             box.width != row.width
@@ -174,7 +140,7 @@ namespace SlopWorld
                             )
                         )
                         {
-                            Save(Edit(action, draft));
+                            Save(CardEdit(board, card, action, draft));
                         }
                     }
                     Field("Title", "title", card.Title, ref _editor.Title);
@@ -184,7 +150,11 @@ namespace SlopWorld
                         UiSelector.DrawInline(
                             assignee,
                             AssigneeLabel(card.Assignee),
-                            () => AssigneeOptions(board, value => Save(Edit("assign", value)))
+                            () =>
+                                AssigneeOptions(
+                                    board,
+                                    value => Save(CardEdit(board, card, "assign", value))
+                                )
                         );
                     else
                         UiText.RowLabel(assignee, AssigneeLabel(card.Assignee));
@@ -199,16 +169,16 @@ namespace SlopWorld
                     foreach (var link in card.Links)
                     {
                         string label = link.Kind + " · " + link.Target;
-                        float width = Mathf.Max(1, l.ColumnWidth - (board.Archived ? 0 : 32));
+                        float width = Mathf.Max(1, l.ColumnWidth - (!Writable(board) ? 0 : 32));
                         var row = l.GetRect(Mathf.Max(28, Text.CalcHeight(label, width)));
                         Widgets.Label(new Rect(row.x, row.y, width, row.height), label);
                         var remove = new Rect(row.xMax - 28, row.y, 28, 28);
-                        if (!board.Archived)
+                        if (Writable(board))
                             TooltipHandler.TipRegion(remove, "Remove link");
-                        if (!board.Archived && UiControls.Button(remove, "×", on: editable))
-                            Save(Edit("unlink", link.Target, link.Kind));
+                        if (Writable(board) && UiControls.Button(remove, "×", on: editable))
+                            Save(CardEdit(board, card, "unlink", link.Target, link.Kind));
                     }
-                    if (!board.Archived)
+                    if (Writable(board))
                     {
                         _editor.LinkKind = UiText.FieldWithPlaceholder(
                             TextBox(l.GetRect(30)),
@@ -234,7 +204,7 @@ namespace SlopWorld
                         {
                             var sent = _editor.LinkTarget;
                             Save(
-                                Edit("link", sent, _editor.LinkKind),
+                                CardEdit(board, card, "link", sent, _editor.LinkKind),
                                 () =>
                                 {
                                     if (_editor.Card?.Id == card.Id && _editor.LinkTarget == sent)
@@ -243,53 +213,20 @@ namespace SlopWorld
                             );
                         }
                     }
-                    if (UiControls.Button(l.GetRect(32), "Move to board…", on: !_saving))
-                        UiMenu.Open(
-                            _catalog
-                                .Boards.Where(b => !b.Archived)
-                                .Select(b => new FloatMenuOption(
-                                    b.Name,
-                                    () =>
-                                        UiMenu.Open(
-                                            b.Columns.Select(c => new FloatMenuOption(
-                                                    c.Name,
-                                                    () =>
-                                                        Save(
-                                                            new Wire.BoardEdit
-                                                            {
-                                                                Action = "move-card",
-                                                                Board = b.Id,
-                                                                Column = c.Id,
-                                                                Card = card.Id,
-                                                            }
-                                                        )
-                                                ))
-                                                .ToList()
-                                        )
-                                ))
-                                .ToList()
-                        );
-
                     if (
-                        !board.Archived
+                        Writable(board)
+                        && CanAdmin
                         && UiControls.Button(l.GetRect(30), "Delete card…", on: editable)
                     )
                         Find.WindowStack.Add(
                             ConfirmDialog.Create(
                                 "Delete this card with its comments and links?",
-                                () => Save(Edit("remove-card")),
+                                () => Save(CardEdit(board, card, "remove-card")),
                                 destructive: true
                             )
                         );
-                    if (!wide)
-                        Comments(l.GetRect(Mathf.Max(250, panel.height * .8f)));
                 }
             );
-            if (wide)
-            {
-                panel.xMin = fields.xMax + 8;
-                Comments(panel);
-            }
         }
     }
 }

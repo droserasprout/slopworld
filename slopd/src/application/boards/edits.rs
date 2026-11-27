@@ -1,5 +1,5 @@
 //! Validate destination identities under the SQLite write lock. Shifting a suffix
-//! leaves gaps at the source but preserves its order on retries and cross-board moves.
+//! leaves gaps at the source but preserves its order on retries and moves between columns.
 use crate::shared::wire::BoardEdit;
 use anyhow::{Context, Result, bail, ensure};
 use rusqlite::{Transaction, params};
@@ -24,7 +24,47 @@ pub(super) fn apply(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result
         return Ok(());
     }
     ensure!(!archived, "board is archived");
+    let mut resolved = e.clone();
+    if !matches!(
+        e.action.as_str(),
+        "add-column"
+            | "remove-column"
+            | "rename-column"
+            | "move-column"
+            | "add-card"
+            | "set-prefix"
+    ) {
+        resolved.card = resolve_card(tx, &e.board, &e.card)?;
+    }
+    if matches!(e.action.as_str(), "move-card" | "add-card") && !e.before.is_empty() {
+        resolved.before = resolve_card(tx, &e.board, &e.before)?;
+    }
+    let e = &resolved;
     match e.action.as_str() {
+        "set-prefix" => {
+            required(&e.text, "prefix")?;
+            ensure!(
+                e.text
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'),
+                "invalid prefix"
+            );
+            super::reserve_prefix(tx, &e.board, &e.text)?;
+            tx.execute(
+                "INSERT INTO card_key_aliases(public_key,card) SELECT public_key,id FROM cards
+                 WHERE col IN (SELECT id FROM columns WHERE board=?)
+                 ON CONFLICT(public_key) DO NOTHING",
+                [&e.board],
+            )?;
+            // The board-wide counter gives each card a unique numeric suffix across all its prefixes.
+            tx.execute(
+                "UPDATE cards SET public_key=?1 || '-' || substr(public_key,length(rtrim(public_key,'0123456789'))+1)
+                 WHERE col IN (SELECT id FROM columns WHERE board=?2)", params![e.text,e.board])?;
+            tx.execute(
+                "UPDATE boards SET prefix=? WHERE id=?",
+                params![e.text, e.board],
+            )?;
+        }
         "add-column" => {
             required(&e.text, "column name")?;
             let position = column_position(tx, e)?;
@@ -39,6 +79,10 @@ pub(super) fn apply(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result
         _ => edit_card(tx, e, author)?,
     }
     Ok(())
+}
+
+fn resolve_card(tx: &Transaction<'_>, board: &str, reference: &str) -> Result<String> {
+    tx.query_row("SELECT cards.id FROM cards JOIN columns ON cards.col=columns.id WHERE columns.board=?1 AND (cards.id=?2 OR cards.public_key=?2 OR cards.id=(SELECT card FROM card_key_aliases WHERE public_key=?2))", params![board,reference], |r| r.get(0)).context("card no longer belongs to this board")
 }
 
 fn edit_column(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
@@ -76,9 +120,14 @@ fn edit_column(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> 
             required(&e.text, "card title")?;
             let position = card_position(tx, e)?;
             let id = uuid::Uuid::new_v4().to_string();
+            let number: i64 = tx.query_row(
+                "UPDATE board_counters SET issued=issued+1 WHERE owner=? RETURNING issued",
+                [&e.board],
+                |r| r.get(0),
+            )?;
             tx.execute(
-                "INSERT INTO cards(id,col,position,title) VALUES(?,?,?,?)",
-                params![id, e.column, position, e.text],
+                "INSERT INTO cards(id,col,position,title,public_key) SELECT ?,?,?,?,prefix || '-' || ? FROM boards WHERE id=?",
+                params![id, e.column, position, e.text, number, e.board],
             )?;
             column_activity(tx, &id, author, "Added to", &e.column)?;
         }
@@ -112,13 +161,6 @@ fn column_activity(
 }
 
 fn edit_card(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
-    let exists: bool = tx.query_row(
-        "SELECT EXISTS (SELECT 1 FROM cards JOIN columns ON columns.id=cards.col
-         WHERE cards.id=? AND columns.board=?)",
-        params![e.card, e.board],
-        |r| r.get(0),
-    )?;
-    ensure!(exists, "card no longer belongs to this board");
     match e.action.as_str() {
         "title" => {
             required(&e.text, "card title")?;
@@ -138,6 +180,20 @@ fn edit_card(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
                 "UPDATE cards SET assignee=? WHERE id=?",
                 params![e.text.trim(), e.card],
             )?;
+        }
+        "remove-comment" | "remove-activity" => {
+            let table = if e.action == "remove-comment" {
+                "comments"
+            } else {
+                "card_activity"
+            };
+            ensure!(
+                tx.execute(
+                    &format!("DELETE FROM {table} WHERE card=? AND sequence=?"),
+                    params![e.card, e.text.parse::<i64>()?]
+                )? == 1,
+                "entry no longer exists"
+            );
         }
         "comment" => {
             required(&e.text, "comment")?;

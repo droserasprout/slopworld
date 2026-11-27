@@ -232,7 +232,8 @@ namespace SlopWorld
             Action<WorkerSpawnResult> started,
             Action<string> fail,
             WorkerWorktreeOptions worktree = null,
-            string name = null
+            string name = null,
+            Action<string> taskCreated = null
         )
         {
             var request = new Wire.SpawnWorkerReq
@@ -250,6 +251,7 @@ namespace SlopWorld
                 request,
                 j =>
                 {
+                    taskCreated?.Invoke(j.Task.Id);
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();

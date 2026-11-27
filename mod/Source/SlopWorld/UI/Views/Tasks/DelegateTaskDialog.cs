@@ -13,9 +13,13 @@ namespace SlopWorld
         string _error;
         bool _sending;
 
-        public DelegateTaskDialog(string recipient)
+        readonly Action<string> _created;
+
+        public DelegateTaskDialog(string recipient, string body = "", Action<string> created = null)
         {
             resizeable = true;
+            _created = created;
+            _body = body;
             _to = recipient ?? "";
         }
 
@@ -131,7 +135,11 @@ namespace SlopWorld
             SessionHub.Instance.TaskStore.Create(
                 _to,
                 _body.Trim(),
-                _ => Close(),
+                task =>
+                {
+                    _created?.Invoke(task.Id);
+                    Close();
+                },
                 error =>
                 {
                     _sending = false;

@@ -34,7 +34,9 @@ pub(super) fn run_delegate(
     json: bool,
     to: &str,
     body: &str,
+    card: Option<&str>,
 ) -> Result<(), String> {
+    let target = super::board::attachment_target(endpoint, session, card)?;
     let v = request(
         endpoint,
         session,
@@ -44,7 +46,7 @@ pub(super) fn run_delegate(
     )?;
     emit(&v, json);
     print_wait_hint(&v, json);
-    Ok(())
+    super::board::attach_created(endpoint, session, target, &v)
 }
 
 pub(super) fn print_wait_hint(v: &Value, json: bool) {

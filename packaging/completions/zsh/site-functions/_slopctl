@@ -60,6 +60,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (spawn)
 _arguments "${_arguments_options[@]}" : \
+'--card=[]:CARD:_default' \
 '--name=[Exact worker name; omitted names are generated from the project or caller]:NAME:_default' \
 '--project=[Project that owns the agent]:PROJECT:_default' \
 '--template=[Agent template name]:TEMPLATE:_default' \
@@ -330,7 +331,42 @@ _arguments "${_arguments_options[@]}" : \
 '--sidecar[Select the sidecar endpoint and log sources]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'::board:_default' \
+'::board -- Omit to show the first visible board (Root when visible):_default' \
+&& ret=0
+;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':prefix:_default' \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
+&& ret=0
+;;
+(remove-activity)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
 && ret=0
 ;;
 (add-column)
@@ -530,6 +566,18 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-activity)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -797,6 +845,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (delegate)
 _arguments "${_arguments_options[@]}" : \
+'--card=[]:CARD:_default' \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
 '--json[Print JSON instead of human-readable output]' \
 '--sidecar[Select the sidecar endpoint and log sources]' \
@@ -1283,6 +1332,18 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-activity)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (add-column)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -1657,12 +1718,15 @@ _slopctl__subcmd__board_commands() {
     local commands; commands=(
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'remove-comment:' \
+'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
 'rename-column:' \
 'move-column:Reorder a column; omit --before to append' \
 'remove-column:Remove an empty column' \
 'add-card:' \
-'move-card:Move an existing card to a destination board and column' \
+'move-card:Move an existing card between columns of the same board' \
 'remove-card:' \
 'title:' \
 'describe:' \
@@ -1711,12 +1775,15 @@ _slopctl__subcmd__board__subcmd__help_commands() {
     local commands; commands=(
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'remove-comment:' \
+'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
 'rename-column:' \
 'move-column:Reorder a column; omit --before to append' \
 'remove-column:Remove an empty column' \
 'add-card:' \
-'move-card:Move an existing card to a destination board and column' \
+'move-card:Move an existing card between columns of the same board' \
 'remove-card:' \
 'title:' \
 'describe:' \
@@ -1785,6 +1852,11 @@ _slopctl__subcmd__board__subcmd__help__subcmd__move-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board help move-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-activity commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-card_commands] )) ||
 _slopctl__subcmd__board__subcmd__help__subcmd__remove-card_commands() {
     local commands; commands=()
@@ -1795,10 +1867,20 @@ _slopctl__subcmd__board__subcmd__help__subcmd__remove-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board help remove-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-comment commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__rename-column_commands] )) ||
 _slopctl__subcmd__board__subcmd__help__subcmd__rename-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board help rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help set-prefix commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__show_commands] )) ||
 _slopctl__subcmd__board__subcmd__help__subcmd__show_commands() {
@@ -1840,6 +1922,11 @@ _slopctl__subcmd__board__subcmd__move-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board move-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-activity commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__board__subcmd__remove-card_commands] )) ||
 _slopctl__subcmd__board__subcmd__remove-card_commands() {
     local commands; commands=()
@@ -1850,10 +1937,20 @@ _slopctl__subcmd__board__subcmd__remove-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board remove-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-comment commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__board__subcmd__rename-column_commands] )) ||
 _slopctl__subcmd__board__subcmd__rename-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl board rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__board__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board set-prefix commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__board__subcmd__show_commands] )) ||
 _slopctl__subcmd__board__subcmd__show_commands() {
@@ -1991,12 +2088,15 @@ _slopctl__subcmd__help__subcmd__board_commands() {
     local commands; commands=(
 'list:List active and archived boards with their stable IDs' \
 'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'remove-comment:' \
+'remove-activity:' \
 'add-column:Append a column, or insert it before another column' \
 'rename-column:' \
 'move-column:Reorder a column; omit --before to append' \
 'remove-column:Remove an empty column' \
 'add-card:' \
-'move-card:Move an existing card to a destination board and column' \
+'move-card:Move an existing card between columns of the same board' \
 'remove-card:' \
 'title:' \
 'describe:' \
@@ -2059,6 +2159,11 @@ _slopctl__subcmd__help__subcmd__board__subcmd__move-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help board move-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-activity commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-card_commands] )) ||
 _slopctl__subcmd__help__subcmd__board__subcmd__remove-card_commands() {
     local commands; commands=()
@@ -2069,10 +2174,20 @@ _slopctl__subcmd__help__subcmd__board__subcmd__remove-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help board remove-column commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-comment commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__rename-column_commands] )) ||
 _slopctl__subcmd__help__subcmd__board__subcmd__rename-column_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help board rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board set-prefix commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__show_commands] )) ||
 _slopctl__subcmd__help__subcmd__board__subcmd__show_commands() {

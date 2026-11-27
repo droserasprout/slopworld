@@ -5,9 +5,21 @@ namespace SlopWorld
 {
     public partial class EditSessionDialog
     {
+        Wire.BoardCatalog _permissionBoards;
+        bool _requestedBoards;
+
         void DrawWorkers(Listing_Standard l)
         {
-            WorkerPermissionFields.Draw(l, _s.Permissions);
+            if (!_requestedBoards)
+            {
+                _requestedBoards = true;
+                DaemonClient.Get<Wire.BoardCatalog>(
+                    WireProtocol.Routes.Boards,
+                    catalog => _permissionBoards = catalog,
+                    error => UiLayout.Fail(error)
+                );
+            }
+            WorkerPermissionFields.Draw(l, _s.Permissions, _permissionBoards);
             UiLayout.Note(
                 l,
                 EditingTemplate

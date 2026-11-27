@@ -79,6 +79,10 @@ message AgentPermissions {
   optional string terminal = 3;
   optional string lifecycle = 4;
   optional string delete = 5;
+  reserved 7, 8, 9;
+  optional string board_access = 10;
+  optional bool own_project_board = 11;
+  repeated string visible_boards = 12;
   optional bool worktrees = 6;
 }
 
@@ -1089,12 +1093,15 @@ message AudioOutputs {
 
 message BoardCatalog {
   repeated ProjectBoard boards = 1;
+  bool can_write = 2;
+  bool can_admin = 3;
 }
 message ProjectBoard {
   string id = 1;
   string name = 2;
   bool archived = 3;
   repeated BoardColumn columns = 4;
+  string prefix = 5;
 }
 message BoardColumn {
   string id = 1;
@@ -1109,8 +1116,11 @@ message BoardCard {
   repeated BoardComment comments = 5;
   repeated BoardLink links = 6;
   repeated BoardComment activity = 7;
+  string key = 8;
+  repeated string previous_keys = 9;
 }
 message BoardComment {
+  int64 id = 4;
   string author = 1;
   string text = 2;
   int64 timestamp_ms = 3;

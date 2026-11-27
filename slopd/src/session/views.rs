@@ -50,7 +50,7 @@ impl SessionRuntime {
                     },
                     launch: SessionLaunchView {
                         workers: l.cfg.workers.clone(),
-                        permissions: l.cfg.permissions,
+                        permissions: l.cfg.permissions.clone(),
                         command: l.cfg.command.clone(),
                         command_preset: cfg.command_name(&l.cfg),
                         cmd: l.cfg.cmd.clone(),

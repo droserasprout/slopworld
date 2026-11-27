@@ -128,6 +128,108 @@ async fn host_can_open_agent_tasks_but_agent_visibility_and_missing_tasks_stay_r
 }
 
 #[tokio::test]
+async fn completed_assignment_is_read_through_its_card_link_and_reverse_lookup() {
+    use crate::api::handlers::{BoardFilter, edit_board, get_boards};
+    let app = mailbox_manager();
+    let task = mailbox_task(&app, "alice", "bob", "private assignment")
+        .await
+        .unwrap();
+    for status in [crate::tasks::Status::Accepted, crate::tasks::Status::Done] {
+        app.sessions
+            .task_store()
+            .update_task_async(
+                &mailbox_identity("bob"),
+                "bob",
+                &task.id,
+                status,
+                Some("test result".into()),
+            )
+            .await
+            .unwrap();
+    }
+    let catalog = get_boards(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Query(BoardFilter { task: None }),
+    )
+    .await
+    .unwrap()
+    .0;
+    let mut edit = wire::BoardEdit {
+        action: "add-card".into(),
+        board: "root".into(),
+        column: catalog.boards[0].columns[0].id.clone(),
+        text: "plan".into(),
+        ..Default::default()
+    };
+    let catalog = edit_board(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Proto(edit.clone()),
+    )
+    .await
+    .unwrap()
+    .0;
+    edit.card = catalog.boards[0].columns[0].cards[0].key.clone();
+    edit.action = "link".into();
+    edit.kind = "task".into();
+    edit.text = task.id.clone();
+    let catalog = edit_board(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Proto(edit.clone()),
+    )
+    .await
+    .unwrap()
+    .0;
+    let target = &catalog.boards[0].columns[0].cards[0].links[0].target;
+    let task_read = |cap, who| {
+        one_task(
+            State(app.clone()),
+            Extension(cap),
+            caller(who),
+            Path(target.clone()),
+        )
+    };
+    assert_eq!(
+        task_read(Cap::Root, "host")
+            .await
+            .unwrap()
+            .0
+            .task
+            .unwrap()
+            .note
+            .as_deref(),
+        Some("test result")
+    );
+    assert_eq!(
+        task_read(scoped("carol"), "carol").await.unwrap_err().0,
+        StatusCode::NOT_FOUND
+    );
+    let catalog = get_boards(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Query(BoardFilter {
+            task: Some(task.id.clone()),
+        }),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert_eq!(catalog.boards[0].columns.len(), 1);
+    assert_eq!(catalog.boards[0].columns[0].cards[0].key, edit.card);
+    app.sessions
+        .task_store()
+        .remove_task_async(&mailbox_identity("bob"), target, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        task_read(Cap::Root, "host").await.unwrap_err().0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
 async fn mailbox_visibility_and_global_operations_respect_principal() {
     let m = mailbox_manager();
     let visible = mailbox_task(&m, "alice", "bob", "visible").await.unwrap();

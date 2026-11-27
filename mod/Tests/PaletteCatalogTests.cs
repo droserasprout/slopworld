@@ -165,6 +165,71 @@ namespace SlopWorld
                     Assert.That(command.SubAction().Single().Enabled, Is.False, command.Id);
             }
 
+            sealed class CardPanel : ContentView
+            {
+                public readonly BoardSelection Selection = new BoardSelection();
+                public override string Title => "Board";
+
+                public override void Draw(UnityEngine.Rect body) { }
+            }
+
+            [Test]
+            public void CompletedAssignmentOpensFromCardAndPaletteWithReturnContext()
+            {
+                using var fixture = new CatalogFixture();
+                var previous = TaskDetailView.Shown;
+                var previousReturn = TaskDetailView.ReturnTo;
+                try
+                {
+                    var task = new TaskInfo
+                    {
+                        Id = "assignment",
+                        Status = DelegatedTaskStatus.Done,
+                        Note = "review complete",
+                    };
+                    SessionHub.Instance.Tasks.Add(task);
+                    var card = new Wire.BoardCard
+                    {
+                        Id = "card",
+                        Key = "SW-42",
+                        Links =
+                        {
+                            new Wire.BoardLink { Kind = "task", Target = task.Id },
+                        },
+                    };
+                    var board = new Wire.ProjectBoard
+                    {
+                        Id = "project",
+                        Columns = { new Wire.BoardColumn { Cards = { card } } },
+                    };
+                    var panel = new CardPanel();
+                    panel.Selection.Select(card);
+                    Assert.That(panel.Selection.Tab, Is.EqualTo("Discussion"));
+                    panel.Selection.Tab = "Tasks";
+                    TaskDetailView.Open(
+                        panel.Selection.LinkedTasks(SessionHub.Instance.Tasks).Single(),
+                        panel
+                    );
+                    Assert.That(TaskDetailView.Shown.Note, Is.EqualTo("review complete"));
+                    var restored = ((CardPanel)TaskDetailView.ReturnTo).Selection;
+                    Assert.That((restored.Card.Key, restored.Tab), Is.EqualTo(("SW-42", "Tasks")));
+                    restored.Select(null);
+                    TaskCommands().Single(command => command.Id == "task.open").Action(task.Id);
+                    Assert.That(
+                        restored.SelectLinkedTaskCard(board, card.Id, TaskDetailView.Shown.Id),
+                        Is.True
+                    );
+                    Assert.That((restored.Card.Key, restored.Tab), Is.EqualTo(("SW-42", "Tasks")));
+                    card.Links.Clear();
+                    Assert.That(restored.SelectLinkedTaskCard(board, card.Id, task.Id), Is.False);
+                }
+                finally
+                {
+                    TaskDetailView.Shown = previous;
+                    TaskDetailView.ReturnTo = previousReturn;
+                }
+            }
+
             [Test]
             public void TaskRegistrationsDispatchCurrentRecordsToTheirOwners()
             {

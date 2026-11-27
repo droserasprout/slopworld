@@ -12,9 +12,7 @@ namespace SlopWorld
         readonly BoardViewport _viewport = new BoardViewport();
         string _panColumn;
         float _edgeTime;
-        string _adding,
-            _newTitle;
-        bool _focusNew;
+
         const float Footer = 36;
 
         void DrawColumns(Rect frame, Wire.ProjectBoard board, bool narrow)
@@ -39,7 +37,7 @@ namespace SlopWorld
                         ? board.Columns[index]
                         : null;
                 }
-                float cardHeight = area.height - (board.Archived ? 0 : Footer);
+                float cardHeight = area.height - (!Writable(board) ? 0 : Footer);
                 var hovered = ColumnAt(p.x, out _, out _);
                 if (e.type == EventType.ScrollWheel && inside)
                 {
@@ -111,7 +109,7 @@ namespace SlopWorld
                     }
                 }
                 bool overFooter = false;
-                if (!board.Archived && !_gesture.Held && _editor.Card == null)
+                if (Writable(board) && !_gesture.Held && _editor.Card == null)
                 {
                     for (int i = 0; i < board.Columns.Count; i++)
                     {
@@ -134,7 +132,7 @@ namespace SlopWorld
                     && !_gesture.Held
                 )
                 {
-                    if (hit != null && header && xInColumn > width - 42 && !board.Archived)
+                    if (hit != null && header && xInColumn > width - 42 && Writable(board))
                         ColumnMenu(Board, Board.Columns.First(c => c.Id == hit.Id));
                     else
                     {
@@ -142,8 +140,8 @@ namespace SlopWorld
                         _gesture.Press(
                             item ? hit.Id : null,
                             card?.Id,
-                            TouchPointer || board.Archived,
-                            item && xInColumn < Handle && !board.Archived,
+                            TouchPointer || !Writable(board),
+                            item && xInColumn < Handle && Writable(board),
                             p.x,
                             p.y
                         );
@@ -167,9 +165,8 @@ namespace SlopWorld
                         && card.Id == _gesture.Card
                     )
                     {
-                        _adding = null;
-                        _submit = null;
-                        _editor.Select(card);
+                        _inlineEdit = null;
+                        SelectCard(card);
                     }
                     var edit = _gesture.Release(
                         board,
@@ -202,60 +199,11 @@ namespace SlopWorld
 
         void DrawAddCard(Rect rect, Wire.ProjectBoard board, Wire.BoardColumn column)
         {
-            if (_adding != column.Id)
-            {
-                if (UiControls.Button(rect, "+ Add card", on: !_saving))
-                {
-                    _adding = column.Id;
-                    _newTitle = "";
-                    _focusNew = true;
-                }
-                return;
-            }
-            var field = rect;
-            field.width -= 70;
-            string name = "board.add." + column.Id;
-            bool enter = SubmitField(name);
-            _newTitle = UiText.FieldWithPlaceholder(
-                TextBox(field),
-                name,
-                _newTitle,
-                "Card title",
-                !_saving
-            );
-            if (_focusNew && Event.current.type == EventType.Repaint)
-            {
-                GUI.FocusControl(name);
-                _focusNew = false;
-            }
-            bool ready = !_saving && _newTitle.Trim().Length > 0;
             if (
-                (
-                    UiControls.Button(
-                        new Rect(field.xMax + 2, rect.y, 40, rect.height),
-                        "Add",
-                        on: ready
-                    ) || enter
-                ) && ready
+                !DrawInlineField(rect, "add-card", "Card title", column.Id)
+                && UiControls.Button(rect, "+ Add card", on: !_saving)
             )
-                Save(
-                    new Wire.BoardEdit
-                    {
-                        Action = "add-card",
-                        Board = board.Id,
-                        Column = column.Id,
-                        Text = _newTitle,
-                    },
-                    () => _adding = null
-                );
-            if (
-                UiControls.Button(
-                    new Rect(rect.xMax - 26, rect.y, 26, rect.height),
-                    "×",
-                    on: !_saving
-                )
-            )
-                _adding = null;
+                BeginInline("add-card", column: column.Id);
         }
 
         static float Edge(float coordinate, float extent) =>
@@ -326,7 +274,7 @@ namespace SlopWorld
                         width - Handle - 8,
                         preview.Length == 0 ? Row - 10 : 30
                     ),
-                    card.Title,
+                    card.Key + "  " + card.Title,
                     UiTheme.Name,
                     anchor: TextAnchor.MiddleLeft
                 );
@@ -341,8 +289,10 @@ namespace SlopWorld
             }
             Slab.Fill(new Rect(x, 0, width, Header), UiTheme.Panel);
             UiText.RowLabel(new Rect(x + 7, 0, Handle - 8, Header), "≡");
-            UiText.RowLabel(new Rect(x + Handle, 0, width - Handle - 41, Header), column.Name);
-            if (!board.Archived)
+            var title = new Rect(x + Handle, 0, width - Handle - 41, Header);
+            if (!DrawInlineField(title, "rename-column", "Column name", column.Id))
+                UiText.RowLabel(title, column.Name);
+            if (Writable(board))
                 UiText.RowLabel(
                     new Rect(x + width - 39, 0, 38, Header),
                     "···",
@@ -388,12 +338,13 @@ namespace SlopWorld
                 {
                     new FloatMenuOption(
                         "Rename column…",
-                        () =>
-                            Prompt("Column name", column.Name, s => Save(Edit("rename-column", s)))
+                        () => BeginInline("rename-column", column.Name, column.Id)
                     ),
                     new FloatMenuOption(
                         "Remove empty column",
-                        column.Cards.Count == 0 ? () => Save(Edit("remove-column")) : null
+                        CanAdmin && column.Cards.Count == 0
+                            ? () => Save(Edit("remove-column"))
+                            : null
                     ),
                 }
             );

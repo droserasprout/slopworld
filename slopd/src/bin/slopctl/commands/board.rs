@@ -13,8 +13,22 @@ pub(crate) enum BoardArgs {
     List,
     /// Show ordered columns, cards, assignments, comments and resource links
     Show {
-        #[arg(default_value = "root")]
+        /// Omit to show the first visible board (Root when visible).
+        board: Option<String>,
+    },
+    SetPrefix {
         board: String,
+        prefix: String,
+    },
+    RemoveComment {
+        board: String,
+        card: String,
+        entry: i64,
+    },
+    RemoveActivity {
+        board: String,
+        card: String,
+        entry: i64,
     },
     /// Append a column, or insert it before another column
     AddColumn {
@@ -47,7 +61,7 @@ pub(crate) enum BoardArgs {
         #[arg(long)]
         before: Option<String>,
     },
-    /// Move an existing card to a destination board and column
+    /// Move an existing card between columns of the same board
     MoveCard {
         board: String,
         column: String,
@@ -111,6 +125,13 @@ pub(super) fn run(endpoint: &Endpoint, session: &str, args: BoardArgs) -> Result
             let catalog = request(endpoint, session, "GET", routes::BOARDS, None)?;
             return show(&catalog, args);
         }
+        SetPrefix { board, prefix } => json!({"action":"set-prefix","board":board,"text":prefix}),
+        RemoveComment { board, card, entry } => {
+            json!({"action":"remove-comment","board":board,"card":card,"text":entry.to_string()})
+        }
+        RemoveActivity { board, card, entry } => {
+            json!({"action":"remove-activity","board":board,"card":card,"text":entry.to_string()})
+        }
         AddColumn {
             board,
             name,
@@ -147,6 +168,9 @@ pub(super) fn run(endpoint: &Endpoint, session: &str, args: BoardArgs) -> Result
             card,
             before,
         } => {
+            if writable_card_board(endpoint, session, &card)? != board {
+                return Err("cards can only move between columns of the same board".into());
+            }
             json!({"action":"move-card","board":board,"column":column,"card":card,"before":before.unwrap_or_default()})
         }
         RemoveCard { board, card } => json!({"action":"remove-card","board":board,"card":card}),
@@ -189,6 +213,61 @@ pub(super) fn run(endpoint: &Endpoint, session: &str, args: BoardArgs) -> Result
     Ok(())
 }
 
+fn writable_card_board(
+    endpoint: &Endpoint,
+    session: &str,
+    reference: &str,
+) -> Result<String, String> {
+    let value = request(endpoint, session, "GET", routes::BOARDS, None)?;
+    let catalog: crate::shared::wire::BoardCatalog =
+        serde_json::from_value(value).map_err(|e| e.to_string())?;
+    if !catalog.can_write {
+        return Err("board write access required".into());
+    }
+    let board = catalog
+        .boards
+        .into_iter()
+        .find(|board| {
+            board.columns.iter().flat_map(|col| &col.cards).any(|card| {
+                card.key == reference
+                    || card.id == reference
+                    || card.previous_keys.iter().any(|key| key == reference)
+            })
+        })
+        .ok_or_else(|| format!("card {reference} not found"))?;
+    if board.archived {
+        return Err("board is archived".into());
+    }
+    Ok(board.id)
+}
+
+pub(super) fn attachment_target<'a>(
+    endpoint: &Endpoint,
+    session: &str,
+    card: Option<&'a str>,
+) -> Result<Option<(String, &'a str)>, String> {
+    card.map(|key| writable_card_board(endpoint, session, key).map(|board| (board, key)))
+        .transpose()
+}
+
+pub(super) fn attach_created(
+    endpoint: &Endpoint,
+    session: &str,
+    target: Option<(String, &str)>,
+    result: &Value,
+) -> Result<(), String> {
+    let Some((board, card)) = target else {
+        return Ok(());
+    };
+    let id = result
+        .pointer("/task/id")
+        .and_then(Value::as_str)
+        .ok_or("missing created task ID")?;
+    request(endpoint, session, "POST", routes::BOARDS, Some(json!({"action":"link","board":board,"card":card,"kind":"task","text":id})))
+        .map(|_| ())
+        .map_err(|e| format!("Created task {id}. Attachment failed: {e}. Retry with slopctl board link {board} {card} task {id}"))
+}
+
 fn show(catalog: &Value, args: BoardArgs) -> Result<(), String> {
     let boards = catalog
         .get("boards")
@@ -198,7 +277,7 @@ fn show(catalog: &Value, args: BoardArgs) -> Result<(), String> {
         print_json(
             boards
                 .iter()
-                .find(|b| b.get("id").and_then(Value::as_str) == Some(board.as_str()))
+                .find(|b| board.as_ref().is_none_or(|id| b["id"] == id.as_str()))
                 .ok_or("board not found")?,
         );
     } else {

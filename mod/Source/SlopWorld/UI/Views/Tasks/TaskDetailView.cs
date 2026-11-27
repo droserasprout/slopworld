@@ -10,6 +10,7 @@ namespace SlopWorld
     // Full task reader shown as a WorkspaceWindow content view.
     public sealed class TaskDetailView : ContentView
     {
+        readonly List<FloatMenuOption> _cards = new List<FloatMenuOption>();
         readonly string _taskId;
         TaskInfo _task;
         IDisposable _pollingDemand;
@@ -53,6 +54,23 @@ namespace SlopWorld
 
         public override void Opened()
         {
+            _cards.Clear();
+            DaemonClient.Get<Wire.BoardCatalog>(
+                WireProtocol.Routes.Boards + "?task=" + Uri.EscapeDataString(_taskId),
+                catalog =>
+                {
+                    _cards.Clear();
+                    foreach (var board in catalog.Boards)
+                    foreach (var card in board.Columns.SelectMany(column => column.Cards))
+                        _cards.Add(
+                            new FloatMenuOption(
+                                card.Key + " · " + card.Title,
+                                () => BoardView.OpenLinkedCard(board.Id, card.Id, _taskId)
+                            )
+                        );
+                },
+                _ => _cards.Clear()
+            );
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
         }
 
@@ -114,6 +132,13 @@ namespace SlopWorld
                     + Timestamp(_task.UpdatedMs)
             );
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
+            if (_cards.Count > 0 && foot.Left("Open card", UiTheme.Btn.Default))
+            {
+                if (_cards.Count == 1)
+                    _cards[0].action();
+                else
+                    UiMenu.Open(_cards);
+            }
             if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
                 DesktopClipboard.Copy(DialogueText());
 

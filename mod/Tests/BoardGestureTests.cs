@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
@@ -21,6 +22,57 @@ namespace SlopWorld.Tests
             );
             board.Columns.Add(new Wire.BoardColumn { Id = "empty" });
             return board;
+        }
+
+        [Test]
+        public void ExpandedEditsAndCommentsTargetIndividualStableEntryIds()
+        {
+            var card = new Wire.BoardCard { Id = "card" };
+            foreach (var author in new[] { "agent", "host", "host", "agent" })
+                card.Activity.Add(
+                    new Wire.BoardComment
+                    {
+                        Id = card.Activity.Count + 10,
+                        Author = author,
+                        Text = "Changed the title",
+                    }
+                );
+            Assert.That(
+                BoardDiscussion.ActivityGroups(card),
+                Is.EqualTo(new[] { (3, 3), (2, 1), (0, 0) })
+            );
+            var entry = card.Activity[1];
+            var remove = BoardDiscussion.Remove("root", card.Id, entry, true);
+            Assert.That(
+                (remove.Action, remove.Board, remove.Card, remove.Text),
+                Is.EqualTo(("remove-activity", "root", "card", "11"))
+            );
+            card.Activity.RemoveAt(1);
+            Assert.That(card.Activity[1].Id, Is.EqualTo(12));
+            var comment = new Wire.BoardComment { Id = 22 };
+            remove = BoardDiscussion.Remove("root", card.Id, comment, false);
+            Assert.That((remove.Action, remove.Text), Is.EqualTo(("remove-comment", "22")));
+        }
+
+        [Test]
+        public void LinkedAssignmentsResolveOnlyFromTheVisibleTaskMailbox()
+        {
+            var board = Board();
+            var selection = new BoardSelection();
+            var card = board.Columns[0].Cards[0];
+            card.Links.Add(new Wire.BoardLink { Kind = "task", Target = "completed" });
+            card.Links.Add(new Wire.BoardLink { Kind = "task", Target = "removed" });
+            selection.Select(card);
+            var task = new TaskInfo
+            {
+                Id = "completed",
+                Status = DelegatedTaskStatus.Done,
+                Note = "the result",
+            };
+            var linked = selection.LinkedTasks(new[] { task }).ToList();
+            Assert.That(linked[0].Note, Is.EqualTo("the result"));
+            Assert.That(linked[1], Is.Null);
+            Assert.That(selection.Card.Id, Is.EqualTo(card.Id));
         }
 
         [Test]
@@ -48,23 +100,17 @@ namespace SlopWorld.Tests
             selection.Title = "draft title";
             selection.Description = "draft description";
             selection.Comment = "draft comment";
-            var destination = new Wire.ProjectBoard
-            {
-                Id = "project",
-                Columns =
-                {
-                    new Wire.BoardColumn { Id = "review", Cards = { card.Clone() } },
-                },
-            };
-            destination.Columns[0].Cards[0].Assignee = "agent";
+            var destination = source.Columns[1];
+            destination.Cards.Add(card.Clone());
+            destination.Cards[0].Assignee = "agent";
             source.Columns[0].Cards.RemoveAt(0);
-            var next = new Wire.BoardCatalog { Boards = { source, destination } };
-            Assert.That(selection.Refresh(next).Id, Is.EqualTo("project"));
+            var next = new Wire.BoardCatalog { Boards = { source } };
+            Assert.That(selection.Refresh(next).Id, Is.EqualTo("root"));
             Assert.That(selection.Title, Is.EqualTo("draft title"));
             Assert.That(selection.Card.Assignee, Is.EqualTo("agent"));
             Assert.That(selection.Description, Is.EqualTo("draft description"));
             Assert.That(selection.Comment, Is.EqualTo("draft comment"));
-            destination.Columns.Clear();
+            destination.Cards.Clear();
             Assert.That(selection.Refresh(next), Is.Null);
             Assert.That(selection.Card, Is.Null);
         }
@@ -106,12 +152,19 @@ namespace SlopWorld.Tests
         [TestCase("outside")]
         [TestCase("lost anchor")]
         [TestCase("lost column")]
+        [TestCase("other board")]
         public void InterruptedMoveCannotPublish(string cause)
         {
             var board = Board();
             var g = new BoardGesture();
             g.Press("first", "picked", true, true, 10, 10);
             g.Target("first", "anchor");
+            if (cause == "other board")
+                board = new Wire.ProjectBoard
+                {
+                    Id = "other",
+                    Columns = { new Wire.BoardColumn { Id = "other column" } },
+                };
             if (cause == "cancel")
                 g.Cancel();
             if (cause == "lost anchor")

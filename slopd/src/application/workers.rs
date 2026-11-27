@@ -161,6 +161,9 @@ pub(crate) fn prepare(
     let template = template(&caller, context, &project, name.trim(), templates)?;
     let mut session =
         worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
+    let p = cfg
+        .project(&project)
+        .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
     if let Caller::Agent {
         identity,
         policy,
@@ -169,7 +172,7 @@ pub(crate) fn prepare(
     } = context
     {
         session.parent_id.clone_from(identity);
-        session.permissions = session.permissions.intersect(*permissions);
+        session.permissions = session.permissions.intersect(permissions, &p.id);
         session.workers.enabled &= policy.recursive;
         session.workers.recursive &= policy.recursive;
         if !policy.all_templates {
@@ -189,9 +192,6 @@ pub(crate) fn prepare(
         session.parent_id = crate::tasks::HOST.into();
         session.workers.enabled = false;
     }
-    let p = cfg
-        .project(&project)
-        .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
     // Workers must reach the task API; their template supplies execution settings.
     if cfg.network_of(&session, p) == NetworkMode::None {
         bail!(
@@ -553,7 +553,7 @@ impl Workers {
                     !expected_task.is_empty() && session.task_id == expected_task,
                     "Worker relationship changed. Reload the worker before editing access."
                 );
-                session.permissions = permissions;
+                session.permissions.clone_from(&permissions);
                 if let Some(policy) = policy {
                     session.workers = policy;
                 }

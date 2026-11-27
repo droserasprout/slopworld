@@ -29,9 +29,8 @@ namespace SlopWorld
         int _revision;
         float _nextRead;
         Vector2 _last;
-        string _prompt,
-            _input;
-        Action<string> _submit;
+        Wire.BoardEdit _inlineEdit;
+        bool _focusInline;
         public override string Title => "Board";
         public override PanelSize MinimumSize => new PanelSize(240f, 180f);
 
@@ -44,8 +43,11 @@ namespace SlopWorld
 
         public static void Open() => WorkspaceWindow.OpenContent(Current());
 
+        IDisposable _taskDemand;
+
         public override void Opened()
         {
+            _taskDemand ??= SessionHub.Instance.TaskStore.OpenReader();
             _open = true;
             WorkspaceLayout.CompactBoardOpen = true;
             _nextRead = 0;
@@ -53,10 +55,12 @@ namespace SlopWorld
 
         public override void Closed()
         {
+            _taskDemand?.Dispose();
+            _taskDemand = null;
             _open = false;
             WorkspaceLayout.CompactBoardOpen = false;
             _gesture.Cancel();
-            _submit = null;
+            _inlineEdit = null;
         }
 
         public override void FocusChanged(bool focused)
@@ -73,14 +77,9 @@ namespace SlopWorld
                 _gesture.Cancel();
                 return true;
             }
-            if (_adding != null)
+            if (_inlineEdit != null)
             {
-                _adding = null;
-                return true;
-            }
-            if (_submit != null)
-            {
-                _submit = null;
+                _inlineEdit = null;
                 return true;
             }
             if (_editor.Card != null)
@@ -117,6 +116,11 @@ namespace SlopWorld
             return true;
         }
 
+        bool CanWrite => _catalog?.CanWrite == true;
+        bool CanAdmin => _catalog?.CanAdmin == true;
+
+        bool Writable(Wire.ProjectBoard board) => CanWrite && !board.Archived;
+
         bool Active => _open && _endpoint == DaemonClient.BaseUrl;
 
         void Refresh()
@@ -139,7 +143,12 @@ namespace SlopWorld
                     _reading = false;
                     _nextRead = Time.unscaledTime + 3f;
                     if (revision == _revision)
+                    {
+                        _catalog = null;
+                        _gesture.Cancel();
+                        _inlineEdit = null;
                         _error = error;
+                    }
                 }
             );
         }
@@ -163,7 +172,10 @@ namespace SlopWorld
                 error =>
                 {
                     _saving = false;
-                    _error = error;
+                    _error =
+                        edit.Action == "link" && edit.Kind == "task"
+                            ? $"Could not attach task {edit.Text}. {error}"
+                            : error;
                     _nextRead = 0;
                 }
             );
@@ -171,11 +183,20 @@ namespace SlopWorld
 
         void Accept(Wire.BoardCatalog value)
         {
+            if (!value.CanWrite || (_catalog?.CanAdmin == true && !value.CanAdmin))
+                _inlineEdit = null;
             _catalog = value;
-            if (!_gesture.Valid(VisibleBoard(Board)) || (_gesture.Dragging && Board.Archived))
+            if (!_gesture.Valid(VisibleBoard(Board)) || (_gesture.Dragging && !Writable(Board)))
             {
                 _gesture.Cancel();
                 _error = "Move canceled. The card, column, or insertion point changed.";
+            }
+            if (_pendingTaskCard.HasValue)
+            {
+                var link = _pendingTaskCard.Value;
+                _pendingTaskCard = null;
+                if (!_editor.SelectLinkedTaskCard(Board, link.Card, link.Task))
+                    _error = "The linked card is no longer available.";
             }
             if (_editor.Card != null)
             {
@@ -189,7 +210,7 @@ namespace SlopWorld
                 }
             }
             if (Board == null)
-                PickBoard("root");
+                PickBoard(value.Boards.FirstOrDefault()?.Id);
         }
 
         string BoardLabel(Wire.ProjectBoard board)
@@ -200,19 +221,73 @@ namespace SlopWorld
                 : name;
         }
 
+        (string Card, string Task)? _pendingTaskCard;
+
+        internal static void OpenLinkedCard(string boardId, string cardId, string taskId)
+        {
+            var view = Current();
+            if (view._board != boardId)
+                view.PickBoard(boardId);
+            view._pendingTaskCard = (cardId, taskId);
+            Open();
+        }
+
         void PickBoard(string id)
         {
             _board = id;
             SetFilters("", null);
             _editor.Select(null);
-            _submit = null;
+            _inlineEdit = null;
         }
 
-        void Prompt(string label, string initial, Action<string> submit)
+        void BeginInline(string action, string text = "", string column = "")
         {
-            _prompt = label;
-            _input = initial;
-            _submit = submit;
+            _inlineEdit = new Wire.BoardEdit
+            {
+                Board = _board,
+                Action = action,
+                Column = column,
+                Text = text,
+            };
+            _focusInline = true;
+        }
+
+        bool DrawInlineField(Rect rect, string action, string placeholder, string column = "")
+        {
+            var edit = _inlineEdit;
+            if (
+                edit == null
+                || edit.Action != action
+                || edit.Column != column
+                || edit.Board != _board
+            )
+                return false;
+            string name = "board.inline." + action + "." + column;
+            var e = Event.current;
+            if (
+                e.type == EventType.KeyDown
+                && GUI.GetNameOfFocusedControl() == name
+                && e.keyCode == KeyCode.Escape
+            )
+            {
+                e.Use();
+                _inlineEdit = null;
+                return true;
+            }
+            if (SubmitField(name))
+            {
+                _inlineEdit = null;
+                if (edit.Text.Trim().Length > 0)
+                    Save(edit);
+                return true;
+            }
+            edit.Text = UiText.FieldWithPlaceholder(TextBox(rect), name, edit.Text, placeholder);
+            if (_focusInline && e.type == EventType.Repaint)
+            {
+                GUI.FocusControl(name);
+                _focusInline = false;
+            }
+            return true;
         }
 
         public override void Draw(Rect body)
@@ -230,7 +305,10 @@ namespace SlopWorld
                 body = body.ContractedBy(4);
                 if (Board == null)
                 {
-                    UiText.RowLabel(body, _error ?? "Loading boards…");
+                    UiText.RowLabel(
+                        body,
+                        _error ?? (_catalog == null ? "Loading boards…" : "No visible boards.")
+                    );
                     return;
                 }
                 if (_error != null)
@@ -245,11 +323,19 @@ namespace SlopWorld
                 bool stacked = body.width < 560;
                 const float gap = 4;
                 float actionWidth = board.Archived ? 116 : 85;
-                float pickerWidth = stacked
-                    ? body.width - actionWidth - gap
-                    : (body.width - actionWidth - 3 * gap) / 3;
+                bool showPrefix = CanAdmin && !board.Archived;
+                const float prefixWidth = 96;
+                bool separateActions = stacked && showPrefix;
+                float actionsWidth = actionWidth + (showPrefix ? gap + prefixWidth : 0);
+                float pickerWidth =
+                    separateActions ? body.width
+                    : stacked ? body.width - actionWidth - gap
+                    : (body.width - actionsWidth - 3 * gap) / 3;
                 var picker = new Rect(body.x, body.y, pickerWidth, 30);
-                float toolbarHeight = stacked ? 68 : 34;
+                float toolbarHeight =
+                    separateActions ? 102
+                    : stacked ? 68
+                    : 34;
                 if (_editor.Card != null)
                 {
                     if (
@@ -294,10 +380,22 @@ namespace SlopWorld
                     30
                 );
                 DrawFilters(filter, board);
-                var action = new Rect(body.xMax - actionWidth, body.y, actionWidth, 30);
+                float actionY = separateActions ? body.y + 68 : body.y;
+                var action = new Rect(body.xMax - actionWidth, actionY, actionWidth, 30);
+                if (showPrefix)
+                {
+                    var prefix = new Rect(action.x - gap - prefixWidth, actionY, prefixWidth, 30);
+                    if (!DrawInlineField(prefix, "set-prefix", "Key prefix"))
+                    {
+                        UiText.RowLabel(prefix, board.Prefix, TextAnchor.MiddleCenter);
+                        TooltipHandler.TipRegion(prefix, "Edit card key prefix");
+                        if (!_saving && Widgets.ButtonInvisible(prefix))
+                            BeginInline("set-prefix", board.Prefix);
+                    }
+                }
                 if (board.Archived)
                 {
-                    if (UiControls.Button(action, "Delete archive…", on: !_saving))
+                    if (CanAdmin && UiControls.Button(action, "Delete archive…", on: !_saving))
                         Find.WindowStack.Add(
                             ConfirmDialog.Create(
                                 $"Permanently delete {BoardLabel(board)} and its {board.Columns.Sum(c => c.Cards.Count)} remaining cards?",
@@ -314,45 +412,13 @@ namespace SlopWorld
                             )
                         );
                 }
-                else if (UiControls.Button(action, "+ Column", on: !_saving))
-                    Prompt(
-                        "Column name",
-                        "",
-                        name =>
-                            Save(
-                                new Wire.BoardEdit
-                                {
-                                    Action = "add-column",
-                                    Board = board.Id,
-                                    Text = name,
-                                }
-                            )
-                    );
+                else if (
+                    CanWrite
+                    && !DrawInlineField(action, "add-column", "Column name")
+                    && UiControls.Button(action, "+ Column", on: !_saving)
+                )
+                    BeginInline("add-column");
                 body.yMin += toolbarHeight;
-                if (_submit != null)
-                {
-                    _input = UiText.FieldWithPlaceholder(
-                        TextBox(new Rect(body.x, body.y, body.width - 112, 30)),
-                        "board.prompt",
-                        _input,
-                        _prompt
-                    );
-                    if (
-                        UiControls.Button(
-                            new Rect(body.xMax - 108, body.y, 66, 30),
-                            "Apply",
-                            on: !_saving && _input.Trim().Length > 0
-                        )
-                    )
-                    {
-                        var submit = _submit;
-                        _submit = null;
-                        submit(_input);
-                    }
-                    if (UiControls.Button(new Rect(body.xMax - 38, body.y, 38, 30), "×"))
-                        _submit = null;
-                    body.yMin += 34;
-                }
                 DrawColumns(body, VisibleBoard(board), body.width < 650);
             }
         }
