@@ -402,8 +402,8 @@ and does not identify which crates are included in a particular binary.
 | xmltree | 0.11.0 | MIT |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
-| zerocopy | 0.8.65 | BSD-2-Clause OR Apache-2.0 OR MIT |
-| zerocopy-derive | 0.8.65 | BSD-2-Clause OR Apache-2.0 OR MIT |
+| zerocopy | 0.8.66 | BSD-2-Clause OR Apache-2.0 OR MIT |
+| zerocopy-derive | 0.8.66 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerofrom | 0.1.8 | Unicode-3.0 |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
 | zeroize | 1.9.2 | Apache-2.0 OR MIT |

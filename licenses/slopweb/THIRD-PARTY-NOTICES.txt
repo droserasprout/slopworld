@@ -31069,8 +31069,8 @@ SPDX-License-Identifier: Unicode-3.0
 Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 
-zerocopy 0.8.65 — BSD-2-Clause OR Apache-2.0 OR MIT
-Source: https://crates.io/api/v1/crates/zerocopy/0.8.65/download
+zerocopy 0.8.66 — BSD-2-Clause OR Apache-2.0 OR MIT
+Source: https://crates.io/api/v1/crates/zerocopy/0.8.66/download
 
 LICENSE-APACHE
 
