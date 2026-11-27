@@ -102,11 +102,12 @@ namespace SlopWorld
                         message.Sender,
                         message.Timestamp,
                         message.Status,
-                        message.TimestampBelow
+                        message.TimestampBelow,
+                        width
                     );
                     if (remove != null && (canRemove == null || canRemove(i)))
                     {
-                        var cross = new Rect(messageWidth, message.Y, 22, 22);
+                        var cross = new Rect(width - 24, message.Y + 2, 22, 22);
                         TooltipHandler.TipRegion(
                             cross,
                             "Remove " + message.Status.ToLowerInvariant()
@@ -134,12 +135,19 @@ namespace SlopWorld
             );
         }
 
-        void DrawMessage(Rect r, string sender, long timestamp, string status, bool timestampBelow)
+        void DrawMessage(
+            Rect r,
+            string sender,
+            long timestamp,
+            string status,
+            bool timestampBelow,
+            float frameWidth
+        )
         {
             var card = new Rect(
                 r.x + AvatarOverlap,
                 r.y,
-                Mathf.Max(1f, r.width - AvatarOverlap),
+                Mathf.Max(1f, frameWidth - AvatarOverlap),
                 r.height
             );
             Slab.Box(card, UiTheme.Well, UiTheme.Edge);
@@ -147,7 +155,10 @@ namespace SlopWorld
             var icon = new Rect(r.x, r.y + UiTheme.GapS, AvatarSize, AvatarSize);
             DrawSenderIcon(icon, sender);
 
-            float textWidth = Mathf.Max(1f, card.width - MessageTextInset - UiTheme.FieldPadX);
+            float textWidth = Mathf.Max(
+                1f,
+                r.width - AvatarOverlap - MessageTextInset - UiTheme.FieldPadX
+            );
             float y = card.y + UiTheme.FieldPadY;
             var header = new Rect(
                 card.x + MessageTextInset,

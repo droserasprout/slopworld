@@ -11,6 +11,7 @@ namespace SlopWorld
         Wire.BoardCard _discussionCard;
         List<TaskInfo> _mailbox;
         TaskInfo _standalone;
+        int _dismissedCount;
         string _filter = "All",
             _shownFilter;
         List<FeedItem> _items;
@@ -71,11 +72,13 @@ namespace SlopWorld
                     );
                 }
             }
+            var dismissed = Verse.Current.Game?.GetComponent<TaskFeedDismissals>();
             var mailbox = SessionHub.Instance.Tasks;
             if (
                 !ReferenceEquals(card, _discussionCard)
                 || !ReferenceEquals(mailbox, _mailbox)
                 || !ReferenceEquals(standalone, _standalone)
+                || _dismissedCount != (dismissed?.Count ?? 0)
                 || _filter != _shownFilter
             )
             {
@@ -83,7 +86,11 @@ namespace SlopWorld
                     card == null
                         ? new[] { standalone }.AsEnumerable()
                         : _editor.LinkedTasks(mailbox);
-                var items = FeedItem.Build(card, tasks, _filter).ToList();
+                var items = FeedItem
+                    .Build(card, tasks, _filter)
+                    .Where(i => dismissed?.Contains(i.TaskEntryKey) != true)
+                    .ToList();
+                _dismissedCount = dismissed?.Count ?? 0;
                 var entries = items.Select(i => i.Message).ToList();
                 if (_discussionCard?.Id != card?.Id || _filter != _shownFilter)
                     _discussion.Reset();
@@ -105,16 +112,22 @@ namespace SlopWorld
                     area,
                     _entries,
                     _entries,
-                    remove: CanAdmin && editable
+                    remove: (CanAdmin && editable) || dismissed != null
                         ? i =>
                         {
                             var item = _items[i];
+                            if (item.TaskEntryKey != null)
+                            {
+                                dismissed.RemoveFromFeed(item.TaskEntryKey);
+                                return;
+                            }
                             Save(
                                 BoardDiscussion.Remove(board.Id, card.Id, item.Entry, item.Activity)
                             );
                         }
                         : (System.Action<int>)null,
-                    canRemove: i => _items[i].Entry != null
+                    canRemove: i =>
+                        _items[i].Entry != null ? CanAdmin && editable : dismissed != null
                 );
         }
     }

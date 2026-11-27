@@ -9,6 +9,7 @@ namespace SlopWorld
         internal (string Body, string Sender, long Time, string Status) Message;
         internal Wire.BoardComment Entry;
         internal bool Activity;
+        internal string TaskEntryKey;
 
         internal static IEnumerable<FeedItem> Build(
             Wire.BoardCard card,
@@ -43,8 +44,10 @@ namespace SlopWorld
                 var previous = DelegatedTaskStatus.Queued;
                 string lastNote = null;
                 var updates = new List<FeedItem>();
+                int index = 0;
                 foreach (var update in task.History)
                 {
+                    int updateIndex = index++;
                     var note = update.Note?.Trim();
                     if (
                         update.Status == previous
@@ -54,6 +57,7 @@ namespace SlopWorld
                     updates.Add(
                         new FeedItem
                         {
+                            TaskEntryKey = $"{task.Id}/update/{update.TimestampMs}/{updateIndex}",
                             Message = (
                                 update.Note ?? "",
                                 update.Sender,
@@ -76,6 +80,7 @@ namespace SlopWorld
                 )
                     yield return new FeedItem
                     {
+                        TaskEntryKey = $"{task.Id}/status/{task.UpdatedMs}",
                         Message = (
                             task.Note ?? "",
                             task.To,
@@ -86,6 +91,7 @@ namespace SlopWorld
                 if (filter == "All")
                     yield return new FeedItem
                     {
+                        TaskEntryKey = task.Id + "/body",
                         Message = (task.Body ?? "", task.From, task.CreatedMs, prefix),
                     };
             }

@@ -9,3 +9,5 @@ The board and task views share ConversationReader for portraits, timestamp forma
 BoardView polls only while open. Mutations invalidate earlier reads. Detail selection follows the card ID across snapshots. SlopWeb forwards pointer device and capture cancellation into the native gesture owner. The browser’s visible viewport sets responsive canvas height when a keyboard is present.
 
 See the [Board guide](../docs/src/workspace/board.md) and [API contract](../docs/src/reference/api.md#project-boards).
+
+Removing a task entry dismisses it across card and task feeds in the colony save. The daemon retains task history.
