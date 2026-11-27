@@ -26,6 +26,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(add, "Add link");
                 if (UiControls.Button(add, "+", on: editable))
                 {
+                    _editor.SelectedWorktree = null;
                     _editor.AddingLink = true;
                     _focusLink = true;
                 }
@@ -47,6 +48,7 @@ namespace SlopWorld
                             () =>
                             {
                                 _focusLink = true;
+                                _editor.SelectedWorktree = null;
                                 _editor.LinkKind = k;
                                 _editor.LinkTarget = "";
                             }
@@ -74,7 +76,9 @@ namespace SlopWorld
                 kind == "card" && target.Length > 0
                     ? _cardLinks.Resolve(_catalog, board, target).Card
                     : null;
-            var stored = linkedCard?.Id ?? target;
+            if (_editor.SelectedWorktree?.Label != target)
+                _editor.SelectedWorktree = null;
+            var stored = linkedCard?.Id ?? _editor.SelectedWorktree?.Path ?? target;
             bool ready =
                 editable
                 && target.Length > 0
@@ -119,11 +123,14 @@ namespace SlopWorld
                 candidates = SessionHub
                     .Instance.Tasks.Select(t => (t.Id, t.Summary + " · " + t.Id))
                     .Concat(candidates);
-            if (kind == "worktree")
-                candidates = SidebarScopes
-                    .LinkTargets(board.Id == "root" ? null : board.Name)
+            var worktrees =
+                kind == "worktree"
+                    ? SidebarScopes.LinkTargets(board.Id == "root" ? null : board.Name).ToList()
+                    : null;
+            if (worktrees != null)
+                candidates = worktrees
                     .Where(w => !string.IsNullOrEmpty(w.Path))
-                    .Select(w => (w.Path, w.Project + " / " + w.Label + " · " + w.Path))
+                    .Select(w => (w.Path, w.Project + " / " + w.Label))
                     .Concat(candidates);
             if (kind == "card")
                 candidates = _cardLinks
@@ -136,7 +143,7 @@ namespace SlopWorld
             var options = candidates
                 .Where(o =>
                     !string.IsNullOrEmpty(o.Value)
-                    && o.Value != target
+                    && o.Value != stored
                     && (
                         o.Label.Contains(target, StringComparison.OrdinalIgnoreCase)
                         || o.Value.Contains(target, StringComparison.OrdinalIgnoreCase)
@@ -178,6 +185,11 @@ namespace SlopWorld
                                     == picked.Id
                                     ? picked.Key
                                     : option.Value;
+                            _editor.SelectedWorktree = worktrees?.FirstOrDefault(w =>
+                                w.Path == option.Value
+                            );
+                            if (_editor.SelectedWorktree != null)
+                                _editor.LinkTarget = _editor.SelectedWorktree.Label;
                             GUI.FocusControl(null);
                         }
                     }

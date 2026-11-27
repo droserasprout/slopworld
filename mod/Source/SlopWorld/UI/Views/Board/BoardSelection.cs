@@ -13,6 +13,7 @@ namespace SlopWorld
             LinkKind = "worktree",
             LinkTarget = "";
         internal bool AddingLink;
+        internal BrowseScope SelectedWorktree;
 
         internal IEnumerable<TaskInfo> LinkedTasks(IEnumerable<TaskInfo> visibleTasks) =>
             Card
@@ -39,6 +40,7 @@ namespace SlopWorld
             if (changed)
             {
                 Comment = LinkTarget = "";
+                SelectedWorktree = null;
                 AddingLink = false;
                 LinkKind = "worktree";
                 Description = card?.Description ?? "";

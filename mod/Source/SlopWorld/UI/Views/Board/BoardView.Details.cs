@@ -136,6 +136,9 @@ namespace SlopWorld
                     else
                         UiText.RowLabel(assignee, AssigneeLabel(card.Assignee));
                     l.Label("Links");
+                    var worktrees = card.Links.Any(link => link.Kind == "worktree")
+                        ? SidebarScopes.LinkTargets(board.Id == "root" ? null : board.Name).ToList()
+                        : null;
                     foreach (var link in card.Links)
                     {
                         var task =
@@ -149,6 +152,12 @@ namespace SlopWorld
                         string label =
                             destination.Card != null
                                 ? destination.Card.Key + " · " + destination.Card.Title
+                            : link.Kind == "worktree"
+                                ? "worktree:"
+                                    + (
+                                        worktrees.FirstOrDefault(w => w.Path == link.Target)?.Label
+                                        ?? link.Target
+                                    )
                             : task == null ? link.Kind + ":" + link.Target
                             : task.Summary + " · " + TaskInfo.StatusText(task.Status);
                         float width = Mathf.Max(1, l.ColumnWidth - (!Writable(board) ? 0 : 32));
