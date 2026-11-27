@@ -15,6 +15,7 @@ namespace SlopWorld
             bool hasHeading
         )
         {
+            long now = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string fontName = Settings.UIFontName ?? "";
             int layoutRevision = WorkspaceLayout.Revision;
             bool fontChanged =
@@ -24,11 +25,13 @@ namespace SlopWorld
             if (
                 ReferenceEquals(_layoutSource, source)
                 && Mathf.Approximately(_layoutWidth, width)
+                && _layoutMinute == now / 60000
                 && !fontChanged
                 && _layoutRevision == layoutRevision
             )
                 return;
 
+            _layoutMinute = now / 60000;
             _layoutSource = source;
             _layoutWidth = width;
             _layoutScale = Prefs.UIScale;
@@ -44,7 +47,16 @@ namespace SlopWorld
             var text = new StringBuilder();
             float y = hasHeading ? UiTheme.TinyRowH + UiTheme.GapS : 0;
             foreach (var entry in entries)
-                AddMessage(width, entry.Body, entry.Sender, entry.Time, entry.Status, text, ref y);
+                AddMessage(
+                    width,
+                    entry.Body,
+                    entry.Sender,
+                    entry.Time,
+                    entry.Status,
+                    now,
+                    text,
+                    ref y
+                );
             _contentHeight = y + UiTheme.GapS;
             _selection.Rebuilt(text.ToString(), anchor, focus);
         }
@@ -55,6 +67,7 @@ namespace SlopWorld
             string sender,
             long timestamp,
             string status,
+            long now,
             StringBuilder text,
             ref float y
         )
@@ -65,15 +78,15 @@ namespace SlopWorld
                 text.Append("\n\n");
             }
             var ranges = WrappedRanges(body, TextWidth(width));
+            string age = timestamp > 0 ? RelativeTime(timestamp, now) : "";
             bool timestampBelow;
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
                 timestampBelow =
                     timestamp > 0
-                    && UiTheme.Wide(
-                        Prefix(status) + SenderLabel(sender) + "  ·  " + Timestamp(timestamp)
-                    ) > TextWidth(width);
+                    && UiTheme.Wide(Prefix(status) + SenderLabel(sender) + "  ·  " + age)
+                        > TextWidth(width);
             }
             float headerH = UiTheme.LineHOf(GameFont.Tiny) * (timestampBelow ? 2 : 1);
             float height = MessageCardHeight(ranges.Count, headerH);
@@ -82,6 +95,7 @@ namespace SlopWorld
                 {
                     Sender = sender,
                     Timestamp = timestamp,
+                    Age = age,
                     Status = status,
                     TimestampBelow = timestampBelow,
                     Y = y,

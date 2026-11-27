@@ -29,11 +29,13 @@ namespace SlopWorld
         string _layoutFontName = "";
         int _layoutRevision = int.MinValue;
         float _contentHeight;
+        long _layoutMinute;
 
         sealed class MessageLayout
         {
             public string Sender;
             public long Timestamp;
+            public string Age;
             public string Status;
             public bool TimestampBelow;
             public float Y;
@@ -104,6 +106,7 @@ namespace SlopWorld
                         new Rect(0f, message.Y, messageWidth, message.Height),
                         message.Sender,
                         message.Timestamp,
+                        message.Age,
                         message.Status,
                         message.TimestampBelow,
                         width
@@ -148,6 +151,7 @@ namespace SlopWorld
             Rect r,
             string sender,
             long timestamp,
+            string age,
             string status,
             bool timestampBelow,
             float frameWidth
@@ -185,22 +189,23 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.UpperLeft;
                 string prefix = Prefix(status);
                 string label = SenderLabel(sender);
-                string suffix =
-                    timestamp > 0 && !timestampBelow ? "  ·  " + Timestamp(timestamp) : "";
+                string suffix = timestamp > 0 && !timestampBelow ? "  ·  " + age : "";
                 if (timestampBelow)
                 {
                     GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(
-                        new Rect(header.x, header.yMax, header.width, header.height),
-                        Timestamp(timestamp)
-                    );
+                    var timeRow = new Rect(header.x, header.yMax, header.width, header.height);
+                    UiText.RowLabel(timeRow, age);
+                    TooltipHandler.TipRegion(timeRow, Timestamp(timestamp));
                 }
-                if (timestamp > 0)
-                    TooltipHandler.TipRegion(header, Timestamp(timestamp));
                 float prefixW = UiTheme.Wide(prefix);
                 float labelW = UiTheme.Wide(label);
                 float suffixW = UiTheme.Wide(suffix);
                 float nameX = header.x + prefixW;
+                if (timestamp > 0 && !timestampBelow)
+                    TooltipHandler.TipRegion(
+                        new Rect(nameX + labelW, header.y, suffixW, header.height),
+                        Timestamp(timestamp)
+                    );
                 float nameW = Mathf.Min(labelW, Mathf.Max(0f, header.xMax - nameX));
                 if (IsAgentSender(sender))
                 {
@@ -245,6 +250,22 @@ namespace SlopWorld
         }
 
         static string Prefix(string status) => status == null ? "Message from " : status + "  ·  ";
+
+        internal static string RelativeTime(long timestamp, long now)
+        {
+            long minutes = (now - timestamp) / 60000;
+            if (minutes < 1)
+                return "just now";
+            long count =
+                minutes < 60 ? minutes
+                : minutes < 1440 ? minutes / 60
+                : minutes / 1440;
+            string unit =
+                minutes < 60 ? "minute"
+                : minutes < 1440 ? "hour"
+                : "day";
+            return count + " " + unit + (count == 1 ? " ago" : "s ago");
+        }
 
         internal static string Timestamp(long milliseconds)
         {
