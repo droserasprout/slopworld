@@ -24,6 +24,8 @@ namespace SlopWorld
         {
             Slab.Fill(area, UiTheme.Well);
             area = area.ContractedBy(6);
+            UiText.RowLabel(new Rect(area.x, area.y, area.width, 24), "Comments and activity");
+            area.yMin += 26;
             if (
                 UiControls.Button(
                     new Rect(area.x, area.y, area.width / 2, 24),

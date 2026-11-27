@@ -6,7 +6,6 @@ namespace SlopWorld
     // Card identity owns the editor across polling and column moves. Untouched descriptions follow the shared snapshot.
     internal sealed class BoardSelection
     {
-        internal string Tab = "Discussion";
         internal Wire.BoardCard Card { get; private set; }
         internal string Comment = "",
             Title = "",
@@ -29,10 +28,7 @@ namespace SlopWorld
                     && c.Links.Any(link => link.Kind == "task" && link.Target == taskId)
                 );
             Select(card);
-            if (card == null)
-                return false;
-            Tab = "Tasks";
-            return true;
+            return card != null;
         }
 
         internal void Select(Wire.BoardCard card)
@@ -42,7 +38,6 @@ namespace SlopWorld
                 Title = card?.Title ?? "";
             if (changed)
             {
-                Tab = "Discussion";
                 Comment = LinkTarget = TaskTarget = "";
                 LinkKind = "worktree";
                 Description = card?.Description ?? "";

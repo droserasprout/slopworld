@@ -8,11 +8,11 @@ Use **+ Column** to add a column. Use **+ Add card** at the foot of a column, ty
 
 On a narrow screen, swipe across columns or vertically through cards. Tap a card to open its popup and **×** to return. Use the visible grab handle to pick up a card or header on touchscreens. A mouse wheel scrolls the pointed column, and Shift+wheel moves across columns.
 
-Cards open on **Discussion**. Press Enter or **Post** to send a comment. Drag to select text, double-click a word, or triple-click a line. Click an active agent’s name or portrait to open its terminal. Select **Show activity** to see edits and expand a repeated edit to inspect or remove an individual event. **Remove comment…** lets you choose a comment by its author, text, and entry ID.
+Card details appear beside **Comments and activity**, or above them on narrow screens. Press Enter or **Post** to send a comment. Drag to select text, double-click a word, or triple-click a line. Click an active agent’s name or portrait to open its terminal. Select **Show activity** to see edits and expand a repeated edit to inspect or remove an individual event. **Remove comment…** lets you choose a comment by its author, text, and entry ID.
 
-Open **Tasks** to attach an assignment by ID, spawn a worker, or delegate to an agent. Select an assignment to read its history and result. Back returns to the card. From **Task: Open**, use **Open card** to follow a link in the other direction. If several cards link to the same task, choose one from the picker.
+Under **Tasks**, you can attach an assignment by ID, spawn a worker, or delegate to an agent. Select an assignment to read its history and result. Back returns to the card. From **Task: Open**, use **Open card** to follow a link in the other direction. If several cards link to the same task, choose one from the picker.
 
-Open **Details** to edit the title or description and use **Save** beside the changed field. **Assigned to** applies your choice of user, agent, worker, or **Unassigned**. To attach another resource, enter its kind and a target such as a branch name, worktree path, or URL. Use **×** beside a link to detach it. The column dropdown moves the card within its board. Moving a card to Done leaves the linked assignments under their workers’ control. Close the popup with **×** or Escape to return to the same board position.
+Edit the title or description and use **Save** beside the changed field. **Assigned to** applies your choice of user, agent, worker, or **Unassigned**. To attach another resource, enter its kind and a target such as a branch name, worktree path, or URL. Use **×** beside a link to detach it. The column dropdown moves the card within its board. Moving a card to Done leaves the linked assignments under their workers’ control. Close the popup with **×** or Escape to return to the same board position.
 
 ## Work with an agent
 

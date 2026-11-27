@@ -7,14 +7,12 @@ namespace SlopWorld
 {
     public sealed partial class BoardView
     {
-        static readonly string[] Tabs = { "Discussion", "Tasks", "Details" };
         bool _activity;
         readonly HashSet<long> _expanded = new HashSet<long>();
         readonly ScrollableListing _events = new ScrollableListing();
 
         void SelectCard(Wire.BoardCard card)
         {
-            _editor.Tab = "Discussion";
             _activity = false;
             _expanded.Clear();
             _editor.Select(card);
@@ -75,35 +73,18 @@ namespace SlopWorld
                 return;
             }
             panel.yMin += 36;
-            float tabWidth = panel.width / Tabs.Length;
-            for (int index = 0; index < Tabs.Length; index++)
+            var discussion = panel;
+            if (panel.width >= 620)
             {
-                var tab = Tabs[index];
-                if (
-                    UiControls.Button(
-                        new Rect(panel.x + index * tabWidth, panel.y, tabWidth, 28),
-                        tab,
-                        on: _editor.Tab != tab
-                    )
-                )
-                    _editor.Tab = tab;
+                discussion.xMin += panel.width * .57f;
+                panel.xMax = discussion.xMin - 8;
             }
-            panel.yMin += 32;
-            UiText.RowLabel(
-                new Rect(panel.x, panel.y, panel.width, 24),
-                card.Key + "  " + card.Title
-            );
-            panel.yMin += 28;
-            if (_editor.Tab == "Discussion")
+            else
             {
-                DrawDiscussion(panel, board, card, editable);
-                return;
+                discussion.yMin += panel.height * .52f;
+                panel.yMax = discussion.yMin - 6;
             }
-            if (_editor.Tab == "Tasks")
-            {
-                DrawTasks(panel, board, card, editable);
-                return;
-            }
+            DrawDiscussion(discussion, board, card, editable);
             _details.Draw(
                 panel,
                 l =>
@@ -143,7 +124,7 @@ namespace SlopWorld
                             Save(CardEdit(board, card, action, draft));
                         }
                     }
-                    Field("Title", "title", card.Title, ref _editor.Title);
+                    Field(card.Key, "title", card.Title, ref _editor.Title);
                     l.Label("Assigned to");
                     var assignee = l.GetRect(32);
                     if (editable)
@@ -158,6 +139,28 @@ namespace SlopWorld
                         );
                     else
                         UiText.RowLabel(assignee, AssigneeLabel(card.Assignee));
+                    l.Label("Links");
+                    foreach (var link in card.Links)
+                    {
+                        string label = link.Kind + ":" + link.Target;
+                        float width = Mathf.Max(1, l.ColumnWidth - (!Writable(board) ? 0 : 32));
+                        var row = l.GetRect(
+                            Mathf.Max(28, Text.CalcHeight(label, Mathf.Max(1, width - 6)) + 6)
+                        );
+                        var badge = new Rect(
+                            row.x,
+                            row.y,
+                            Mathf.Min(width, Text.CalcSize(label).x + 12),
+                            row.height
+                        );
+                        Slab.Fill(badge, UiTheme.Well);
+                        Widgets.Label(badge.ContractedBy(3), label);
+                        var remove = new Rect(row.xMax - 28, row.y, 28, 28);
+                        if (Writable(board))
+                            TooltipHandler.TipRegion(remove, "Remove link");
+                        if (Writable(board) && UiControls.Button(remove, "×", on: editable))
+                            Save(CardEdit(board, card, "unlink", link.Target, link.Kind));
+                    }
                     Field(
                         "Description",
                         "describe",
@@ -165,19 +168,6 @@ namespace SlopWorld
                         ref _editor.Description,
                         true
                     );
-                    l.Label("Links");
-                    foreach (var link in card.Links)
-                    {
-                        string label = link.Kind + " · " + link.Target;
-                        float width = Mathf.Max(1, l.ColumnWidth - (!Writable(board) ? 0 : 32));
-                        var row = l.GetRect(Mathf.Max(28, Text.CalcHeight(label, width)));
-                        Widgets.Label(new Rect(row.x, row.y, width, row.height), label);
-                        var remove = new Rect(row.xMax - 28, row.y, 28, 28);
-                        if (Writable(board))
-                            TooltipHandler.TipRegion(remove, "Remove link");
-                        if (Writable(board) && UiControls.Button(remove, "×", on: editable))
-                            Save(CardEdit(board, card, "unlink", link.Target, link.Kind));
-                    }
                     if (Writable(board))
                     {
                         _editor.LinkKind = UiText.FieldWithPlaceholder(
@@ -213,6 +203,8 @@ namespace SlopWorld
                             );
                         }
                     }
+                    l.Label("Tasks");
+                    DrawTasks(l, board, card, editable);
                     if (
                         Writable(board)
                         && CanAdmin

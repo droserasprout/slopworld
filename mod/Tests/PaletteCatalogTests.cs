@@ -204,22 +204,20 @@ namespace SlopWorld
                     };
                     var panel = new CardPanel();
                     panel.Selection.Select(card);
-                    Assert.That(panel.Selection.Tab, Is.EqualTo("Discussion"));
-                    panel.Selection.Tab = "Tasks";
                     TaskDetailView.Open(
                         panel.Selection.LinkedTasks(SessionHub.Instance.Tasks).Single(),
                         panel
                     );
                     Assert.That(TaskDetailView.Shown.Note, Is.EqualTo("review complete"));
                     var restored = ((CardPanel)TaskDetailView.ReturnTo).Selection;
-                    Assert.That((restored.Card.Key, restored.Tab), Is.EqualTo(("SW-42", "Tasks")));
+                    Assert.That(restored.Card.Key, Is.EqualTo("SW-42"));
                     restored.Select(null);
                     TaskCommands().Single(command => command.Id == "task.open").Action(task.Id);
                     Assert.That(
                         restored.SelectLinkedTaskCard(board, card.Id, TaskDetailView.Shown.Id),
                         Is.True
                     );
-                    Assert.That((restored.Card.Key, restored.Tab), Is.EqualTo(("SW-42", "Tasks")));
+                    Assert.That(restored.Card.Key, Is.EqualTo("SW-42"));
                     card.Links.Clear();
                     Assert.That(restored.SelectLinkedTaskCard(board, card.Id, task.Id), Is.False);
                 }
