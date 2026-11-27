@@ -489,11 +489,12 @@ namespace SlopWorld.Wire {
             "Qm9hcmRDb21tZW50EgsKA2tleRgIIAEoCRIVCg1wcmV2aW91c19rZXlzGAkg",
             "AygJIk4KDEJvYXJkQ29tbWVudBIKCgJpZBgEIAEoAxIOCgZhdXRob3IYASAB",
             "KAkSDAoEdGV4dBgCIAEoCRIUCgx0aW1lc3RhbXBfbXMYAyABKAMiKQoJQm9h",
-            "cmRMaW5rEgwKBGtpbmQYASABKAkSDgoGdGFyZ2V0GAIgASgJIpcBCglCb2Fy",
+            "cmRMaW5rEgwKBGtpbmQYASABKAkSDgoGdGFyZ2V0GAIgASgJIqcBCglCb2Fy",
             "ZEVkaXQSDgoGYWN0aW9uGAEgASgJEg0KBWJvYXJkGAIgASgJEg4KBmNvbHVt",
             "bhgDIAEoCRIMCgRjYXJkGAQgASgJEg4KBmJlZm9yZRgFIAEoCRIMCgR0ZXh0",
             "GAYgASgJEgwKBGtpbmQYByABKAkSDwoHY29uZmlybRgIIAEoCBIQCghlbnRy",
-            "eV9pZBgJIAEoA0IRqgIOU2xvcFdvcmxkLldpcmViBnByb3RvMw=="));
+            "eV9pZBgJIAEoAxIOCgZwcmVmaXgYCiABKAlCEaoCDlNsb3BXb3JsZC5XaXJl",
+            "YgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -637,7 +638,7 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardCard), global::SlopWorld.Wire.BoardCard.Parser, new[]{ "Id", "Title", "Description", "Assignee", "Comments", "Links", "Activity", "Key", "PreviousKeys" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardComment), global::SlopWorld.Wire.BoardComment.Parser, new[]{ "Id", "Author", "Text", "TimestampMs" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardLink), global::SlopWorld.Wire.BoardLink.Parser, new[]{ "Kind", "Target" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardEdit), global::SlopWorld.Wire.BoardEdit.Parser, new[]{ "Action", "Board", "Column", "Card", "Before", "Text", "Kind", "Confirm", "EntryId" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.BoardEdit), global::SlopWorld.Wire.BoardEdit.Parser, new[]{ "Action", "Board", "Column", "Card", "Before", "Text", "Kind", "Confirm", "EntryId", "Prefix" }, null, null, null, null)
           }));
     }
     #endregion
@@ -51315,6 +51316,7 @@ namespace SlopWorld.Wire {
       kind_ = other.kind_;
       confirm_ = other.confirm_;
       entryId_ = other.entryId_;
+      prefix_ = other.prefix_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -51432,6 +51434,18 @@ namespace SlopWorld.Wire {
       }
     }
 
+    /// <summary>Field number for the "prefix" field.</summary>
+    public const int PrefixFieldNumber = 10;
+    private string prefix_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Prefix {
+      get { return prefix_; }
+      set {
+        prefix_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -51456,6 +51470,7 @@ namespace SlopWorld.Wire {
       if (Kind != other.Kind) return false;
       if (Confirm != other.Confirm) return false;
       if (EntryId != other.EntryId) return false;
+      if (Prefix != other.Prefix) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -51472,6 +51487,7 @@ namespace SlopWorld.Wire {
       if (Kind.Length != 0) hash ^= Kind.GetHashCode();
       if (Confirm != false) hash ^= Confirm.GetHashCode();
       if (EntryId != 0L) hash ^= EntryId.GetHashCode();
+      if (Prefix.Length != 0) hash ^= Prefix.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -51526,6 +51542,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(72);
         output.WriteInt64(EntryId);
       }
+      if (Prefix.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(Prefix);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -51572,6 +51592,10 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(72);
         output.WriteInt64(EntryId);
       }
+      if (Prefix.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(Prefix);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -51608,6 +51632,9 @@ namespace SlopWorld.Wire {
       }
       if (EntryId != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(EntryId);
+      }
+      if (Prefix.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Prefix);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -51647,6 +51674,9 @@ namespace SlopWorld.Wire {
       }
       if (other.EntryId != 0L) {
         EntryId = other.EntryId;
+      }
+      if (other.Prefix.Length != 0) {
+        Prefix = other.Prefix;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -51703,6 +51733,10 @@ namespace SlopWorld.Wire {
             EntryId = input.ReadInt64();
             break;
           }
+          case 82: {
+            Prefix = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -51756,6 +51790,10 @@ namespace SlopWorld.Wire {
           }
           case 72: {
             EntryId = input.ReadInt64();
+            break;
+          }
+          case 82: {
+            Prefix = input.ReadString();
             break;
           }
         }

@@ -43,14 +43,22 @@ async fn response(app: &App, cap: &Cap, body: Option<Value>) -> (StatusCode, Val
     )
 }
 
-fn board_app() -> App {
-    crate::application::test_application(crate::config::Config {
-        projects: vec![crate::config::ProjectCfg {
-            id: "0000000000000001".into(),
-            name: "Another".into(),
-            temp: true,
-            ..Default::default()
-        }],
+async fn board_app() -> App {
+    let app = crate::application::test_application(crate::config::Config {
+        projects: vec![
+            crate::config::ProjectCfg {
+                id: "0000000000000002".into(),
+                name: "A".into(),
+                temp: true,
+                ..Default::default()
+            },
+            crate::config::ProjectCfg {
+                id: "0000000000000001".into(),
+                name: "Another".into(),
+                temp: true,
+                ..Default::default()
+            },
+        ],
         sessions: vec![
             crate::config::SessionCfg {
                 name: "reviewer".into(),
@@ -62,14 +70,26 @@ fn board_app() -> App {
                 project: "Another".into(),
                 permissions: crate::config::AgentPermissions {
                     board_access: crate::config::BoardAccess::Admin,
-                    visible_boards: ["root".into()].into(),
+                    visible_boards: ["0000000000000002".into()].into(),
                     ..Default::default()
                 },
                 ..Default::default()
             },
         ],
         ..Default::default()
-    })
+    });
+    for (board, name, prefix) in [
+        ("0000000000000001", "Another", "Another"),
+        ("0000000000000002", "A", "root"),
+    ] {
+        call(
+            &app,
+            &Cap::Root,
+            Some(json!({"board":board,"action":"enable-board","text":name,"prefix":prefix})),
+        )
+        .await;
+    }
+    app
 }
 
 fn scoped(name: &str) -> Cap {
@@ -83,7 +103,7 @@ fn scoped(name: &str) -> Cap {
 
 #[tokio::test]
 async fn agent_and_human_observe_one_ordered_card_with_its_discussion() {
-    let app = board_app();
+    let app = board_app().await;
     let agent = scoped("reviewer");
     let edit = |action: &str| json!({"action":action,"board":"0000000000000001"});
     let mut add = edit("add-column");
@@ -183,7 +203,7 @@ async fn agent_and_human_observe_one_ordered_card_with_its_discussion() {
 #[tokio::test]
 async fn saved_board_and_attachment_permissions_apply_to_the_same_credential() {
     use crate::config::{AgentPermissions, transactions::ConfigMutation};
-    let app = board_app();
+    let app = board_app().await;
     let cap = scoped("reviewer");
     let save = |permissions: AgentPermissions| {
         let app = app.clone();
@@ -253,7 +273,7 @@ async fn saved_board_and_attachment_permissions_apply_to_the_same_credential() {
 
 #[tokio::test]
 async fn reverse_lookup_and_mutations_only_expose_selected_boards() {
-    let app = board_app();
+    let app = board_app().await;
     let reviewer = scoped("reviewer");
     let moderator = scoped("moderator");
     let root = call(&app, &Cap::Root, None).await;
@@ -277,7 +297,8 @@ async fn reverse_lookup_and_mutations_only_expose_selected_boards() {
     let projected = linked(reviewer.clone()).await.unwrap().0;
     assert_eq!(projected.boards.len(), 1);
     assert_eq!(projected.boards[0].id, "0000000000000001");
-    let hidden = json!({"board":"root","card":"root-1","action":"comment","text":"hidden"});
+    let hidden =
+        json!({"board":"0000000000000002","card":"root-1","action":"comment","text":"hidden"});
     assert_eq!(
         response(&app, &reviewer, Some(hidden)).await.0,
         StatusCode::FORBIDDEN
@@ -297,7 +318,41 @@ async fn reverse_lookup_and_mutations_only_expose_selected_boards() {
             StatusCode::FORBIDDEN
         );
     }
-    let edit = json!({"board":"root","card":"root-1","action":"remove-card"});
+    let edit = json!({"board":"0000000000000002","card":"root-1","action":"remove-card"});
     call(&app, &moderator, Some(edit)).await;
     assert_eq!(linked(moderator).await.unwrap().0.boards.len(), 1);
+}
+
+#[tokio::test]
+async fn disabling_board_hides_cards_until_project_enables_it_again() {
+    let app = board_app().await;
+    let id = "0000000000000001";
+    let catalog = call(&app, &Cap::Root, None).await;
+    let column = &catalog["boards"][1]["columns"][0]["id"];
+    call(
+        &app,
+        &Cap::Root,
+        Some(json!({"board":id,"action":"add-card","column":column,"text":"Keep"})),
+    )
+    .await;
+    let disable = json!({"board":id,"action":"disable-board"});
+    assert_eq!(
+        response(&app, &scoped("moderator"), Some(disable.clone()))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let hidden = call(&app, &Cap::Root, Some(disable)).await;
+    assert_eq!(hidden["boards"].as_array().unwrap().len(), 1);
+    let restored = call(
+        &app,
+        &Cap::Root,
+        Some(json!({"board":id,"action":"enable-board","text":"Tasks","prefix":"T"})),
+    )
+    .await;
+    assert_eq!(restored["boards"][1]["name"], "Tasks");
+    assert_eq!(
+        restored["boards"][1]["columns"][0]["cards"][0]["key"],
+        "T-1"
+    );
 }

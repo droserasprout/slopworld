@@ -156,6 +156,8 @@ Storage requests may finish after the client disconnects.
 
 | Action | Fields in addition to `action` and `board` |
 | --- | --- |
+| `enable-board` | Project ID in `board`, board name in `text`, optional `prefix`. Creates or updates the board. Requires host access. |
+| `disable-board` | Project ID in `board`. Hides the board and retains its contents. Requires host access. |
 | `set-prefix` | New prefix in `text`. Rekeys every card on the board in one transaction, preserving card numbers, internal IDs, and task links. Each card accepts its immediately preceding key until the next prefix change. |
 | `edit-comment` | `card`, numeric `entry_id`, replacement `text`. Requires Admin. Preserves the author and timestamp. |
 | `remove-comment`, `remove-activity` | `card`, decimal entry ID in `text`. Requires Admin. |

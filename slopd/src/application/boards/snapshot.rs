@@ -20,7 +20,7 @@ pub(super) fn read(tx: &Transaction<'_>) -> Result<BoardCatalog> {
 pub(super) fn read_filtered(tx: &Transaction<'_>, task: Option<&str>) -> Result<BoardCatalog> {
     let mut boards = rows(
         tx,
-        "SELECT id,name,archived,prefix FROM boards ORDER BY archived,id!='root',name,id",
+        "SELECT id,name,archived,prefix FROM boards WHERE archived!=2 ORDER BY archived,id!='root',name,id",
         [],
         |r| {
             Ok(ProjectBoard {

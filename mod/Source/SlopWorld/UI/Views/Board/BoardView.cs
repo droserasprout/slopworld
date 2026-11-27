@@ -21,7 +21,7 @@ namespace SlopWorld
         Wire.BoardCatalog _catalog;
         Wire.ProjectBoard Board => _catalog?.Boards.FirstOrDefault(b => b.Id == _board);
         readonly BoardSelection _editor = new BoardSelection();
-        string _board = "root",
+        string _board,
             _error;
         bool _reading,
             _saving,
@@ -118,6 +118,9 @@ namespace SlopWorld
 
         bool CanWrite => _catalog?.CanWrite == true;
         bool CanAdmin => _catalog?.CanAdmin == true;
+
+        static string ProjectName(Wire.ProjectBoard board) =>
+            SessionHub.Instance.Projects.FirstOrDefault(p => p.Id == board.Id)?.Name;
 
         bool Writable(Wire.ProjectBoard board) => CanWrite && !board.Archived;
 
@@ -310,7 +313,12 @@ namespace SlopWorld
                 {
                     UiText.RowLabel(
                         body,
-                        _error ?? (_catalog == null ? "Loading boards…" : "No visible boards.")
+                        _error
+                            ?? (
+                                _catalog == null
+                                    ? "Loading boards…"
+                                    : "No visible boards. Enable a board in Project Edit → Boards."
+                            )
                     );
                     return;
                 }

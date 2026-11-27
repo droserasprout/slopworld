@@ -85,16 +85,10 @@ namespace SlopWorld
                     )
                 );
             }
-            Board("root", "Root");
             if (catalog != null)
             {
                 foreach (var board in catalog.Boards)
                     Board(board.Id, board.Name + (board.Archived ? " (archived)" : ""));
-            }
-            else
-            {
-                foreach (var project in SessionHub.Instance.Projects)
-                    Board(project.Id, project.Name);
             }
             foreach (var id in value.VisibleBoards)
                 Board(id, id);

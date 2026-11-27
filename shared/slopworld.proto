@@ -1140,4 +1140,5 @@ message BoardEdit {
   string kind = 7;
   bool confirm = 8;
   int64 entry_id = 9;
+  string prefix = 10;
 }

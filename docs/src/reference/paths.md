@@ -17,7 +17,7 @@ private session state lives under `<DATA>/sessions`. Endpoint discovery and laun
 follow these roots unless their explicit overrides below select another path.
 File mode `0600` gives read and write access only to the owner.
 
-Root, project, and archived boards share the SQLite database at `<DATA>/boards.sqlite3`.
+Project boards and archives share the SQLite database at `<DATA>/boards.sqlite3`.
 
 ## Daemon configuration
 

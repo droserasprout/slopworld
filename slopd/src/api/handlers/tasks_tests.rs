@@ -147,17 +147,22 @@ async fn completed_assignment_is_read_through_its_card_link_and_reverse_lookup()
             .await
             .unwrap();
     }
-    let catalog = get_boards(
+    let catalog = edit_board(
         State(app.clone()),
         Extension(Cap::Root),
-        Query(BoardFilter { task: None }),
+        Proto(wire::BoardEdit {
+            action: "enable-board".into(),
+            board: "0000000000000001".into(),
+            text: "Plan".into(),
+            ..Default::default()
+        }),
     )
     .await
     .unwrap()
     .0;
     let mut edit = wire::BoardEdit {
         action: "add-card".into(),
-        board: "root".into(),
+        board: "0000000000000001".into(),
         column: catalog.boards[0].columns[0].id.clone(),
         text: "plan".into(),
         ..Default::default()
@@ -608,6 +613,12 @@ async fn unknown_task_endpoints_fail_before_persistence() {
 
 fn mailbox_manager() -> App {
     crate::application::test_application(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            id: "0000000000000001".into(),
+            name: "Plan".into(),
+            temp: true,
+            ..Default::default()
+        }],
         sessions: ["alice", "bob", "carol", "dave"]
             .into_iter()
             .map(|name| crate::config::SessionCfg {

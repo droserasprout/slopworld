@@ -124,9 +124,7 @@ namespace SlopWorld
                     .Instance.Tasks.Select(t => (t.Id, t.Summary + " · " + t.Id))
                     .Concat(candidates);
             var worktrees =
-                kind == "worktree"
-                    ? SidebarScopes.LinkTargets(board.Id == "root" ? null : board.Name).ToList()
-                    : null;
+                kind == "worktree" ? SidebarScopes.LinkTargets(ProjectName(board)).ToList() : null;
             if (worktrees != null)
                 candidates = worktrees
                     .Where(w => !string.IsNullOrEmpty(w.Path))

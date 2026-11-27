@@ -11,9 +11,11 @@ fn required(value: &str, what: &str) -> Result<()> {
 
 pub(super) fn apply(tx: &Transaction<'_>, e: &BoardEdit, author: &str) -> Result<()> {
     let archived: bool = tx
-        .query_row("SELECT archived FROM boards WHERE id=?", [&e.board], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT archived FROM boards WHERE id=? AND archived!=2",
+            [&e.board],
+            |r| r.get(0),
+        )
         .context("board no longer exists")?;
     if e.action == "delete-archive" {
         ensure!(

@@ -34,7 +34,8 @@ namespace SlopWorld
                     Find.WindowStack.Add(
                         new SpawnWorkerDialog(TaskInfo.Host, project, card.Title, created: Attach)
                     );
-                if (board.Id == "root")
+                var projectName = ProjectName(board);
+                if (projectName == null)
                     UiMenu.Open(
                         SessionHub
                             .Instance.Projects.Select(p => new FloatMenuOption(
@@ -44,7 +45,7 @@ namespace SlopWorld
                             .ToList()
                     );
                 else
-                    Spawn(board.Name);
+                    Spawn(projectName);
             }
         }
     }

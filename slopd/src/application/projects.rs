@@ -405,7 +405,7 @@ impl Projects {
             &self.workspace.configuration.records.worktrees(),
             name,
         )?;
-        // Materialize even an unopened board before its project identity disappears.
+        // Read board identity reservations before the project identity disappears.
         self.services
             .boards
             .sync_projects(super::boards::identities(&cfg))

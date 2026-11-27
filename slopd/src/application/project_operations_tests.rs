@@ -150,7 +150,7 @@ async fn project_rename_persists_library_references_and_keeps_items_runnable() {
 }
 
 #[tokio::test]
-async fn unopened_board_is_archived_and_new_project_with_same_name_has_fresh_columns() {
+async fn enabled_board_is_archived_and_recreated_project_starts_without_a_board() {
     let app = crate::application::test_application(Config::default());
     let projects = Projects::new(&app);
     let draft = ProjectCfg {
@@ -160,6 +160,23 @@ async fn unopened_board_is_archived_and_new_project_with_same_name_has_fresh_col
     };
     projects.add_project(draft.clone()).await.unwrap();
     let old = projects.projects().await[0].config.id.clone();
+    let ids = crate::application::boards::identities(&app.sessions.config().await);
+    app.services
+        .boards
+        .run(
+            ids,
+            Some((
+                crate::shared::wire::BoardEdit {
+                    action: "enable-board".into(),
+                    board: old.clone(),
+                    text: "repo".into(),
+                    ..Default::default()
+                },
+                "host".into(),
+            )),
+        )
+        .await
+        .unwrap();
     projects.remove_project("repo").await.unwrap();
     projects.add_project(draft).await.unwrap();
     let ids = crate::application::boards::identities(&app.sessions.config().await);
@@ -168,11 +185,5 @@ async fn unopened_board_is_archived_and_new_project_with_same_name_has_fresh_col
     assert!(archived.archived);
     assert_eq!(archived.name, "repo");
     assert_eq!(archived.columns.len(), 4);
-    let active = catalog
-        .boards
-        .iter()
-        .find(|b| b.name == "repo" && !b.archived)
-        .unwrap();
-    assert_ne!(active.id, old);
-    assert_ne!(active.columns[0].id, archived.columns[0].id);
+    assert_eq!(catalog.boards.len(), 1);
 }

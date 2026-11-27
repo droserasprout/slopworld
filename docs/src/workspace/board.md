@@ -1,6 +1,6 @@
 # Board
 
-Open the chessboard beside Settings, click the chess table in the colony, or press **F10**. The chessboard also opens Board in SlopWeb before a colony is loaded. The picker switches between Root, projects, and archived projects. Type in **Search cards** to match keys, titles and descriptions as you type, or choose an assignee beside the board picker. The two filters work together and reset when you switch boards.
+Open the chessboard beside Settings, click the chess table in the colony, or press **F10**. The chessboard also opens Board in SlopWeb before a colony is loaded. In **Project Edit → Boards**, check **Enable board**, enter its name and prefix, and click **Save**. Clearing the checkbox hides the board and preserves its cards for later. The picker lists enabled boards and archives. Type in **Search cards** to match keys, titles and descriptions as you type, or choose an assignee beside the board picker. The two filters work together and reset when you switch boards.
 
 ## Organize work
 
@@ -30,7 +30,7 @@ slopctl worker spawn --card SW-42 --project PROJECT --template TEMPLATE review t
 slopctl board comment BOARD CARD "Ready for review"
 ```
 
-New project boards use the project name as their key prefix. Spaces and unsupported characters become separators, and a reserved name gets a numeric suffix. Root uses `root`. Click the current prefix beside **+ Column** to edit it in place. Enter applies it to every card on the board, keeping each card’s number. Escape cancels. The previous key still opens the card until the next prefix change. The internal card ID always works. The agent’s **Permissions** template defaults to **Write** on **Agent’s project**. Open **Visible boards** and select Root or individual projects to grant access to those boards too. The **Agent’s project** option follows the agent. Named selections follow their boards across renames and archival. An agent without a project sees only explicitly selected boards.
+Leaving the prefix blank on a new board generates one from the board name. Spaces and unsupported characters become separators, and a reserved name gets a numeric suffix. Click the current prefix beside **+ Column** to edit it in place. Enter applies it to every card on the board, keeping each card’s number. Escape cancels. The previous key still opens the card until the next prefix change. The internal card ID always works. The agent’s **Permissions** template defaults to **Write** on **Agent’s project**. Open **Visible boards** and select individual boards to grant access to those boards too. The **Agent’s project** option follows the agent. Named selections follow their boards across renames and archival. An agent without a project sees only explicitly selected boards.
 
 **Off** disables board access and preserves the selections. **Read** allows browsing. **Write** adds card and column edits, comments, and task linking. **Admin** also allows deleting cards, columns and discussion entries, changing key prefixes, and deleting archives. Task visibility, delegation, and worker spawning use their existing permissions.
 

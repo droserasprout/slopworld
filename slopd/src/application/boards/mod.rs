@@ -20,9 +20,33 @@ impl Store {
         projects: Vec<(String, String)>,
         edit: Option<(wire::BoardEdit, String)>,
     ) -> Result<wire::BoardCatalog> {
+        let live_project = edit
+            .as_ref()
+            .is_some_and(|(e, _)| projects.iter().any(|(id, _)| id == &e.board));
         self.transaction(projects, move |tx| {
             if let Some((edit, author)) = edit {
-                edits::apply(tx, &edit, &author)?;
+                if matches!(edit.action.as_str(), "enable-board" | "disable-board") {
+                    anyhow::ensure!(live_project, "project no longer exists");
+                    if edit.action == "enable-board" {
+                        anyhow::ensure!(!edit.text.trim().is_empty(), "board name is required");
+                        ensure_board(tx, &edit.board, edit.text.trim(), &edit.prefix)?;
+                        if !edit.prefix.is_empty() {
+                            edits::apply(
+                                tx,
+                                &wire::BoardEdit {
+                                    action: "set-prefix".into(),
+                                    text: edit.prefix.clone(),
+                                    ..edit
+                                },
+                                &author,
+                            )?;
+                        }
+                    } else {
+                        tx.execute("UPDATE boards SET archived=2 WHERE id=?", [&edit.board])?;
+                    }
+                } else {
+                    edits::apply(tx, &edit, &author)?;
+                }
             }
             Ok(snapshot::read(tx)?)
         })
@@ -91,6 +115,12 @@ impl Store {
                      PRAGMA user_version=1;",
                 )?;
             }
+            if tx.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))? == 1 {
+                // Keep used boards and their cards; hide empty automatic boards.
+                tx.execute_batch("UPDATE boards SET archived=2 WHERE archived=0 AND NOT EXISTS
+                    (SELECT 1 FROM columns JOIN cards ON cards.col=columns.id WHERE columns.board=boards.id);
+                    PRAGMA user_version=2;")?;
+            }
             reconcile(&tx, &projects)?;
             let result = operation(&tx)?;
             tx.commit()?;
@@ -101,7 +131,7 @@ impl Store {
 }
 
 fn reconcile(tx: &Transaction<'_>, projects: &[(String, String)]) -> Result<()> {
-    let mut active = tx.prepare("SELECT id FROM boards WHERE archived=0 AND id!='root'")?;
+    let mut active = tx.prepare("SELECT id FROM boards WHERE archived=0 OR (archived=2 AND EXISTS (SELECT 1 FROM columns JOIN cards ON cards.col=columns.id WHERE columns.board=boards.id))")?;
     for id in active
         .query_map([], |r| r.get::<_, String>(0))?
         .collect::<rusqlite::Result<Vec<_>>>()?
@@ -109,10 +139,6 @@ fn reconcile(tx: &Transaction<'_>, projects: &[(String, String)]) -> Result<()> 
         if !projects.iter().any(|(project, _)| *project == id) {
             tx.execute("UPDATE boards SET archived=1 WHERE id=?", [id])?;
         }
-    }
-    ensure_board(tx, "root", "Root")?;
-    for (id, name) in projects {
-        ensure_board(tx, id, name)?;
     }
     Ok(())
 }
@@ -154,7 +180,7 @@ fn default_prefix(tx: &Transaction<'_>, name: &str) -> Result<String> {
     Ok(prefix)
 }
 
-fn ensure_board(tx: &Transaction<'_>, id: &str, name: &str) -> Result<()> {
+fn ensure_board(tx: &Transaction<'_>, id: &str, name: &str, requested_prefix: &str) -> Result<()> {
     let changed = tx
         .query_row(
             "SELECT name != ? OR archived != 0 FROM boards WHERE id=?",
@@ -171,7 +197,11 @@ fn ensure_board(tx: &Transaction<'_>, id: &str, name: &str) -> Result<()> {
         }
         return Ok(());
     }
-    let prefix = default_prefix(tx, if id == "root" { "root" } else { name })?;
+    let prefix = if requested_prefix.is_empty() {
+        default_prefix(tx, name)?
+    } else {
+        requested_prefix.to_owned()
+    };
     reserve_prefix(tx, id, &prefix)?;
     tx.execute(
         "INSERT OR IGNORE INTO board_counters(owner) VALUES(?)",

@@ -13,7 +13,7 @@ pub(crate) enum BoardArgs {
     List,
     /// Show ordered columns, cards, assignments, comments and resource links
     Show {
-        /// Omit to show the first visible board (Root when visible).
+        /// Omit to show the first visible board.
         board: Option<String>,
     },
     SetPrefix {

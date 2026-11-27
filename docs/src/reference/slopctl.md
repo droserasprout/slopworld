@@ -115,7 +115,7 @@ Stdout (including `--json`) contains only the final task result.
 
 ## Board
 
-Use `slopctl board list` for board IDs and `slopctl board show BOARD` for ordered columns and card IDs. Show defaults to Root. Use `slopctl board --help` for all mutations. In `move-card BOARD COLUMN CARD --before OTHER_CARD`, the board and column are the destination. Omit `--before` to append. See [Board](../workspace/board.md) for a collaboration example.
+Use `slopctl board list` for board IDs and `slopctl board show BOARD` for ordered columns and card IDs. Show defaults to the first visible board. Use `slopctl board --help` for all mutations. In `move-card BOARD COLUMN CARD --before OTHER_CARD`, the board and column are the destination. Omit `--before` to append. See [Board](../workspace/board.md) for a collaboration example.
 
 ## Projects
 

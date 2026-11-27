@@ -57,7 +57,7 @@ enum CliCommand {
     /// Inspect configured projects (requires the root token)
     #[command(subcommand)]
     Project(ProjectArgs),
-    /// Collaborate on Root, project, and archived boards
+    /// Collaborate on project boards and archives
     #[command(subcommand)]
     Board(BoardArgs),
     /// Discover and inspect agent templates

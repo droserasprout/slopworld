@@ -10,6 +10,14 @@ use std::time::{Duration, Instant};
 #[path = "support/daemon_recovery.rs"]
 mod recovery;
 
+#[expect(
+    dead_code,
+    reason = "the shared wire schema includes other API operations"
+)]
+mod wire {
+    include!(concat!(env!("OUT_DIR"), "/slopworld.rs"));
+}
+
 struct Daemon {
     root: PathBuf,
     address: SocketAddr,
@@ -239,6 +247,15 @@ fn board_cli_edits_are_transactional_and_survive_restart() {
     let reservation = TcpListener::bind("127.0.0.1:0").unwrap();
     let mut daemon = Daemon::new(reservation.local_addr().unwrap());
     drop(reservation);
+    use prost::Message;
+    let project = "1111111111111111";
+    let configs = daemon.root.join("config/projects");
+    fs::create_dir_all(&configs).unwrap();
+    fs::write(
+        configs.join(format!("{project}.toml")),
+        format!("storage_order = 0\nid = '{project}'\nname = 'Repo'\ndir = '/tmp'\n"),
+    )
+    .unwrap();
     daemon.start();
     daemon.ready();
     let board = |daemon: &Daemon, args: &[&str]| -> serde_json::Value {
@@ -257,22 +274,36 @@ fn board_cli_edits_are_transactional_and_survive_restart() {
         );
         serde_json::from_slice(&output.stdout).unwrap()
     };
-    assert_eq!(board(&daemon, &["list"])[0]["id"], "root");
-    let added = board(&daemon, &["add-column", "root", "Review"]);
+    assert!(board(&daemon, &["list"]).as_array().unwrap().is_empty());
+    ureq::post(&format!("http://{}/api/boards", daemon.address))
+        .header("x-slop-token", "lifecycle-secret")
+        .header("content-type", "application/x-protobuf")
+        .send(
+            wire::BoardEdit {
+                board: project.into(),
+                action: "enable-board".into(),
+                text: "Repo".into(),
+                ..Default::default()
+            }
+            .encode_to_vec()
+            .as_slice(),
+        )
+        .unwrap();
+    let added = board(&daemon, &["add-column", project, "Review"]);
     let columns = added["boards"][0]["columns"].as_array().unwrap();
     let backlog = columns[0]["id"].as_str().unwrap();
     let review = columns[4]["id"].as_str().unwrap();
-    let added = board(&daemon, &["add-card", "root", backlog, "Check protocol"]);
+    let added = board(&daemon, &["add-card", project, backlog, "Check protocol"]);
     let card = added["boards"][0]["columns"][0]["cards"][0]["id"]
         .as_str()
         .unwrap();
-    board(&daemon, &["assign", "root", card, "reviewer"]);
-    board(&daemon, &["link", "root", card, "worktree", "checkout"]);
-    board(&daemon, &["comment", "root", card, "Ready"]);
-    board(&daemon, &["move-card", "root", review, card]);
+    board(&daemon, &["assign", project, card, "reviewer"]);
+    board(&daemon, &["link", project, card, "worktree", "checkout"]);
+    board(&daemon, &["comment", project, card, "Ready"]);
+    board(&daemon, &["move-card", project, review, card]);
     board(
         &daemon,
-        &["move-column", "root", review, "--before", backlog],
+        &["move-column", project, review, "--before", backlog],
     );
     // Inspect through an independent connection while the daemon is live.
     {

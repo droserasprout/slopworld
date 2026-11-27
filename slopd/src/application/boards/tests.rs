@@ -7,7 +7,7 @@ fn column_transition_is_recorded_once_across_retries() {
     let mut db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("schema.sql")).unwrap();
     let tx = db.transaction().unwrap();
-    reconcile(&tx, &[]).unwrap();
+    ensure_board(&tx, "root", "Root", "root").unwrap();
     let board = snapshot::read(&tx).unwrap().boards.remove(0);
     let mut edit = BoardEdit {
         board: board.id,
@@ -42,7 +42,35 @@ fn column_transition_is_recorded_once_across_retries() {
 async fn move_from_archive_is_rejected_and_preserves_discussion() {
     let path = std::env::temp_dir().join(format!("boards-{}.sqlite3", uuid::Uuid::new_v4()));
     let store = Store::new(path.clone());
-    let projects = vec![("stable".into(), "Project".into())];
+    let projects = vec![
+        ("root".into(), "Root".into()),
+        ("stable".into(), "Project".into()),
+    ];
+    assert!(
+        store
+            .run(projects.clone(), None)
+            .await
+            .unwrap()
+            .boards
+            .is_empty()
+    );
+    for (id, name) in &projects {
+        store
+            .run(
+                projects.clone(),
+                Some((
+                    BoardEdit {
+                        board: id.clone(),
+                        text: name.clone(),
+                        action: "enable-board".into(),
+                        ..Default::default()
+                    },
+                    "host".into(),
+                )),
+            )
+            .await
+            .unwrap();
+    }
     let catalog = store.run(projects.clone(), None).await.unwrap();
     let backlog = catalog.boards[1].columns[0].id.clone();
     let done = catalog.boards[0].columns[3].id.clone();
@@ -71,11 +99,17 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
             .await
             .unwrap();
     }
-    let catalog = store.run(vec![], None).await.unwrap();
+    let catalog = store
+        .run(vec![("root".into(), "Root".into())], None)
+        .await
+        .unwrap();
     assert!(catalog.boards[1].archived);
     assert!(
         store
-            .run(vec![], Some((edit.clone(), "agent".into())))
+            .run(
+                vec![("root".into(), "Root".into())],
+                Some((edit.clone(), "agent".into()))
+            )
             .await
             .unwrap_err()
             .to_string()
@@ -86,7 +120,10 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     edit.action = "move-card".into();
     assert!(
         store
-            .run(vec![], Some((edit.clone(), "human".into())))
+            .run(
+                vec![("root".into(), "Root".into())],
+                Some((edit.clone(), "human".into()))
+            )
             .await
             .unwrap_err()
             .to_string()
@@ -100,7 +137,10 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     edit.action = "delete-archive".into();
     assert!(
         store
-            .run(vec![], Some((edit.clone(), "human".into())))
+            .run(
+                vec![("root".into(), "Root".into())],
+                Some((edit.clone(), "human".into()))
+            )
             .await
             .unwrap_err()
             .to_string()
@@ -108,13 +148,22 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     );
     edit.confirm = true;
     store
-        .run(vec![], Some((edit, "human".into())))
+        .run(
+            vec![("root".into(), "Root".into())],
+            Some((edit, "human".into())),
+        )
         .await
         .unwrap();
     let reopened_store = Store::new(path.clone());
-    let reservations = reopened_store.sync_projects(vec![]).await.unwrap();
+    let reservations = reopened_store
+        .sync_projects(vec![("root".into(), "Root".into())])
+        .await
+        .unwrap();
     assert!(reservations.contains(&"stable".into()));
-    let reopened = reopened_store.run(vec![], None).await.unwrap();
+    let reopened = reopened_store
+        .run(vec![("root".into(), "Root".into())], None)
+        .await
+        .unwrap();
     assert_eq!(reopened.boards.len(), 1);
     assert!(reopened.boards[0].columns[3].cards.is_empty());
     std::fs::remove_file(path).unwrap();
@@ -125,7 +174,7 @@ fn exact_insertion_and_repeated_link_removal_preserve_neighbors() {
     let mut db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("schema.sql")).unwrap();
     let tx = db.transaction().unwrap();
-    reconcile(&tx, &[]).unwrap();
+    ensure_board(&tx, "root", "Root", "root").unwrap();
     let mut edit = wire::BoardEdit {
         board: "root".into(),
         action: "add-card".into(),
@@ -185,9 +234,37 @@ fn exact_insertion_and_repeated_link_removal_preserve_neighbors() {
 async fn concurrent_creation_and_retirement_survive_restart_and_prefix_change() {
     let path = std::env::temp_dir().join(format!("boards-{}.sqlite3", uuid::Uuid::new_v4()));
     let store = Store::new(path.clone());
-    let projects = vec![("sw".into(), "Before rename".into())];
+    let projects = vec![
+        ("root".into(), "Root".into()),
+        ("sw".into(), "Before rename".into()),
+    ];
+    assert!(
+        store
+            .run(projects.clone(), None)
+            .await
+            .unwrap()
+            .boards
+            .is_empty()
+    );
+    for (id, name) in &projects {
+        store
+            .run(
+                projects.clone(),
+                Some((
+                    BoardEdit {
+                        board: id.clone(),
+                        text: name.clone(),
+                        action: "enable-board".into(),
+                        ..Default::default()
+                    },
+                    "host".into(),
+                )),
+            )
+            .await
+            .unwrap();
+    }
     let catalog = store.run(projects.clone(), None).await.unwrap();
-    assert_eq!(catalog.boards[0].prefix, "root");
+    assert_eq!(catalog.boards[0].prefix, "Root");
     let mut edit = BoardEdit {
         action: "add-card".into(),
         board: "sw".into(),
@@ -209,10 +286,13 @@ async fn concurrent_creation_and_retirement_survive_restart_and_prefix_change() 
         result.unwrap();
     }
     let store = Store::new(path.clone());
-    let projects = vec![("sw".into(), "Renamed".into())];
+    let projects = vec![
+        ("root".into(), "Root".into()),
+        ("sw".into(), "Renamed".into()),
+    ];
     let catalog = store.run(projects.clone(), None).await.unwrap();
     let board = &catalog.boards[1];
-    assert_eq!(board.name, "Renamed");
+    assert_eq!(board.name, "Before rename");
     for (index, card) in board.columns[0].cards.iter().enumerate() {
         assert_eq!(card.key, format!("Before-rename-{}", index + 1));
     }
@@ -273,14 +353,9 @@ fn default_prefix_avoids_root_and_other_reserved_project_names() {
     let mut db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("schema.sql")).unwrap();
     let tx = db.transaction().unwrap();
-    reconcile(
-        &tx,
-        &[
-            ("one".into(), "Root".into()),
-            ("two".into(), "Root-2".into()),
-        ],
-    )
-    .unwrap();
+    ensure_board(&tx, "root", "Root", "root").unwrap();
+    ensure_board(&tx, "one", "Root", "").unwrap();
+    ensure_board(&tx, "two", "Root-2", "").unwrap();
     let catalog = snapshot::read(&tx).unwrap();
     assert_eq!(
         catalog
@@ -297,7 +372,8 @@ fn rekeying_recycles_the_previous_key_and_preserves_relations() {
     let mut db = Connection::open_in_memory().unwrap();
     db.execute_batch(include_str!("schema.sql")).unwrap();
     let tx = db.transaction().unwrap();
-    reconcile(&tx, &[("p".into(), "P".into())]).unwrap();
+    ensure_board(&tx, "root", "Root", "root").unwrap();
+    ensure_board(&tx, "p", "P", "").unwrap();
     let mut edit = BoardEdit {
         board: "root".into(),
         ..Default::default()

@@ -137,7 +137,7 @@ namespace SlopWorld
                         UiText.RowLabel(assignee, AssigneeLabel(card.Assignee));
                     l.Label("Links");
                     var worktrees = card.Links.Any(link => link.Kind == "worktree")
-                        ? SidebarScopes.LinkTargets(board.Id == "root" ? null : board.Name).ToList()
+                        ? SidebarScopes.LinkTargets(ProjectName(board)).ToList()
                         : null;
                     foreach (var link in card.Links)
                     {

@@ -46,7 +46,10 @@ async fn access(
                     .find(|(_, name)| *name == agent.project)
                     .map(|(id, _)| id.clone());
                 let permissions = agent.permissions;
-                if !cap.is_valid()
+                if edit
+                    .as_ref()
+                    .is_some_and(|e| matches!(e.action.as_str(), "enable-board" | "disable-board"))
+                    || !cap.is_valid()
                     || permissions.board_access < required_access(edit.as_ref())
                     || edit
                         .as_ref()
