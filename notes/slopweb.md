@@ -13,6 +13,7 @@ The native installer owns writes to the saved default.
 `host/src/fonts/` owns native font discovery, coverage and immutable font files.
 `runtime/` owns Entry-only WASM execution, browser assets, adapters and native
 preparation helpers; `offline/` patches private copies of assemblies.
+The browser entry page shows a static unsupported message on iOS and iPadOS before loading the workspace bootstrap.
 The core and Eco offline passes share one writer for patched DLLs and their manifest digests.
 The mod opts desktop Harmony prefix classes into Eco staging with `[EcoPrefix]`.
 The offline weaver reads the class target and imports its static prefix. It accepts

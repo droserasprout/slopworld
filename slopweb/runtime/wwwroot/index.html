@@ -10,7 +10,26 @@
 .workspace-app.loading { height:100vh; display:grid; place-items:center; overflow:hidden; background:#000; }
 .workspace-app.loading h1,.workspace-app.loading #result { display:none; }
 .workspace-app #loading-screen { position:fixed; inset:0; z-index:1; pointer-events:none; }
+#ios-stub { position:fixed; inset:0; display:grid; place-content:center; justify-items:center; gap:16px; }
+#ios-stub[hidden] { display:none; }
+#ios-stub h1 { display:block; margin:0; font:inherit; }
 </style>
 <body class="workspace-app loading"><h1>SlopWorld</h1><pre id="result">Loading…</pre>
 
-<script type="module" src="bootstrap.js"></script></body></html>
+<main id="ios-stub" hidden>
+  <img src="favicon.png" width="64" height="64" alt="SlopWorld">
+  <h1>iOS is not supported</h1>
+</main>
+<script>
+  // iPadOS can present a Mac user agent when requesting desktop sites.
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    const viewport = document.createElement('meta');
+    viewport.name = 'viewport';
+    viewport.content = 'width=device-width, initial-scale=1';
+    document.head.append(viewport);
+    document.getElementById('ios-stub').hidden = false;
+  } else {
+    import('./bootstrap.js');
+  }
+</script></body></html>
