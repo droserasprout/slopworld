@@ -31,8 +31,13 @@ namespace SlopWorld
                         _view.TouchTextRequested = false;
                     using (WidgetState.Save())
                     {
-                        UiLayout.Title(TitleRect(body), _view._editor.Card.Key);
-                        body.yMin += UiTheme.HeaderH;
+                        UiText.PlainStatusLabel(
+                            TitleRect(body).TopPartPixels(20),
+                            _view._editor.Card.Key,
+                            UiTheme.Faint,
+                            GameFont.Tiny
+                        );
+                        body.yMin += 24;
                         _view.DrawDetails(body, board);
                     }
                 }
@@ -73,8 +78,36 @@ namespace SlopWorld
         {
             var card = _editor.Card;
             var column = board.Columns.First(c => c.Cards.Any(item => item.Id == card.Id));
-            var selector = new Rect(panel.x, panel.y, Mathf.Min(250, panel.width - 40), 30);
             bool editable = Writable(board) && !_saving;
+            var selector = new Rect(
+                panel.xMax - Mathf.Min(160, panel.width * .34f),
+                panel.y,
+                Mathf.Min(160, panel.width * .34f),
+                30
+            );
+            var title = new Rect(panel.x, panel.y, selector.x - panel.x - 6, 30);
+            bool changed = _editor.Title != card.Title;
+            if (changed && editable)
+                title.width -= 54;
+            if (Writable(board))
+                _editor.Title = UiText.FieldWithPlaceholder(
+                    TextBox(title),
+                    "board.title." + card.Id,
+                    _editor.Title,
+                    "Card title"
+                );
+            else
+                UiLayout.Title(title, card.Title);
+            if (
+                changed
+                && editable
+                && UiControls.Button(
+                    new Rect(title.xMax + 4, title.y, 50, 30),
+                    "Save",
+                    on: _editor.Title.Trim().Length > 0
+                )
+            )
+                Save(CardEdit(board, card, "title", _editor.Title));
             if (editable)
                 UiSelector.DrawInline(
                     selector,
@@ -101,6 +134,8 @@ namespace SlopWorld
             else
                 UiText.RowLabel(selector, column.Name);
             panel.yMin += 36;
+            Slab.Hairline(new Rect(panel.x, panel.y, panel.width, 1), UiTheme.Edge);
+            panel.yMin += 6;
             var discussion = panel;
             if (panel.width >= 620)
             {
@@ -118,44 +153,9 @@ namespace SlopWorld
                 panel,
                 l =>
                 {
-                    void Field(
-                        string caption,
-                        string action,
-                        string original,
-                        ref string draft,
-                        bool multiline = false
-                    )
-                    {
-                        l.Label(caption);
-                        var row = l.GetRect(multiline ? 86 : 32);
-                        var box = row;
-                        if (draft != original && editable)
-                            box.width -= 54;
-                        string name = "board." + action + "." + card.Id;
-                        draft = multiline
-                            ? UiText.Area(TextBox(box), name, draft, on: Writable(board))
-                            : UiText.FieldWithPlaceholder(
-                                TextBox(box),
-                                name,
-                                draft,
-                                caption,
-                                Writable(board)
-                            );
-                        if (
-                            box.width != row.width
-                            && UiControls.Button(
-                                new Rect(box.xMax + 4, row.y, 50, 32),
-                                "Save",
-                                on: action != "title" || draft.Trim().Length > 0
-                            )
-                        )
-                        {
-                            Save(CardEdit(board, card, action, draft));
-                        }
-                    }
-                    Field(card.Key, "title", card.Title, ref _editor.Title);
-                    l.Label("Assigned to");
                     var assignee = l.GetRect(32);
+                    UiText.RowLabel(new Rect(assignee.x, assignee.y, 85, 32), "Assigned to");
+                    assignee.xMin += 88;
                     if (editable)
                         UiSelector.DrawInline(
                             assignee,
@@ -168,6 +168,19 @@ namespace SlopWorld
                         );
                     else
                         UiText.RowLabel(assignee, AssigneeLabel(card.Assignee));
+                    l.Label("Description");
+                    _editor.Description = UiText.Area(
+                        TextBox(l.GetRect(86)),
+                        "board.describe." + card.Id,
+                        _editor.Description,
+                        on: Writable(board)
+                    );
+                    if (
+                        editable
+                        && _editor.Description != card.Description
+                        && UiControls.Button(l.GetRect(30), "Save description")
+                    )
+                        Save(CardEdit(board, card, "describe", _editor.Description));
                     l.Label("Links");
                     var worktrees = card.Links.Any(link => link.Kind == "worktree")
                         ? SidebarScopes.LinkTargets(ProjectName(board)).ToList()
@@ -218,7 +231,7 @@ namespace SlopWorld
                             Widgets.Label(badge.ContractedBy(3), label);
                         else if (UiControls.Button(badge, label))
                             TaskDetailView.Open(task, this);
-                        var remove = new Rect(row.xMax - 28, row.y, 28, 28);
+                        var remove = new Rect(badge.xMax + 4, row.y, 28, 28);
                         if (Writable(board))
                             TooltipHandler.TipRegion(remove, "Remove link");
                         if (Writable(board) && UiControls.Button(remove, "×", on: editable))
@@ -226,27 +239,7 @@ namespace SlopWorld
                     }
                     if (Writable(board))
                         DrawLinkEditor(l, board, card, editable, viewport);
-                    Field(
-                        "Description",
-                        "describe",
-                        card.Description,
-                        ref _editor.Description,
-                        true
-                    );
-
                     DrawTasks(l, board, card, editable);
-                    if (
-                        Writable(board)
-                        && CanAdmin
-                        && UiControls.Button(l.GetRect(30), "Delete card…", on: editable)
-                    )
-                        Find.WindowStack.Add(
-                            ConfirmDialog.Create(
-                                "Delete this card with its comments and links?",
-                                () => Save(CardEdit(board, card, "remove-card")),
-                                destructive: true
-                            )
-                        );
                 }
             );
         }

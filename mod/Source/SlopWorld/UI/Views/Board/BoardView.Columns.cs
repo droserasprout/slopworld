@@ -90,7 +90,13 @@ namespace SlopWorld
             try
             {
                 var area = new Rect(0, 0, frame.width, frame.height);
-                float width = narrow ? Mathf.Max(100, area.width - 36) : 264;
+                float width = narrow
+                    ? Mathf.Max(100, area.width - 36)
+                    : Mathf.Clamp(
+                        (area.width + Gap) / Mathf.Max(1, board.Columns.Count) - Gap,
+                        188,
+                        264
+                    );
                 float limit = Mathf.Max(0, board.Columns.Count * (width + Gap) - Gap - area.width);
                 _viewport.Scroll(0, 0, limit, null, area.height);
                 if (limit > 0)
@@ -263,15 +269,13 @@ namespace SlopWorld
 
         static string Preview(Wire.BoardCard card)
         {
-            var items = new List<string>();
+            var items = new List<string> { card.Key };
             if (card.Assignee.Length > 0)
-                items.Add(card.Assignee);
-            if (card.Description.Length > 0)
-                items.Add("≡");
+                items.Add(AssigneeLabel(card.Assignee));
             if (card.Comments.Count > 0)
-                items.Add($"Comments {card.Comments.Count}");
+                items.Add($"{card.Comments.Count} comment{(card.Comments.Count == 1 ? "" : "s")}");
             if (card.Links.Count > 0)
-                items.Add($"Links {card.Links.Count}");
+                items.Add($"{card.Links.Count} link{(card.Links.Count == 1 ? "" : "s")}");
             return string.Join(" · ", items);
         }
 
@@ -339,27 +343,29 @@ namespace SlopWorld
                     break;
                 var card = column.Cards[i];
                 Slab.Box(new Rect(x + 4, y + 2, width - 8, Row - 5), UiTheme.Panel, UiTheme.Edge);
-                UiText.RowLabel(new Rect(x + 6, y + 4, Handle - 8, Row - 12), "≡");
+                if (
+                    Writable(board)
+                    && (
+                        Mouse.IsOver(new Rect(x, y, width, Row))
+                        || _gesture.Card == card.Id
+                        || TouchPointer
+                    )
+                )
+                    UiText.RowLabel(new Rect(x + 6, y + 4, Handle - 8, Row - 12), "≡");
                 string preview = Preview(card);
                 UiText.PlainStatusLabel(
-                    new Rect(
-                        x + Handle,
-                        y + 4,
-                        width - Handle - 8,
-                        preview.Length == 0 ? Row - 10 : 30
-                    ),
-                    card.Key + "  " + card.Title,
+                    new Rect(x + Handle, y + 4, width - Handle - 8, 30),
+                    card.Title,
                     UiTheme.Name,
                     anchor: TextAnchor.MiddleLeft
                 );
-                if (preview.Length > 0)
-                    UiText.PlainStatusLabel(
-                        new Rect(x + Handle, y + 33, width - Handle - 8, 22),
-                        preview,
-                        UiTheme.Faint,
-                        GameFont.Tiny,
-                        TextAnchor.MiddleLeft
-                    );
+                UiText.PlainStatusLabel(
+                    new Rect(x + Handle, y + 33, width - Handle - 8, 22),
+                    preview,
+                    UiTheme.Faint,
+                    GameFont.Tiny,
+                    TextAnchor.MiddleLeft
+                );
             }
             Slab.Fill(new Rect(x, 0, width, Header), UiTheme.Panel);
             UiText.RowLabel(new Rect(x + 7, 0, Handle - 8, Header), "≡");

@@ -1,5 +1,4 @@
 using System.Linq;
-using UnityEngine;
 using Verse;
 
 namespace SlopWorld
@@ -47,6 +46,14 @@ namespace SlopWorld
                 else
                     Spawn(projectName);
             }
+            if (CanAdmin && UiControls.Button(l.GetRect(30), "Delete card…"))
+                Find.WindowStack.Add(
+                    ConfirmDialog.Create(
+                        "Delete this card with its comments and links?",
+                        () => Save(CardEdit(board, card, "remove-card")),
+                        destructive: true
+                    )
+                );
         }
     }
 }

@@ -66,10 +66,8 @@ namespace SlopWorld
             object source,
             IEnumerable<(string Body, string Sender, long Time, string Status)> entries,
             string heading = null,
-            Action<int> remove = null,
-            Func<int, bool> canRemove = null,
-            Action<int> edit = null,
-            Func<int, bool> canEdit = null
+            Action<int> openMenu = null,
+            Func<int, bool> hasMenu = null
         )
         {
             if (outer.height <= 0 || outer.width <= 0)
@@ -79,8 +77,7 @@ namespace SlopWorld
             else if (Event.current.rawType == EventType.MouseDown)
                 _inputFocus = outer.Contains(Event.current.mousePosition);
             float width = Mathf.Max(1f, outer.width - UiTheme.ScrollbarW);
-            float messageWidth =
-                remove == null ? width : Mathf.Max(1, width - (edit == null ? 24 : 60));
+            float messageWidth = openMenu == null ? width : Mathf.Max(1, width - 28);
             EnsureLayout(messageWidth, source, entries, heading != null);
             float contentH = _contentHeight;
 
@@ -111,21 +108,11 @@ namespace SlopWorld
                         message.TimestampBelow,
                         width
                     );
-                    if (edit != null && canEdit(i))
+                    if (openMenu != null && hasMenu(i))
                     {
-                        var button = new Rect(width - 60, message.Y + 2, 34, 22);
-                        if (UiControls.Button(button, "Edit"))
-                            edit(i);
-                    }
-                    if (remove != null && (canRemove == null || canRemove(i)))
-                    {
-                        var cross = new Rect(width - 24, message.Y + 2, 22, 22);
-                        TooltipHandler.TipRegion(
-                            cross,
-                            "Remove " + message.Status.ToLowerInvariant()
-                        );
-                        if (UiControls.Button(cross, "×"))
-                            remove(i);
+                        var button = new Rect(width - 26, message.Y + 2, 26, 24);
+                        if (UiControls.Button(button, "···"))
+                            openMenu(i);
                     }
                 }
                 DrawSelectableText(outer.height);
@@ -249,7 +236,10 @@ namespace SlopWorld
             }
         }
 
-        static string Prefix(string status) => status == null ? "Message from " : status + "  ·  ";
+        static string Prefix(string status) =>
+            status == null ? "Message from "
+            : status.Length == 0 ? ""
+            : status + "  ·  ";
 
         internal static string RelativeTime(long timestamp, long now)
         {

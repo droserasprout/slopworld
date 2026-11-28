@@ -31,7 +31,7 @@ namespace SlopWorld
                     yield return new FeedItem
                     {
                         Entry = comment,
-                        Message = (comment.Text, comment.Author, comment.TimestampMs, "Comment"),
+                        Message = (comment.Text, comment.Author, comment.TimestampMs, ""),
                     };
             if (filter == "Comments")
                 yield break;

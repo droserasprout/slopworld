@@ -128,30 +128,47 @@ namespace SlopWorld
                     area,
                     _entries,
                     _entries,
-                    remove: (CanAdmin && editable) || dismissed != null
+                    openMenu: (CanAdmin && editable) || dismissed != null
                         ? i =>
                         {
                             var item = _items[i];
-                            if (item.TaskEntryKey != null)
-                            {
-                                dismissed.RemoveFromFeed(item.TaskEntryKey);
-                                return;
-                            }
-                            Save(
-                                BoardDiscussion.Remove(board.Id, card.Id, item.Entry, item.Activity)
+                            var options = new List<FloatMenuOption>();
+                            if (item.Entry != null && !item.Activity)
+                                options.Add(
+                                    new FloatMenuOption(
+                                        "Edit comment",
+                                        () =>
+                                        {
+                                            _editor.EditingComment = item.Entry.Id;
+                                            _editor.CommentRevision = item.Entry.Text;
+                                        }
+                                    )
+                                );
+                            options.Add(
+                                new FloatMenuOption(
+                                    item.Entry == null ? "Remove from feed"
+                                        : item.Activity ? "Delete activity"
+                                        : "Delete comment",
+                                    () =>
+                                    {
+                                        if (item.TaskEntryKey != null)
+                                            dismissed.RemoveFromFeed(item.TaskEntryKey);
+                                        else
+                                            Save(
+                                                BoardDiscussion.Remove(
+                                                    board.Id,
+                                                    card.Id,
+                                                    item.Entry,
+                                                    item.Activity
+                                                )
+                                            );
+                                    }
+                                )
                             );
+                            UiMenu.Open(options);
                         }
                         : (System.Action<int>)null,
-                    canRemove: i =>
-                        _items[i].Entry != null ? CanAdmin && editable : dismissed != null,
-                    edit: CanAdmin && editable
-                        ? i =>
-                        {
-                            _editor.EditingComment = _items[i].Entry.Id;
-                            _editor.CommentRevision = _items[i].Entry.Text;
-                        }
-                        : (System.Action<int>)null,
-                    canEdit: i => _items[i].Entry != null && !_items[i].Activity
+                    hasMenu: i => _items[i].Entry != null ? CanAdmin && editable : dismissed != null
                 );
         }
     }
