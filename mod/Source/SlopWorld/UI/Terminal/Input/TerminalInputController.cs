@@ -521,7 +521,7 @@ namespace SlopWorld
             // Clear the previous pawn after selecting the session, so map synchronization
             // cannot replace a selected session that has no pawn.
             SessionSelectable.Current = target;
-            Find.Selector?.ClearSelection();
+            ColonistBarStrip.MapSelection?.ClearSelection();
             return target;
         }
 

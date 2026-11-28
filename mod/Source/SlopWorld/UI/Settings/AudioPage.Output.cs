@@ -46,10 +46,13 @@ namespace SlopWorld
 
         void DrawOutput(Listing_Standard l)
         {
-            UiLayout.SectionHeading(l, "Radio output");
+            UiLayout.SectionHeading(
+                l,
+                BrowserJukebox.Available ? "Server audio device" : "Radio output"
+            );
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                UiLayout.Note(l, "Radio playback is unavailable on this host.");
+                UiLayout.Note(l, "This server has no audio output.");
                 return;
             }
             if (!_loaded || _cfg == null)

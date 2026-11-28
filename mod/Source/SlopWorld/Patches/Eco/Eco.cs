@@ -33,6 +33,7 @@ namespace SlopWorld
         }
 
         // Suppress pawn labels separately because the normal drawing restrictions do not cover this entry point.
+        [EcoPrefix]
         [HarmonyPatch(typeof(Pawn), nameof(Pawn.DrawGUIOverlay))]
         public static class Patch_PawnLabels
         {
@@ -68,6 +69,7 @@ namespace SlopWorld
         }
 
         // Suppress world overlays while retaining UI gizmos.
+        [EcoPrefix]
         [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate))]
         public static class Patch_WorldSpace
         {
@@ -75,6 +77,7 @@ namespace SlopWorld
         }
 
         // Prevent map clicks while Eco hides the map.
+        [EcoPrefix]
         [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.HandleMapClicks))]
         public static class Patch_MapClicks
         {

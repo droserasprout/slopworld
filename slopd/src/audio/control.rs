@@ -1,6 +1,6 @@
 //! Request identity, cancellation, and state publication. Playback I/O belongs to the worker.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::{AudioState, fail_state};
@@ -8,11 +8,23 @@ use super::{AudioState, fail_state};
 pub(super) struct RequestState {
     pub(super) source: Option<String>,
     pub(super) generation: u64,
+    remaining_track: Option<Arc<AtomicUsize>>,
     pub(super) cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl RequestState {
+    fn drained(&self) -> bool {
+        self.remaining_track
+            .as_ref()
+            .is_some_and(|remaining| remaining.load(Ordering::Relaxed) == 0)
+            && self
+                .cancel
+                .as_ref()
+                .is_some_and(|cancel| !cancel.load(Ordering::Acquire))
+    }
+
     fn cancel(&mut self) {
+        self.remaining_track = None;
         if let Some(cancel) = self.cancel.take() {
             cancel.store(true, Ordering::Release);
         }
@@ -59,6 +71,7 @@ impl Control {
                 source: None,
                 generation: 0,
                 cancel: None,
+                remaining_track: None,
             }),
             current_generation: Arc::new(AtomicU64::new(0)),
             volume: AtomicU32::new(1.0f32.to_bits()),
@@ -71,7 +84,7 @@ impl Control {
 
     pub(super) fn play(&self, source: &str) -> u64 {
         let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
-        if request.source.as_deref() != Some(source) {
+        if request.source.as_deref() != Some(source) || request.drained() {
             request.replace(Some(source.to_string()), &self.current_generation);
         }
         request.generation
@@ -145,6 +158,7 @@ impl Control {
                 current.source = None;
                 current.title = None;
                 current.error = None;
+                request.remaining_track = None;
                 request.cancel = Some(cancel);
                 PlayDisposition::Open
             },
@@ -157,6 +171,7 @@ impl Control {
         source: &str,
         generation: u64,
         cancel: Arc<AtomicBool>,
+        remaining_track: Option<Arc<AtomicUsize>>,
     ) -> bool {
         self.with_current(
             state,
@@ -164,6 +179,7 @@ impl Control {
             SourceRequirement::Exact(source),
             |request, current| {
                 request.cancel = Some(cancel);
+                request.remaining_track = remaining_track;
                 current.playing = true;
                 current.source = Some(source.to_owned());
                 current.volume = self.volume();
@@ -171,6 +187,20 @@ impl Control {
             },
         )
         .is_some()
+    }
+
+    // Only a drained, committed OST ring can advance. Replaced, cancelled and
+    // reopening runs may also reach iterator EOF, but cannot own this publication.
+    pub(super) fn completed_track(&self) -> Option<String> {
+        let request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        if !request.drained() {
+            return None;
+        }
+        request
+            .source
+            .as_deref()?
+            .strip_prefix(crate::ost::PREFIX)
+            .map(str::to_owned)
     }
 
     pub(super) fn publish_stopped(&self, state: &Arc<Mutex<AudioState>>, generation: u64) -> bool {
@@ -242,6 +272,15 @@ impl Control {
         request.generation == generation
             && request.source.as_deref() == Some(source)
             && generation == self.current_generation.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn state(&self, state: &Mutex<AudioState>) -> AudioState {
+        // Take the same lock order as publication, so an opening or recovering
+        // source is stoppable even before its decoder can publish playing=true.
+        let request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        let mut snapshot = state.lock().unwrap_or_else(|p| p.into_inner()).clone();
+        snapshot.active = request.source.is_some();
+        snapshot
     }
 
     pub(super) fn snapshot(&self) -> (Option<String>, u64) {

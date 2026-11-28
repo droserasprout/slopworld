@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, TryRecvError};
 use std::sync::{Arc, Mutex};
 
+#[derive(Default)]
 pub(super) struct FakeOutputState {
     pub(super) opens: AtomicUsize,
     pub(super) appends: AtomicUsize,

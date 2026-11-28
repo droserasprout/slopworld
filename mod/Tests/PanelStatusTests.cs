@@ -13,6 +13,7 @@ namespace SlopWorld.Tests
                 RowAct.View,
                 null,
                 null,
+                default,
                 hasDaemonSession
             );
             Assert.That(status.Tooltip.Contains("Session:"), Is.EqualTo(hasDaemonSession));
@@ -33,7 +34,8 @@ namespace SlopWorld.Tests
                 },
                 RowAct.Edit,
                 new ProjectInfo { Name = "SlopWorld", Dir = "/repo" },
-                null
+                null,
+                default
             );
             Assert.That(status.Title, Is.EqualTo("TopBar.cs"));
             Assert.That(status.Context, Is.EqualTo(" · src/TopBar.cs"));
@@ -61,7 +63,8 @@ namespace SlopWorld.Tests
                     Worktree = "feature",
                     Name = "Fix labels",
                     Path = "/feature",
-                }
+                },
+                default
             );
             Assert.That(status.Title, Is.EqualTo("file.cs"));
             Assert.That(status.Context, Is.EqualTo("Fix labels · file.cs"));
@@ -83,7 +86,8 @@ namespace SlopWorld.Tests
                 },
                 RowAct.View,
                 new ProjectInfo { Name = "project" },
-                null
+                null,
+                default
             );
             Assert.That(status.MainCheckout, Is.False);
             Assert.That(status.Context, Is.EqualTo("removed · /removed/file.cs"));
@@ -108,32 +112,40 @@ namespace SlopWorld.Tests
                 },
                 RowAct.Diff,
                 null,
-                null
+                null,
+                default
             );
             Assert.That(status.Title, Is.EqualTo(expected));
             Assert.That(status.Context, Is.Empty);
         }
 
-        [Test]
-        public void ShellUsesCustomNameButAgentKeepsExistingPresentation()
+        [TestCase("", "~/src/repo")]
+        [TestCase("Build shell", "Build shell")]
+        public void ShellHeaderUsesSidebarTitleAndProcessContext(string label, string rowTitle)
         {
             var shell = new SessionInfo
             {
                 Name = "host-123",
                 Host = true,
-                Label = "Build shell",
+                Label = label,
+                Title = "..rc/repo",
             };
+            var status = PanelStatus.From(shell, RowAct.None, null, null, (rowTitle, "host-123"));
+            Assert.That(status.Title, Is.EqualTo(rowTitle));
+            Assert.That(status.Context, Is.EqualTo("host-123"));
+        }
+
+        [Test]
+        public void OrdinaryAgentKeepsAgentPresentation()
+        {
             Assert.That(
-                PanelStatus.From(shell, RowAct.None, null, null).Title,
-                Is.EqualTo("Build shell")
-            );
-            shell.Label = "";
-            Assert.That(
-                PanelStatus.From(shell, RowAct.None, null, null).Title,
-                Is.EqualTo("Terminal")
-            );
-            Assert.That(
-                PanelStatus.From(new SessionInfo { Name = "Agent" }, RowAct.None, null, null),
+                PanelStatus.From(
+                    new SessionInfo { Name = "Agent" },
+                    RowAct.None,
+                    null,
+                    null,
+                    default
+                ),
                 Is.Null
             );
         }

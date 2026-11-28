@@ -33,7 +33,7 @@ def test_bump_preserves_dependencies_and_changelog_and_is_repeatable(repository:
     product.check('0.0.2', repository)
     assert (repository / 'CHANGELOG.md').read_bytes() == before[repository / 'CHANGELOG.md']
     for package in lock['package']:
-        if package['name'] in ('slopd', 'slopcar'):
+        if package['name'] in ('slopd', 'slopcar', 'slopweb'):
             package['version'] = '0.0.2'
     assert tomllib.loads((repository / 'Cargo.lock').read_text()) == lock
     after = snapshot(repository)
@@ -56,6 +56,16 @@ def test_missing_dated_release_notes_do_not_write(repository: Path, source: str)
     with pytest.raises(ValueError, match=r'CHANGELOG\.md'):
         bump('0.0.2', repository)
     assert snapshot(repository) == before
+
+
+def test_preview_bump_preserves_notes_and_does_not_enable_release_bump(repository: Path) -> None:
+    changelog = repository / 'CHANGELOG.md'
+    before = changelog.read_bytes()
+    assert len(bump('0.2.0', repository, preview=True)) == len({entry.path for entry in product.FILES})
+    product.check('0.2.0', repository)
+    assert changelog.read_bytes() == before
+    with pytest.raises(ValueError, match=r'CHANGELOG\.md'):
+        bump('0.2.0', repository)
 
 
 @pytest.mark.parametrize('duplicate', [False, True])

@@ -19,6 +19,9 @@ Unavailable zone IDs remain saved and fall back to the desktop zone.
 monitor refresh and applies the policy. VSync can override the FPS selector without
 replacing its choice; focus changes adjust the render limit without changing
 presentation mode. Eco does not add another foreground pacing policy.
+The browser workspace follows native FPS presets during active rendering. Auto
+uses the browser's animation-frame cadence. The browser persists its selection
+alongside its other local display preferences.
 
 `RenderPacing` gates native frame capture after input and game updates; it replaces
 the engine's main-thread FPS sleeps and render-backlog waits. `RenderSchedule`

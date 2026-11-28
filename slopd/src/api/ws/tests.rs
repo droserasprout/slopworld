@@ -4,12 +4,12 @@ async fn scope_event(cap: &Cap, event: Arc<EventMessage>) -> Option<Arc<EventMes
     super::outbound::scope_live_event(&manager.sessions, cap, event).await
 }
 use super::*;
-use crate::api::types::{AudioReq, AudioSelection};
 use crate::credentials::AgentCredential;
 use crate::session::{
     ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
     SessionWorkerView, State,
 };
+use crate::shared::wire::{AudioRequest, AudioSelection, audio_request::Change as AudioChange};
 
 use std::collections::HashSet;
 use std::time::Duration;
@@ -66,8 +66,10 @@ async fn socket_prompts_require_target_write_access_and_global_commands_require_
                     rows: Some(31),
                 }),
                 C::Audio(wire::AudioRequest {
+                    hidden_sources: Default::default(),
+                    request_id: None,
                     stop_token: None,
-                    volume: 0.23,
+                    volume: Some(0.23),
                     ..Default::default()
                 }),
             ],
@@ -175,15 +177,15 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
     // Each attempt still needs a reply so the terminal-open UI can release its latch.
     for _ in 0..2 {
         let reply = handle_audio(
-            AudioReq {
-                stop_token: None,
-                selection: Some(Some(AudioSelection {
+            AudioRequest {
+                change: Some(AudioChange::Selection(AudioSelection {
                     ncspot: true,
                     station: Some("radio".into()),
-                    stream: None,
+                    ..Default::default()
                 })),
-                volume: 0.42,
-            },
+                ..Default::default()
+            }
+            .into(),
             &manager,
             &Cap::Root,
         )
@@ -592,6 +594,30 @@ async fn socket_pair_for(manager: &App) -> SocketPair {
         client,
         server,
     }
+}
+
+#[tokio::test]
+async fn failed_stop_ack_ends_command_intake_after_stop_commits() {
+    use futures::SinkExt;
+    let manager = crate::application::test_application(crate::config::Config::default());
+    let socket = socket_pair_for(&manager).await;
+    socket.tx.lock().await.close().await.unwrap();
+    let request = AudioRequest {
+        change: Some(AudioChange::Stop(Default::default())),
+        stop_token: Some("handoff".into()),
+        ..Default::default()
+    }
+    .into();
+    assert!(
+        !handle_client_msg(
+            ClientMsg::Audio(request),
+            &manager,
+            &Cap::Root,
+            &socket.tx,
+            &WsSubs::default()
+        )
+        .await
+    );
 }
 
 async fn receive(client: &mut ClientSocket) -> crate::shared::wire::event::Payload {
@@ -1559,11 +1585,13 @@ async fn root_commands_queued_behind_rotation_have_no_effect() {
     assert!(futures::poll!(transaction.as_mut()).is_pending());
     let admitted = std::sync::atomic::AtomicBool::new(false);
     let audio = super::commands::dispatch_client_msg(
-        ClientMsg::Audio(AudioReq {
-            stop_token: None,
-            selection: None,
-            volume: if volume < 0.5 { 0.75 } else { 0.25 },
-        }),
+        ClientMsg::Audio(
+            AudioRequest {
+                volume: Some(if volume < 0.5 { 0.75 } else { 0.25 }),
+                ..Default::default()
+            }
+            .into(),
+        ),
         &manager,
         &Cap::Root,
         &socket.tx,
@@ -1686,11 +1714,13 @@ async fn root_revocation_cancels_dispatch_still_waiting_for_admission() {
     );
     assert!(futures::poll!(transaction.as_mut()).is_pending());
     let dispatch = handle_client_msg(
-        ClientMsg::Audio(AudioReq {
-            stop_token: None,
-            selection: None,
-            volume: 0.25,
-        }),
+        ClientMsg::Audio(
+            AudioRequest {
+                volume: Some(0.25),
+                ..Default::default()
+            }
+            .into(),
+        ),
         &manager,
         &Cap::Root,
         &socket.tx,

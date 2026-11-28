@@ -126,6 +126,8 @@ namespace SlopWorld
             Animation.Click(Time.realtimeSinceStartup);
         }
 
+        public static float NextUpdateDelay() => Animation.Active ? 0f : .1f;
+
         public static void Tick()
         {
             EnsureTextures();

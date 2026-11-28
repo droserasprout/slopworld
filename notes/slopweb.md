@@ -1,0 +1,314 @@
+# Browser product ownership
+
+`slopweb/` owns the installed browser product. Its [README](../slopweb/README.md)
+owns usage. Private experiments, research reports, browser automation, and retained
+diagnostic runtimes belong in ignored `priv/`. Public builds, tests, packaging,
+and CI must work without private files.
+
+`host/src/launcher/` owns preparation, compilation caching and launch; its CLI uses
+`slopd/src/shared/application_paths.rs` for shared roots and endpoint/profile paths.
+Both launchers use the Linux game-install resolver in `slopd/src/shared/game_install.rs`.
+The native installer owns writes to the saved default.
+`host/src/server/` owns asset delivery and the authenticated daemon bridge.
+`host/src/fonts/` owns native font discovery, coverage and immutable font files.
+`runtime/` owns Entry-only WASM execution, browser assets, adapters and native
+preparation helpers; `offline/` patches private copies of assemblies.
+The browser entry page shows a static unsupported message on iOS and iPadOS before loading the workspace bootstrap.
+The core and Eco offline passes share one writer for patched DLLs and their manifest digests.
+The mod opts desktop Harmony prefix classes into Eco staging with `[EcoPrefix]`.
+The offline weaver reads the class target and imports its static prefix. It accepts
+one selected prefix per concrete void target, including a priority on that sole
+prefix, and binds exact by-value named arguments and reference-type `__instance`.
+BrowserPlatform installs platform services after private assemblies load and
+before Entry or mod initialization. It connects browser implementations to the
+mod owners for transport, clipboard, settings, window, font, audio and cursor
+operations. Desktop defaults live with those owners. Game and engine adaptations
+remain in the offline staging tools.
+Browser scale adaptation removes desktop DPI inference from private game copies;
+native preference accessors retain ownership of the selected scale.
+Core preparation removes Waylith’s custom CLR profiler instrumentation, allocation and pause
+sampling, and selects its stopwatch clock. The staged engine is eligible for browser AOT.
+Waylith.Injection and RimWorldWaylith.PrepatcherCompat retain custom CLR signatures and
+remain interpreted. The browser guards the two injection paths into the removed IL splicer.
+The browser stage guards Vulkan push constants in the desktop command buffer's
+generic extension. Mono AOT specializes this method and cannot link its native call.
+The offline Steam boundary disables startup and removes Steamworks native callback
+markers from the private copy so WASM AOT does not generate desktop callback wrappers.
+`tools/release/slopweb.py` stages reviewed redistributable inputs and owns loose
+startup assets. `tools/release/mod_content.py` builds the deterministic mod UI archive. Installed game
+assemblies, derived assets, fonts, and credentials never enter release payloads.
+Distribution containers reuse the managed/WASM bundle and compile the Rust host
+for their own architecture and libc. `SLOPWEB_HOST_BINARY` selects that staged
+replacement. Rebuilds atomically exchange complete bundles. Staging takes a shared
+lock while copying, verifies the snapshot's build identity, then computes its new
+identity after writing release metadata and selecting the host. Packagers preserve its
+executable mode under `usr/share/slopweb` and discover its native dependencies.
+Source installs and uninstalls hold the installed bundle parent's exclusive lock
+through every owned-path change and any rollback, so preparation sees one generation.
+
+`just/web.just` owns product builds and checks. Root format, lint, test, clean,
+and dependency recipes include slopweb. Python tests run once through the shared
+pytest inventory; component tests remain independently runnable. All browser project
+locks participate in restore/update, and managed projects inherit the shared analyzer
+policy. The installed application has no Python or Node runtime dependency; Python owns build scripts and Node runs JavaScript tests.
+Cleanup removes project bin/obj, the redistributable bundle, and generated font-module
+outputs; compiler caches and retained private runtimes remain separate.
+
+The `Probe` assembly/type name is retained as the managed export and offline bootstrap
+ABI. Workspace exports activate Adapters.WorkspaceRuntime through the game-free
+SlopWeb.Runtime.Contract assembly. Probe and the late-loaded implementation share
+that assembly identity in the interpreter and mixed-AOT builds. The authored compiler allowlist contains only workspace startup, transport/input,
+and presentation exports. Colony creation/saves, compatibility experiments, synthetic
+controls, and benchmark fixtures belong in private probe projects. Package staging selects framework files from the SDK endpoint
+manifest and uses explicit inventories for web assets and managed helpers.
+ `tests/runtime/` owns managed contracts, `tests/browser/` owns browser JavaScript
+contracts exercised in Node, and Rust tests sit beside their owners under `host/src/`.
+Packaging assertions remain under `tools/release/`. `ci-web` builds the FreeType
+WASM module before running its game-free Node rendering test;
+native font fidelity checks are explicit opt-ins.
+
+A workspace retained in the browser back-forward cache keeps its scheduler and
+input handlers for restoration. A final page unload disposes them.
+
+The browser workspace stays in Entry without creating a game, world, or map.
+Scene status reports only Entry state and viewport dimensions, without traversing
+simulation objects. Detailed workspace snapshots are opt-in with profiling;
+observation errors remain diagnostic state and cannot stop rendering. Private
+probe exports own sidebar/catalog inspection and terminal assertion helpers.
+Underlying chrome reads current mod-owned geometry on each draw. In Entry the underlying top bar can open
+the persona-core menu and shortcut help with the last terminal pane closed.
+An unconsumed `?` on that background opens help even without a selected session.
+Shortcut help and Keyboard settings omit camera and player-pawn bindings in Entry.
+Hints belong to the window stack and pane that owned the opening gesture.
+Entry frames return readiness. Startup takes a detailed Entry snapshot on failure or when
+profiling. Failed or incomplete initialization releases the engine and surfaces the cause. Browser Entry
+activates its configured silent mixer before native resource registration because the
+browser drives frames without starting the desktop platform loop.
+Game assembly downloads use a four-file window, including completed buffers;
+CLR loading and per-file failure reporting retain manifest order.
+`startup-assemblies.js` shares download and paint admission for manifest DLLs and
+mod dependencies. Load those dependencies before SlopWorld and Adapters because
+platform installation resolves transport field types before Entry starts. A manifest
+assembly failure ends startup before the Eco archive transfer.
+Startup selects its assembly loader through a staged mode module. AOT composition
+selects CLR identity loading in its private copy and skips raw DLL transfers.
+Host preparation raw-copies the Eco pack from installed ZIP members so Waylith can
+map it at `/Assets.zip` before its first synchronous read. Entry retains the baked
+catalogs, Core textures (including def icons), fonts, UI sounds and base menu art.
+The pack omits expansion menu backgrounds and non-UI audio except the placeholder.
+Core carries English fallback data and the folder names Verse uses to enumerate
+installed languages. Other translations are separate packs, fetched before Entry
+when selected. Native language controls reload the workspace with the selected
+folder so Entry also rebuilds its browser-only mod content and keybindings.
+The workspace soundtrack and prepared background frames have separate delivery paths.
+Assembly loading, archive transfer, font installation and startup stages yield to
+browser painting between work batches; individual synchronous managed calls still
+own their uninterrupted cost.
+The physical input adapter reports all five mouse buttons, including chord changes
+delivered through pointer motion. GUI hit testing uses left, right and middle.
+Browser middle-click reaches native hit testing so tabs and other controls retain
+button actions. A native PRIMARY read waits for the corresponding DOM paste event;
+that reply completes the original callback without a second Ctrl+V dispatch.
+An unanswered read expires after the auxiliary click or when a new input gesture starts.
+Entry installs the shared field clipboard provider alongside the terminal clipboard handlers.
+Command+C and DOM copy use the terminal's copy-only Ctrl+Shift+C binding.
+Physical Ctrl+C retains native selection and interrupt handling. Browser PNG pastes
+check the 20 MiB upload limit on the Blob before reading its bytes.
+PRIMARY copy uses the focused editable proxy's select-all editor command, never the
+Clipboard API's CLIPBOARD write. Retain published selection text across focus loss;
+composition cancellation must not clear an unrelated selection.
+Encoded images use the managed stb decoder at the private Unity LoadEncodedImage
+boundary. Reader size admission stays native; adapters preserve alpha and bottom-up
+Unity pixels, retain CPU backing for Canvas, and invalidate uploads after mutation.
+The input adapter binds Waylith's installed event signatures on first use. It
+clears retained events, passes explicit null key and scroll metadata, and releases
+held native keys and buttons through the input owner on focus loss.
+GUI focus resets follow accepted text and key events; only unfinished composition
+is canceled. Repeated blur/visibility notifications share the pending reset.
+The staged WindowStack.Add invokes the mod’s existing dialog-layer promotion before
+insertion, keeping confirmations above the Settings workspace.
+The mod retains sidebar, terminal, native text layout, session catalog, and
+configuration ownership. Adapters substitute platform services and rendering;
+the daemon retains processes, tmux, sandboxes, and credentials. See the
+[client boundary](mod-client.md) and [wire contract](protocol-wire.md).
+Host appearance import and browser persistence share a tested presentation
+allowlist. The browser origin also stores its own Jukebox source, hidden sources,
+output and gain. Each tab saves only the fields it changed, including pending
+edits on hide. Each field loads from its own storage key and uses its default
+when absent. Separate keys preserve concurrent edits to different fields.
+The Eco prefix weaver installs the mod’s options category and page prefixes.
+Offline UI hooks invoke the mod’s action-caption backdrop and translated settings-row
+filters; the browser does not duplicate their theme or visibility policy. Loading
+shows the clean first frame as a preview. A starter pack contains the one-time intro and
+one complete loop depth. Its decoded frames can play continuously while the remaining
+depths download in a second pack. The host background
+helper bakes a missing frame cache from installed CPU pixels and mod-owned pixel
+math; it does not require a prior desktop game launch. Background animation
+and quote scrolling start independently as their own presentation assets arrive;
+failed optional assets must not hold the other animation. A dedicated worker draws
+both animations directly to a transferred canvas during synchronous WASM startup.
+The page uses the same renderer locally when worker rendering is unavailable.
+Decoded background bitmaps transfer to the workspace at handoff.
+Workspace startup takes ownership of pending background downloads as well as ready
+frames; loading-screen teardown must not cancel a transferred load.
+Browser backdrop rendering consumes the native dimming preference;
+profile files stay read-only and browser changes remain local to its origin.
+Selecting server output or reconnecting observes shared playback. An orderly exit applies stop-on-exit only
+while server output is selected. The page submits a same-origin beacon for its current
+socket generation. The host finishes any in-flight relay write and sends a final audio
+stop on that authenticated connection. A short grace period covers socket closure
+arriving before the beacon. Reconnect retires the previous generation.
+Local radio plays through a media element pointed at
+the host relay. Each attempt has its own listener ID, decoder and cancellable title
+request. Pause, source changes and cached-page suspension release the stream.
+Browser tab titles use the mod's window-title policy. Packaging reuses the documentation favicon.
+Viewport density supplies the initial UI scale. Each GUI pass synchronizes glyph
+density with the native scale preference before layout; backing-canvas resizes
+preserve an explicitly changed scale. Font-bank revisions retire old glyphs and
+invalidate text layout and row caches.
+
+Static assets use private browser caching. SDK-fingerprinted framework resources
+get a year of freshness. Mutable names, including the SDK loader and its embedded
+boot manifest, revalidate with the host. The SDK requests fingerprinted WASM with
+`force-cache` and SHA-256 integrity. Its native module can exceed an HTTP cache
+item limit, so the resource loader also keeps one origin-local CacheStorage slot
+for at most 128 MiB of decoded native WASM. Each hit verifies the boot digest
+before compilation. Other resource types retain the SDK loader.
+Preparation binds the Eco archive's SHA-256 to the final file in each interpreted
+or AOT runtime. The host checks that binding on the opened archive, so identical
+copies retain their validator and later file changes invalidate it. Framework
+assets negotiate staged gzip siblings with representation-specific validators.
+`X-Slop-Decoded-Length` gives the identity file size under host or proxy
+compression; archive startup validates decoded bytes against that size.
+The large game archive has a separate CacheStorage entry, revalidated by HEAD
+and published after complete decoded-body validation. A `no-store` directive on
+the archive metadata or body removes the saved entry. Managed upload and cache
+storage share backpressure. Denied storage access and quota failures allow the
+network transfer to complete.
+Bridge responses and font catalogs remain uncached; content-addressed font files
+retain their immutable caching policy.
+
+The server binds IPv4 loopback and validates Host separately from browser
+provenance. Its same-origin HTTP and WebSocket bridges inject host credentials.
+The host reserves up to 32 MiB per HTTP request body against a shared 64 MiB upload budget before reading. Unknown lengths reserve the full request limit. Forwarded bytes retain their reservation until transport releases them.
+The HTTP bridge supplies the host caller identity, and both upstream clients trust
+the system CA store. Credentials never enter page assets or URLs. Named endpoints
+take precedence over paired URL/token environment overrides, then `SLOPD_ENDPOINT`,
+then local.
+The launcher validates the connection before preparation using the same credential reader
+as the host. The host reads fresh credentials for each operation and WebSocket reconnect;
+failed reads fail closed, and mutations are never replayed after authentication failure. Remote access requires an
+authenticated HTTPS proxy and explicit `--public-origin`; forwarded headers never
+select trusted origins. HTTP, font and WebSocket requests share that origin boundary.
+The managed client owns HTTP operation deadlines; browser cancellation aborts bridge
+I/O without replaying mutations. Browser transport keeps native request admission, deadlines,
+completion delivery, connection generations, and bounded queues. The native incoming queue coalesces a newer live screen before checking capacity.
+Browser admission returns immediately on overload and closes the socket. The outgoing
+budget includes the in-flight message and admits a full 32 MiB protocol envelope.
+Discarded input/layout passes execute native controls with raster-command
+preparation suppressed; only repaint publishes drawing. Stable presentation backs
+off up to 100 ms, bounded by native cursor animation and terminal blink/resize/scroll
+deadlines. The selected frame limit also bounds active rendering. Auto uses a fixed 60 FPS cap in the browser. Post-processing belongs to the desktop renderer. Input and
+published transport activity cancel pending idle waits.
+Append-only font atlases retain CPU pixels until drain, coalescing publication and
+encoding once per atlas per packet. General mutable textures still snapshot at each
+mutation to preserve draw order. Failed drains discard resource claims so retries
+must upload their definitions again.
+Immutable Canvas uploads retain the pixels needed to restore their 2D contexts.
+Restoring a Canvas resource invalidates the managed retained targets that may
+have sampled it. Derived tints can be rebuilt from the immutable uploads.
+Draw packets carry repeat sampling when Unity UVs cross a tile edge or reverse direction.
+Canvas applies the UV phase in the draw's local coordinates so scrolling and clipping preserve tile placement.
+The managed packet cache owns serialization, reuse and packet generations across backend installs.
+The live GUI decoder acknowledges one bounded, immutable screen packet. Managed drawing can return that packet's ID
+on an exact repeat, including fresh profiling data. Canvas still checks dimensions,
+resource revisions and background activity before skipping replay. Uploads, target
+writes and releases always cross the boundary in order.
+Startup presents a complete native workspace frame and applies its uploads before
+any font-driven redraw. The live scheduler then takes ownership. Full-viewport pixel
+inspection belongs to `workspace-diagnostics.js`; it and startup font/scene
+snapshots are profiling diagnostics.
+Glyph persistence uses a bounded asynchronous write
+queue so storage latency does not delay glyph replies or worker font installation.
+
+Host preparation composes immutable runtimes from independently cached patched
+assemblies, archives, fonts, and backgrounds. It holds a shared bundle lock
+from the first helper read through AOT source capture. On a component cache miss, the
+managed, archive, and background helpers read private copies of the planned files.
+Each copy must match its planned digest before the helper starts. Startup font
+selection and descriptors share the catalog generation used for the font key.
+Copied web, music, and mod assets must match the manifest used for the runtime
+key. The launcher memoizes content hashes in the private cache using device,
+inode, size, and nanosecond modification and change times. AOT composition keys cover the actual prepared files, including outputs
+regenerated by a forced rebuild. Publication lookup uses the generated project
+and final DLL digests before materializing compiler inputs.
+`host/src/launcher/aot.rs` owns compiler inputs and
+toolchain identity. Both compiler and workspace cache keys cover the materialized
+MSBuild interpreter target and the exact environment passed to the SDK. The
+launcher captures an allowlist once for SDK inspection and publishing. Publication
+locks span composition. Workspace locks span input synchronization, compilation,
+and output capture, including orphaned compiler processes. Compiler output writes directly to its durable log and is mirrored live
+to the host terminal; dynamic font diagnostics also stream to the host, while helper
+stdout remains a machine-readable cache path. The launcher serializes preparation through selection, validates the final framework,
+and renames a relative `current` symlink into place under the cache root. Selection
+ends at successful validation, independently of service startup. Readers pin the
+resolved directory with a shared lock. Builder-side retirement rechecks selection
+and directory identity before reclaiming a released generation, including when the
+serving account has read-only access. The `--serve-prepared` path accepts a trusted
+publication directory, reads rasterizer flags from its startup font manifest, and uses the
+serving account's separate font cache. It bypasses game and compiler discovery. Interpreted execution is the default; `--aot`, `--aot-sdk`, or
+`SLOPWEB_AOT_SDK` select mixed AOT, while `--interpreted` overrides the environment.
+Packages depend on the .NET SDK; AOT additionally needs its matching wasm-tools workload.
+Installed launchers select and pin a stable .NET 10 SDK from the chosen installation
+before game preparation. The checkout's
+launcher `--ensure-workload` switch provisions workloads only for AOT.
+`tools/web_build.py` builds Probe before Adapters because both compile the shared runtime
+contract. Independent managed helpers can build concurrently under the
+`SLOPWEB_BUILD_JOBS` limit. Staging waits for every producer.
+The checkout AOT recipe defaults to eight compiler workers; its `cores` argument
+sets the .NET, Binaryen, and Emscripten limits together.
+Content archives use canonical ZIP metadata so identical payloads retain runtime identity.
+Launch prints preparation results before its URL.
+
+Host font preparation records outline hashes and native loader settings.
+The Rust service persists content-addressed standalone faces, cmap coverage and
+Fontconfig ordering independently of application builds. Directory changes trigger
+discovery. The service rechecks Fontconfig's inventory before publishing, and source
+and configuration file identities determine the generation. Unchanged faces reuse coverage. A .NET helper reads
+native loader flags only when its game/helper identity changes, outside glyph requests.
+Font coverage contracts exercise the Rust indexer that supplies the browser catalog.
+The browser fetches the index for each selected family, chooses coverage locally,
+and downloads only required immutable files. Fallback chains retain Fontconfig's
+monochrome filtering; catalog-only families must not be appended to them.
+Verified browser file storage is bounded
+and survives reloads. Generic preloads and actual initial-frame coverage settle before
+the workspace is shown; neither uses an authored glyph list.
+Preloads overlap at most two families per warm pass; shared fallback files join one
+installation through worker loading and managed publication, including failure delivery.
+`BrowserFontBank.Fallbacks` owns pending requests and maps resolved fonts into the
+primary atlas at its baseline; replies never expose host paths or glyph pixels.
+`LocalFonts/` supplies FreeType WASM; browser adapters own rasterization and atlas
+lifetime, while native text layout retains wrapping and caret policy. Glyph and fallback
+identities use Unicode scalars; native layout consumes their UTF-16 lengths for caret offsets. Non-ASCII
+glyphs rasterize in a worker and use bounded origin-local persistent storage keyed
+by font content, scalar, size, density, and loader flags. Pending glyphs remain
+retryable until completion invalidates native drawing. Startup drains glyph replies
+and publishes one invalidation before its next draw; live replies remain coalesced.
+Startup preparation writes the same hash-based font selection manifest that the host serves
+for live changes, with explicit UI face indices at startup. Both paths share file loading
+and install outlines in both rasterizers before publishing managed face descriptors. The main thread retains synchronous metrics and ASCII rendering. Bump the glyph storage namespace when changing
+FreeType or its rasterization contract. Selection
+changes publish after loading and reject stale responses. Both execution modes use
+the same font pipeline; AOT only changes managed execution. Private font bytes and
+pixels remain in local caches. Reload after changing the installed host collection.
+
+Unity URL actions route through the browser window adapter, with native terminal hit
+testing retained. Pointer dispatch opens HTTP(S)/mailto links synchronously in a new
+tab without an opener; executable and local-file schemes are rejected.
+
+Browser cursor presentation uses one DOM canvas overlay at every viewport position,
+with native animation pixels and device-pixel hotspots. The native fullscreen binding
+defaults to F11. The document fallback honors the current binding when GUI input has
+not handled the key. A printable binding dispatches its physical key and layout
+character together during keydown so modal fields can consume the character. Optional
+Keyboard Lock keeps Escape available to native input when supported and permitted.

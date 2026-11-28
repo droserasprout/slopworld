@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace SlopWorld.Tests
@@ -22,18 +24,10 @@ namespace SlopWorld.Tests
                 Failure = failure;
             }
 
-            public bool Connect(
-                string host,
-                int port,
-                string path,
-                string token,
-                int timeoutMs = 3000,
-                bool useTls = false
-            )
-            {
-                Connected = _result;
-                return _result;
-            }
+            public Task<bool> ConnectAsync(
+                ConnectionInfo connection,
+                CancellationToken cancellation
+            ) => Task.FromResult(Connected = _result);
 
             public bool SendBinary(byte[] text) => Connected;
 

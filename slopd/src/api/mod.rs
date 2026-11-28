@@ -2,6 +2,7 @@ mod client_message;
 mod events;
 mod handlers;
 pub(crate) mod protobuf;
+mod radio;
 mod router;
 mod types;
 mod ws;

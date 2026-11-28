@@ -1,12 +1,11 @@
 use super::queue::{CHUNK, channel as sync_channel};
 use super::test_support::{FakeOutputFactory, FakeOutputState, ring};
 use super::{
-    AudioState, CONNECT, Feed, Icy, NULL_PCM, OutputFactory, Playlist, RING, Reconnect, Ring,
-    SERVER_PCMS, StreamBody, StreamConnector, TitleSink, enqueue_chunk, local_title, open_device,
-    pcm_id, stream_title, supported_file, wait_for_retry,
+    AudioState, CONNECT, Feed, Icy, OutputFactory, Playlist, RING, Reconnect, Ring, StreamBody,
+    StreamConnector, TitleSink, enqueue_chunk, local_title, stream_title, supported_file,
+    wait_for_retry,
 };
-use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{ChannelCount, Sample, SampleRate, Source, cpal};
+use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::collections::VecDeque;
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
@@ -227,7 +226,7 @@ fn a_live_body_has_no_response_lifetime_deadline() {
         "http://127.0.0.1/unused-local-fixture",
         TitleSink::new(None, 0),
     );
-    let timeouts = connector.agent.config().timeouts();
+    let timeouts = connector.http.agent.config().timeouts();
 
     assert_eq!(timeouts.connect, Some(CONNECT));
     assert_eq!(timeouts.recv_response, None);
@@ -737,7 +736,10 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
         inner: io::Cursor::new(raw),
         metaint: 8,
         left: 8,
-        title: TitleSink::new(Some(state.clone()), 0),
+        title: {
+            let sink = TitleSink::new(Some(state.clone()), 0);
+            move |value| sink.set(value)
+        },
     };
 
     // Read three bytes at a time so a request can cross a block boundary.
@@ -859,7 +861,7 @@ fn icy_reports_truncated_metadata_and_skips_it_for_empty_reads() {
         inner: io::Cursor::new(vec![1, b'x']),
         metaint: 4,
         left: 0,
-        title: TitleSink::new(None, 0),
+        title: |_| {},
     };
 
     assert_eq!(icy.read(&mut []).unwrap(), 0);
@@ -915,44 +917,6 @@ fn ring_reports_frame_aligned_spans_and_its_audio_shape() {
     assert_eq!(ring.channels().get(), 3);
     assert_eq!(ring.sample_rate().get(), 22050);
     assert_eq!(ring.total_duration(), None);
-}
-
-/// List available output devices and report the default selection.
-/// This diagnostic requires no network connection and produces no sound.
-/// Use it to investigate silent playback, including selection of a hardware device instead of the sound server.
-#[test]
-#[ignore]
-fn lists_output_devices() {
-    let host = cpal::default_host();
-    println!("host: {}", host.id().name());
-    match host.default_output_device() {
-        Some(d) => println!("default: {:?}", pcm_id(&d)),
-        None => println!("default: none"),
-    }
-    match host.output_devices() {
-        Ok(devices) => {
-            for d in devices {
-                let id = pcm_id(&d);
-                let mark = match id.as_str() {
-                    NULL_PCM => "<- the trap",
-                    i if SERVER_PCMS.contains(&i) => "<- server",
-                    _ => "",
-                };
-                println!(
-                    "  {id:20} {mark:12} opens={}  {}",
-                    d.default_output_config().is_ok(),
-                    d.description()
-                        .map(|x| x.name().to_string())
-                        .unwrap_or_default()
-                );
-            }
-        }
-        Err(e) => println!("output_devices: {e}"),
-    }
-    println!(
-        "open_device: {:?}",
-        open_device().map(|_| "ok").map_err(|e| format!("{e:#}"))
-    );
 }
 
 #[test]

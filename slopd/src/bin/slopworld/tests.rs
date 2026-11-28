@@ -306,12 +306,15 @@ fn assert_default_root_paths(root: &Path) {
     std::fs::create_dir_all(game.join("Mods/SlopWorld/About")).unwrap();
     std::fs::write(game.join(EXE), "fixture").unwrap();
     std::fs::write(game.join("Mods/SlopWorld/About/About.xml"), "fixture").unwrap();
-    run_launcher(&Args {
-        game: Some(game.to_string_lossy().into_owned()),
-        print: true,
-        ..Args::default()
-    })
-    .unwrap();
+    assert_eq!(
+        run_launcher(&Args {
+            game: Some(game.to_string_lossy().into_owned()),
+            print: true,
+            ..Args::default()
+        })
+        .unwrap(),
+        ExitCode::SUCCESS
+    );
     for name in ["config", "data", "cache", "unused-xdg"] {
         assert!(!root.join(name).exists(), "print created {name}");
     }
@@ -329,13 +332,16 @@ fn assert_default_root_paths(root: &Path) {
     std::fs::create_dir_all(endpoint.parent().unwrap()).unwrap();
     std::fs::write(&endpoint, "fixture").unwrap();
     assert_eq!(sidecar_paths(mode).unwrap().unwrap().endpoint, endpoint);
-    run_launcher(&Args {
-        game: Some(game.to_string_lossy().into_owned()),
-        sidecar: true,
-        print: true,
-        ..Args::default()
-    })
-    .unwrap();
+    assert_eq!(
+        run_launcher(&Args {
+            game: Some(game.to_string_lossy().into_owned()),
+            sidecar: true,
+            print: true,
+            ..Args::default()
+        })
+        .unwrap(),
+        ExitCode::SUCCESS
+    );
     for name in ["data", "cache", "unused-xdg"] {
         assert!(!root.join(name).exists(), "sidecar print created {name}");
     }
@@ -434,12 +440,12 @@ fn print_and_invalid_working_dir_preserve_profile() {
         ..Args::default()
     };
     std::fs::remove_file(profile.join(MARKER)).unwrap();
-    run_launcher(&args()).unwrap();
+    assert_eq!(run_launcher(&args()).unwrap(), ExitCode::SUCCESS);
     assert!(!profile.join(MARKER).exists());
     let mut absent = args();
     let absent_profile = root.join("absent-profile");
     absent.profile = Some(absent_profile.to_string_lossy().into_owned());
-    run_launcher(&absent).unwrap();
+    assert_eq!(run_launcher(&absent).unwrap(), ExitCode::SUCCESS);
     assert!(!absent_profile.exists());
     assert_eq!(std::fs::read(&mods).unwrap(), custom);
     let mut invalid = args();
@@ -458,6 +464,6 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
     match crate::cli::parse(args.to_vec()).map_err(|error| error.to_string())? {
         crate::cli::Command::Launch(args) => Ok(Some(args)),
         crate::cli::Command::Display(_) => Ok(None),
-        _ => Err("expected launch".into()),
+        crate::cli::Command::Local { .. } => Err("expected launch".into()),
     }
 }

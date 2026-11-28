@@ -2,10 +2,7 @@ name: Test
 
 on:
   push:
-    branches:
-      - '**'
-      # Release calls this workflow for tags and packaging previews.
-      - '!release-ci'
+    branches: ['**']
     # Documentation has its own workflow; mixed code/docs pushes still run tests.
     paths-ignore:
       - 'docs/**'
@@ -146,6 +143,51 @@ jobs:
 
       - name: Check Python and tooling
         run: just ci-tools
+
+  browser:
+    name: Browser tooling (game-free)
+    needs: revision
+    runs-on: ubuntu-24.04
+    env:
+      RIMWORLD: /nonexistent/rimworld
+      MANAGED: /nonexistent/rimworld-managed
+    steps:
+      - name: Install recipe dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep libfontconfig1
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.revision.outputs.commit }}
+
+      - uses: ./.github/actions/setup-build-tools
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            slopweb/**/packages.lock.json
+            .config/dotnet-tools.json
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: rustfmt, clippy
+          cache-workspaces: . -> target
+
+      - name: Check slopweb tooling and game-free contracts
+        run: |
+          just web-local-fonts-sdk
+          just ci-web
+
+      - name: Install WebAssembly build workload
+        run: dotnet workload install wasm-tools --version "$(dotnet --version)"
+
+      - name: Build redistributable browser bundle without installed game files
+        run: just web-build
 
   mod:
     name: C#

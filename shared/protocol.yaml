@@ -443,6 +443,14 @@ http:
       path: "/api/git"
       methods: [GET, POST]
       scope: root
+  # Root-authenticated GET endpoints with listener-scoped, non-Protobuf responses.
+  media:
+    radio_relay:
+      path: "/media/radio"
+      response: Encoded station audio
+    radio_relay_title:
+      path: "/media/radio/title"
+      response: JSON listener title
   websocket:
     path: "/ws"
     methods: [GET]

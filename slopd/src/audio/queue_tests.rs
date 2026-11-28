@@ -66,7 +66,8 @@ fn concurrent_wraparound_preserves_every_sample_and_the_final_partial_block() {
 fn invalid_blocks_do_not_publish_or_advance_the_producer() {
     let (mut tx, mut rx) = channel(1);
     assert_eq!(tx.try_send(&[]), Err(SendError::InvalidBlock));
-    assert_eq!(tx.try_send(&[0.0; CHUNK + 1]), Err(SendError::InvalidBlock));
+    let oversized = vec![0.0; CHUNK + 1];
+    assert_eq!(tx.try_send(&oversized), Err(SendError::InvalidBlock));
     tx.try_send(&[0.5]).unwrap();
     let mut samples = [0.0; CHUNK];
     assert_eq!(rx.try_recv(&mut samples), Ok(1));

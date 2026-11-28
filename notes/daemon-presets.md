@@ -10,11 +10,22 @@ OpenCode configuration is private and writable because its background server wri
 `service.json` there. Seed configuration subdirectories but exclude the host server
 descriptor so each agent starts its own server.
 
-`slopworld-dev` supplies read-only game inputs and shared compiler caches. Rustup
+`slopworld-dev` supplies read-only game, user font, and installed browser inputs,
+Node/Python/.NET/Rust tooling, and shared compiler caches. Rustup
 needs writable download/staging paths as well as toolchains/update hashes; otherwise
 the read-only parent blocks installation. `slopworld-debug` adds writable installation
-paths and host capabilities. Its read-only endpoint mount exposes the root credential;
+paths, endpoint-named profile directories, the independent browser cache, and host
+capabilities. Its read-only endpoint mount exposes the root credential;
 read-only access does not limit credential use. See [sandbox isolation](sandbox-isolation.md).
+
+Host SDKs remain read-only: provision matching WASM workloads on the host or use
+a writable project-local SDK. Emscripten's pinned toolchain and build cache belong
+to the checkout. Browser source installation replaces complete owned trees with
+same-filesystem renames; individual bind mounts cannot support that handoff. Install
+on the host or into a dedicated prefix beneath the writable project, never expose
+the whole home or application data root to make installation work. Saved game
+configuration and named peer credentials remain outside ordinary preset mounts;
+explicit game paths and daemon-issued scoped credentials preserve that boundary.
 
 `cache` declares shared directories that may not exist yet. `sandbox/preset_cache.rs`
 resolves/guards them; lifecycle creates them only after validating a launch plan,

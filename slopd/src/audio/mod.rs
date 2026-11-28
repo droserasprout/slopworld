@@ -13,10 +13,12 @@ mod control;
 mod health;
 mod output_source;
 mod playback;
-pub(crate) use playback::{output_devices, preferred_ids};
+pub(crate) use playback::{host_output_available, output_devices, preferred_ids};
 mod queue;
+pub(crate) mod relay;
 mod ring;
 mod station;
+mod station_http;
 #[cfg(test)]
 mod test_support;
 mod title;
@@ -39,9 +41,12 @@ pub(crate) const QUEUE_POLL: Duration = Duration::from_millis(5);
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct AudioState {
+    pub selection: Option<crate::shared::wire::AudioSelection>,
     pub stop_ack: Option<String>,
+    pub request_id: Option<String>,
     #[serde(skip)]
     pub output_device: Option<String>,
+    pub active: bool,
     pub playing: bool,
     pub source: Option<String>,
     pub volume: f32,
@@ -81,6 +86,13 @@ impl Drop for AudioInner {
 impl Audio {
     pub fn new() -> Audio {
         Self::with_factory(Arc::new(RodioOutputFactory))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn simulated() -> Self {
+        Self::with_factory(Arc::new(
+            test_support::FakeOutputFactory(Default::default()),
+        ))
     }
 
     fn with_factory(factory: Arc<dyn OutputFactory>) -> Audio {
@@ -166,14 +178,23 @@ impl Audio {
         self.send(WorkerMsg::Command(Cmd::Stop { generation }), "stop");
     }
 
-    pub(crate) async fn stop_confirmed(&self) -> anyhow::Result<()> {
-        self.stop();
+    pub(crate) fn completed_track(&self) -> Option<String> {
+        self.inner.control.completed_track()
+    }
+
+    pub(crate) async fn flush(&self) -> anyhow::Result<()> {
         let (done, completed) = tokio::sync::oneshot::channel();
         self.inner
             .tx
             .send(WorkerMsg::Barrier(done))
-            .map_err(|error| anyhow::anyhow!("audio worker unavailable during stop: {error}"))?;
+            .map_err(|error| anyhow::anyhow!("audio worker unavailable during command: {error}"))?;
         tokio::time::timeout(Duration::from_secs(5), completed).await??;
+        Ok(())
+    }
+
+    pub(crate) async fn stop_confirmed(&self) -> anyhow::Result<()> {
+        self.stop();
+        self.flush().await?;
         let state = self.state();
         anyhow::ensure!(
             !state.playing && state.source.is_none() && state.error.is_none(),
@@ -200,11 +221,7 @@ impl Audio {
     }
 
     pub fn state(&self) -> AudioState {
-        self.inner
-            .state
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .clone()
+        self.inner.control.state(&self.inner.state)
     }
 }
 
@@ -261,17 +278,14 @@ fn wait_for_retry(
 }
 
 #[cfg(test)]
-pub(crate) use playback::{NULL_PCM, SERVER_PCMS, open_device, pcm_id};
-#[cfg(test)]
 use queue::RING;
 #[cfg(test)]
 use ring::{Ring, enqueue_chunk};
 #[cfg(test)]
-pub(crate) use station::{
-    Feed, Icy, Playlist, Reconnect, StreamBody, StreamConnector, local_title, stream_title,
-    supported_file,
-};
+pub(crate) use station::{Feed, Playlist, Reconnect, StreamConnector, local_title, supported_file};
 
+#[cfg(test)]
+use station_http::{Icy, StreamBody, stream_title};
 #[cfg(test)]
 pub(crate) use title::TitleSink;
 

@@ -10,6 +10,7 @@ namespace SlopWorld
     public sealed partial class AudioPage : DaemonConfigPage
     {
         bool _unsaved;
+        float? _sharedVolumeDrag;
 
         protected override bool DrawFieldsBeforeLoad => true;
         protected override string SaveScope => "daemon radio output";
@@ -33,11 +34,19 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Volume");
-            Prefs.VolumeMaster = VolumeSlider(l, "MasterVolume", Prefs.VolumeMaster);
-            Prefs.VolumeGame = VolumeSlider(l, "GameVolume", Prefs.VolumeGame);
-            Prefs.VolumeMusic = VolumeSlider(l, "MusicVolume", Prefs.VolumeMusic);
-            Prefs.VolumeAmbient = VolumeSlider(l, "AmbientVolume", Prefs.VolumeAmbient);
-            Prefs.VolumeUI = VolumeSlider(l, "UIVolume", Prefs.VolumeUI);
+            if (BrowserJukebox.Available)
+            {
+                Prefs.VolumeMaster = VolumeSlider(l, "MasterVolume", Prefs.VolumeMaster, "Master");
+                DrawJukeboxVolume(l);
+            }
+            else
+            {
+                Prefs.VolumeMaster = VolumeSlider(l, "MasterVolume", Prefs.VolumeMaster);
+                Prefs.VolumeGame = VolumeSlider(l, "GameVolume", Prefs.VolumeGame);
+                Prefs.VolumeMusic = VolumeSlider(l, "MusicVolume", Prefs.VolumeMusic);
+                Prefs.VolumeAmbient = VolumeSlider(l, "AmbientVolume", Prefs.VolumeAmbient);
+                Prefs.VolumeUI = VolumeSlider(l, "UIVolume", Prefs.VolumeUI);
+            }
 
             l.Gap(UiTheme.GapL);
             DrawOutput(l);
@@ -47,33 +56,35 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Jukebox");
-            if (!SessionHub.Instance.Capabilities.AudioPlayback)
+            if (!BrowserJukebox.Available && !SessionHub.Instance.Capabilities.AudioPlayback)
             {
                 UiLayout.Note(
                     l,
-                    "Sidecar mode does not support jukebox playback. RimWorld plays the "
-                        + "SlopWorld OST locally on this Mac. Radio streaming will return in a later "
-                        + "compatibility release."
+                    "The daemon has no audio output. RimWorld can play the bundled OST locally."
                 );
                 return;
             }
 
             var picked = Radio.Picked;
             string source =
-                Radio.Muted ? "Muted"
-                : picked == null ? "OST"
-                : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
+                Radio.Muted && !BrowserJukebox.Available ? "Muted"
+                : Radio.Spotify ? "Spotify"
+                : picked == null
+                    ? (Radio.OstSelected ? "OST" : Radio.SharedSelectionLabel ?? "Choose source")
+                : $"{picked.Name} {Radio.RateLabel(Radio.PickedRate)}";
             UiControls.Select(l, "Tune", source, JukeboxMenu.StationOptions(), out _);
 
             // Show the station's own line and any Shazam match as two rows, so a recognized
             // track never silently overwrites what the station actually reported.
-            if (Radio.Muted)
-            {
+            if (!string.IsNullOrEmpty(Radio.PlaybackMessage))
+                UiLayout.Note(l, Radio.PlaybackMessage);
+            else if (Radio.SharedPlaybackLabel != null && string.IsNullOrEmpty(Radio.NowPlaying))
+                UiLayout.Note(l, Radio.SharedPlaybackLabel);
+            else if (Radio.Muted)
                 UiLayout.Note(l, "Muted.");
-            }
             else
             {
-                string station = Radio.StationLine;
+                string station = BrowserJukebox.Available ? Radio.NowPlaying : Radio.StationLine;
                 UiLayout.Note(
                     l,
                     "Now playing: " + (string.IsNullOrEmpty(station) ? "nothing" : station)
@@ -83,7 +94,8 @@ namespace SlopWorld
             }
 
             l.Gap(UiTheme.GapS);
-            DrawRecognition(l);
+            if (!BrowserJukebox.Available)
+                DrawRecognition(l);
 
             l.Gap(UiTheme.GapS);
             if (UiLayout.Button(l, "Random"))
@@ -97,21 +109,53 @@ namespace SlopWorld
             if (mute != Radio.Muted)
                 Radio.ToggleMute();
 
+            if (BrowserJukebox.Available && !Radio.ServerOutput)
+                return;
             bool stop = UiControls.Checkbox(
                 l,
                 "Stop on exit",
                 Radio.StopOnExit,
-                "Stop the daemon's playback when RimWorld exits normally."
+                BrowserJukebox.Available
+                    ? "Stop the shared player when this client exits, even if another device last changed it."
+                    : "Stop the daemon's playback when RimWorld exits normally."
             );
             if (stop != Radio.StopOnExit)
                 Radio.ToggleStopOnExit();
         }
 
-        float VolumeSlider(Listing_Standard listing, string translationKey, float value)
+        void DrawJukeboxVolume(Listing_Standard listing)
+        {
+            if (!Radio.ServerOutput || !Radio.SharedReady)
+                _sharedVolumeDrag = null;
+            if (Radio.ServerOutput && !Radio.SharedReady)
+                return;
+            float current = _sharedVolumeDrag ?? Radio.OutputVolume;
+            float next = UiControls.Slider(
+                listing,
+                Radio.ServerOutput ? "Shared music" : "Music",
+                current,
+                0f,
+                1f,
+                Mathf.RoundToInt(current * 100f) + "%",
+                out bool held,
+                out bool released
+            );
+            // Keep the drag position across delayed daemon snapshots and commit its final value.
+            _sharedVolumeDrag = held && Radio.ServerOutput ? next : (float?)null;
+            if ((held && next != current) || (released && (Radio.ServerOutput || next != current)))
+                Radio.SetOutputVolume(next);
+        }
+
+        float VolumeSlider(
+            Listing_Standard listing,
+            string translationKey,
+            float value,
+            string label = null
+        )
         {
             float next = UiControls.Slider(
                 listing,
-                translationKey.Translate(),
+                label ?? translationKey.Translate().ToString(),
                 value,
                 (translationKey + "Tooltip").Translate()
             );

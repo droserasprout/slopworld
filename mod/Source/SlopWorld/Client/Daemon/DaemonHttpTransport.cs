@@ -23,18 +23,36 @@ namespace SlopWorld
         // Admission includes body reads, keeping buffered responses and parsing bounded.
         const int MaxRequests = 8;
         readonly SemaphoreSlim Requests = new SemaphoreSlim(MaxRequests);
-        readonly HttpClient Http = new HttpClient(
-            new SocketsHttpHandler
+        internal static Func<HttpClient> CreateClient { get; set; } = CreateDesktopClient;
+        readonly HttpClient Http = CreateClient();
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Reliability",
+            "CA2000",
+            Justification = "HttpClient owns the handler after construction. A failed handoff disposes it here."
+        )]
+        static HttpClient CreateDesktopClient()
+        {
+            var handler = new SocketsHttpHandler
             {
                 UseProxy = false,
                 // Custom credential headers belong only to the selected daemon.
                 AllowAutoRedirect = false,
                 MaxConnectionsPerServer = MaxRequests,
+            };
+            try
+            {
+                return new HttpClient(handler, disposeHandler: true)
+                {
+                    Timeout = Timeout.InfiniteTimeSpan,
+                };
             }
-        )
-        {
-            Timeout = Timeout.InfiniteTimeSpan,
-        };
+            catch
+            {
+                handler.Dispose();
+                throw;
+            }
+        }
 
         readonly MainThreadCompletions Completions = new MainThreadCompletions(
             MaxCompletionsPerFrame,

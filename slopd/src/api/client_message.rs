@@ -35,15 +35,7 @@ pub(super) fn decode(bytes: &[u8]) -> anyhow::Result<ClientMsg> {
                 image_data: v.image_data,
             }),
             P::PastePrompt(v) => ClientMsg::PastePrompt(convert(v)?),
-            P::Audio(v) => ClientMsg::Audio(AudioReq {
-                volume: v.volume,
-                stop_token: v.stop_token,
-                selection: match v.change {
-                    None => None,
-                    Some(wire::audio_request::Change::Stop(_)) => Some(None),
-                    Some(wire::audio_request::Change::Selection(s)) => Some(Some(convert(s)?)),
-                },
-            }),
+            P::Audio(v) => ClientMsg::Audio(v.into()),
         },
     )
 }

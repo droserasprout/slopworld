@@ -4,6 +4,11 @@
 
 !Cargo.toml
 !Cargo.lock
+!slopweb/
+slopweb/*
+!slopweb/host/
+slopweb/host/*
+!slopweb/host/Cargo.toml
 !bench/
 bench/*
 !bench/ipc/
@@ -36,3 +41,13 @@ shared/*
 !LICENSE
 !licenses/
 !licenses/**
+
+!mod/
+mod/*
+!mod/Sounds/
+mod/Sounds/*
+!mod/Sounds/SlopWorld/
+mod/Sounds/SlopWorld/*
+!mod/Sounds/SlopWorld/OST/
+mod/Sounds/SlopWorld/OST/*
+!mod/Sounds/SlopWorld/OST/*.ogg

@@ -144,7 +144,7 @@ namespace SlopWorld
 
         // Restart the selected SlopWorld song immediately after unpausing.
         // Clearing disabled alone waits for the native music transition timer.
-        internal static void Resume()
+        static void Resume()
         {
             if (!Radio.NativePlaybackAllowed)
                 return;

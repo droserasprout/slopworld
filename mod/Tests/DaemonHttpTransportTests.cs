@@ -14,6 +14,37 @@ namespace SlopWorld.Tests
     [NonParallelizable]
     public sealed class DaemonHttpTransportTests
     {
+        [Test]
+        public async Task InstalledEndpointAndClientFactoryReachOnlyTheSelectedBridge()
+        {
+            using var peer = new Peer();
+            var previousEndpoint = Endpoint.Provider;
+            var previousClient = DaemonHttpTransport.CreateClient;
+            var bridge = new ConnectionInfo(new Uri(peer.Connection.BaseUrl + "/host"), "");
+            int clients = 0;
+            try
+            {
+                Endpoint.Provider = () => bridge;
+                DaemonHttpTransport.CreateClient = () =>
+                {
+                    clients++;
+                    return previousClient();
+                };
+                using var transport = new ClientEndpoint(peer.Connection);
+                var server = peer.Serve(Array.Empty<byte>());
+                await transport.Send<Wire.Empty>("GET", "/health", null, null, 5000);
+                await server;
+                Assert.That(clients, Is.EqualTo(1));
+                Assert.That(peer.Header, Does.StartWith("GET /host/health HTTP/1.1"));
+                Assert.That(peer.Header, Does.Not.Contain(WireProtocol.TokenHeader).IgnoreCase);
+            }
+            finally
+            {
+                Endpoint.Provider = previousEndpoint;
+                DaemonHttpTransport.CreateClient = previousClient;
+            }
+        }
+
         [TestCase("GET", false)]
         [TestCase("POST", true)]
         [TestCase("PUT", true)]

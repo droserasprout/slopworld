@@ -143,30 +143,7 @@ namespace SlopWorld
                 string directory = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(directory))
                     Directory.CreateDirectory(directory);
-                File.AppendAllText(
-                    path,
-                    "[[like]]"
-                        + Environment.NewLine
-                        + "at = "
-                        + Toml.Quote(record.At)
-                        + Environment.NewLine
-                        + "source = "
-                        + Toml.Quote(record.Source)
-                        + Environment.NewLine
-                        + "artist = "
-                        + Toml.Quote(record.Artist)
-                        + Environment.NewLine
-                        + "title = "
-                        + Toml.Quote(record.Title)
-                        + Environment.NewLine
-                        + "original_artist = "
-                        + Toml.Quote(record.OriginalArtist)
-                        + Environment.NewLine
-                        + "original_title = "
-                        + Toml.Quote(record.OriginalTitle)
-                        + Environment.NewLine
-                        + Environment.NewLine
-                );
+                File.AppendAllText(path, Format(record));
                 return true;
             }
             catch (Exception e)
@@ -175,5 +152,28 @@ namespace SlopWorld
                 return false;
             }
         }
+
+        internal static string Format(JukeboxLikeRecord record) =>
+            "[[like]]"
+            + Environment.NewLine
+            + "at = "
+            + Toml.Quote(record.At)
+            + Environment.NewLine
+            + "source = "
+            + Toml.Quote(record.Source)
+            + Environment.NewLine
+            + "artist = "
+            + Toml.Quote(record.Artist)
+            + Environment.NewLine
+            + "title = "
+            + Toml.Quote(record.Title)
+            + Environment.NewLine
+            + "original_artist = "
+            + Toml.Quote(record.OriginalArtist)
+            + Environment.NewLine
+            + "original_title = "
+            + Toml.Quote(record.OriginalTitle)
+            + Environment.NewLine
+            + Environment.NewLine;
     }
 }

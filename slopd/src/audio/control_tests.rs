@@ -99,3 +99,30 @@ fn independent_players_do_not_retire_each_others_titles_or_requests() {
     title.set(Some("stale title".into()));
     assert_eq!(state.lock().unwrap().title.as_deref(), Some("first title"));
 }
+
+#[test]
+fn only_the_current_committed_and_drained_track_can_advance() {
+    let control = Control::new();
+    let state = Arc::new(Mutex::new(AudioState::default()));
+    let pending = Arc::new(AtomicUsize::new(1));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let generation = control.play("ost:a");
+    let opening = control.state(&state);
+    assert!(opening.active && !opening.playing);
+    assert!(control.publish_playing(
+        &state,
+        "ost:a",
+        generation,
+        cancel.clone(),
+        Some(pending.clone())
+    ));
+    assert!(control.completed_track().is_none());
+    pending.store(0, Ordering::Relaxed);
+    assert_eq!(control.completed_track().as_deref(), Some("a"));
+    // Routing changes also cancel the opener without advancing the source generation.
+    cancel.store(true, Ordering::Release);
+    assert!(control.completed_track().is_none());
+    control.play("ost:b");
+    assert!(!control.publish_playing(&state, "ost:a", generation, cancel, Some(pending)));
+    assert!(control.completed_track().is_none());
+}

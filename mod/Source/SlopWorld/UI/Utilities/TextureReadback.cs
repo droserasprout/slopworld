@@ -6,7 +6,11 @@ namespace SlopWorld
     // cleanup here so every caller restores the active target even when readback fails.
     internal static class TextureReadback
     {
-        public static Color[] ReadBack(Texture2D source)
+        internal static System.Func<Texture2D, Color[]> ReadPixels { get; set; } = DesktopReadBack;
+
+        public static Color[] ReadBack(Texture2D source) => ReadPixels(source);
+
+        static Color[] DesktopReadBack(Texture2D source)
         {
             var target = RenderTexture.GetTemporary(
                 source.width,

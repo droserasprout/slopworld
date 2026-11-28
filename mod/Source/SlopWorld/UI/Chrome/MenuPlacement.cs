@@ -38,7 +38,10 @@ namespace SlopWorld
                 rightClear != leftClear
                     ? rightClear
                     : wanted.x <= roomRight || roomRight >= roomLeft;
-            return onRight ? right : left;
+            Rect placed = onRight ? right : left;
+            placed.width = Mathf.Min(placed.width, screenWidth);
+            placed.x = Mathf.Clamp(placed.x, 0f, screenWidth - placed.width);
+            return placed;
         }
 
         static bool Overlaps(Rect a, Rect b, float seam) =>

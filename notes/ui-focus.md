@@ -16,8 +16,10 @@ focused field through nested areas; identity is by field name rather than geomet
 or control ID.
 
 Restoring focus does not move the caret. `TextFieldSelection` separately owns custom
-word/line selection and selection dragging. Field Tab/Shift+Tab traversal remains
-unimplemented. Panel navigation belongs to [workspace layout](ui-dynamic-layout-architecture.md),
+word/line selection and selection dragging. Fields publish the focused editor’s selection to PRIMARY on release or the next idle
+repaint, including when native input consumed the release.
+Editor access uses Waylith’s ID for that occurrence of the named field.
+Field Tab/Shift+Tab traversal remains unimplemented. Panel navigation belongs to [workspace layout](ui-dynamic-layout-architecture.md),
 and terminal focus and key routing to [terminal input](mod-terminal.md).
 
 Waylith suppresses game-key dispatch while a field captures text. The native keyboard

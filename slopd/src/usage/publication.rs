@@ -90,7 +90,7 @@ pub(super) fn merge<'a>(
         out.source_fetched_ms
             .insert(source.to_string(), p.fetched_ms);
         if out.plan.is_empty() {
-            out.plan = p.plan.clone();
+            out.plan.clone_from(&p.plan);
         }
         out.windows.extend(p.windows.iter().cloned());
         if !p.ok {

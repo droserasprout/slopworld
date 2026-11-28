@@ -139,7 +139,7 @@ pub(crate) fn wait_for_task(
                 "Waiting for task {id}: {status} ({} s elapsed). The wait is active. Do not poll status separately.",
                 started.elapsed().as_secs()
             );
-            reported_status = status.to_owned();
+            status.clone_into(&mut reported_status);
             reported_at = Instant::now();
         }
         thread::sleep(interval);

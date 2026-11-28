@@ -79,6 +79,8 @@ namespace SlopWorld
             public const string Files = "/api/files";
             public const string Search = "/api/search";
             public const string Git = "/api/git";
+            public const string RadioRelay = "/media/radio";
+            public const string RadioRelayTitle = "/media/radio/title";
         }
 
         internal static class Events

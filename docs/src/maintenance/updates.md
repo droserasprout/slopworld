@@ -8,7 +8,18 @@ For a source checkout, see [Build from source](../development/build.md).
 
 See the [Changelog](../resources/changelog.md) for changes in each release.
 
-To update, download the replacement packages for the components you installed and follow the
+To update just the browser workspace, stop its launcher with Ctrl+C and run the
+downloaded [release installer](../installation/linux.md#interactive-installer).
+
+```sh
+sudo -v
+python3 install.py --install slopweb
+```
+
+Run `slopweb` again and open the URL it prints. The launcher reuses matching
+files in its private cache. The daemon can keep running during a web-only update.
+
+For the game client and daemon, download the new packages for your installed components and follow the
 [package installation](../installation/linux.md#get-binaries) steps. Refresh the installed
 mod, then reload and restart the daemon as your
 normal user:
@@ -26,7 +37,19 @@ Your existing agent/shell sessions in tmux keep running.
 
 ## Removing
 
-For a full local uninstall, close all tmux sessions, stop the daemon, and uninstall the mod.
+To remove just the browser workspace, stop its launcher with Ctrl+C and use
+the downloaded installer.
+
+```sh
+sudo -v
+python3 install.py --remove slopweb
+```
+
+Package removal preserves the private game-derived cache. To reclaim its disk
+space, run `slopweb paths web-cache` before uninstalling and delete that
+directory after removal. Other SlopWorld packages and daemon sessions stay in place.
+
+To remove the local game client and daemon, close all tmux sessions, stop the daemon, and uninstall the mod.
 On client-only or server-only machines, run only the steps for installed components:
 
 ```sh

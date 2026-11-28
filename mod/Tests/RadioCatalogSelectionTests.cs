@@ -314,7 +314,7 @@ namespace SlopWorld.Tests
             return catalog;
         }
 
-        // The harness substitutes Read/Save. Set only the loaded-settings precondition;
+        // Set the loaded-settings precondition;
         // all catalog conversion, restoration and playback invalidation run production code.
         static void SetField(string name, object value) =>
             typeof(Radio).GetField(name, PrivateStatic).SetValue(null, value);
@@ -327,6 +327,7 @@ namespace SlopWorld.Tests
 
         static void WithRadioState(Action test)
         {
+            using var profile = new RadioTestProfile();
             string saved = Settings.S.radio;
             Radio.ResetSpotifyTest();
             Settings.S.radio = "ost";

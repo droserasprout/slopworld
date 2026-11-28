@@ -1,25 +1,6 @@
 use super::*;
 
 #[test]
-fn audio_selection_has_distinct_stop_volume_and_catalog_shapes() {
-    let station: AudioReq = serde_json::from_str(
-        r#"{"selection":{"station":"fixture","stream":"local"},"volume":0.5}"#,
-    )
-    .unwrap();
-    let selected = station.selection.unwrap().unwrap();
-    assert_eq!(selected.station.as_deref(), Some("fixture"));
-    assert_eq!(selected.stream.as_deref(), Some("local"));
-
-    let stop: AudioReq = serde_json::from_str(r#"{"selection":null,"volume":0.5}"#).unwrap();
-    assert!(stop.selection.is_some_and(|selection| selection.is_none()));
-
-    let volume: AudioReq = serde_json::from_str(r#"{"volume":0.5}"#).unwrap();
-    assert!(volume.selection.is_none());
-
-    assert!(serde_json::from_str::<AudioReq>(r#"{"source":"/tmp/old.ogg","volume":0.5}"#).is_err());
-}
-
-#[test]
 fn query_flags_accept_shell_words_and_reject_typos() {
     let browse: BrowseReq =
         serde_json::from_str(r#"{"files":"yes","hidden":"off","limit":12}"#).unwrap();

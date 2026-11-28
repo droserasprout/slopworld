@@ -28,10 +28,13 @@ builds the mod ZIP and Arch, Debian, and Fedora packages. Executables are
 distributed as distro packages; the mod ZIP supports manual game installation.
 Separate native amd64 and arm64 jobs build independent
 `slopcar` Debian/Fedora packages; the amd64 job also builds its Arch package. The final bundle
-includes all launcher packages, the standalone `install.py` installer, and their checksums. The sidecar host-library
+includes x86-64 `slopweb` packages for all three distributions, all launcher packages, the standalone `install.py` installer, and their checksums. The sidecar host-library
 baseline is Debian 13, using the existing Trixie builder for DEBs and native
 Fedora/Arch builders for those formats. Native
-packages compile in their distribution containers. The build consumes committed
+packages compile in their distribution containers. The `slopweb` tooling bundle
+compiles once against pinned reference assemblies without an installed game, then
+is packaged in each distribution container. Game files are required only on the
+user’s machine at runtime and are excluded from release artifacts. The build consumes committed
 artwork and checks protocol outputs, staged notices, and the documentation book.
 Run generators and review their changes before tagging; CI does not regenerate
 artwork with a different host renderer.
@@ -53,7 +56,10 @@ with incomplete assets, inspect and repair it explicitly.
 
 ### Preview without publication
 
-Run **Release** manually from the Actions page, or push the `release-ci` branch.
+Run **Release** manually from the Actions page to build a preview.
+To prepare a new unreleased base version, run `just release-bump-version 0.2.0 true`.
+This leaves the human-maintained changelog untouched; tagged releases still require
+dated release notes.
 Previews run tests and the same packaging and attestation path, using a version
 such as `0.0.7-preview-0123456789ab`. They upload a `release-<version>` workflow
 artifact retained for 30 days. They do not publish GitHub releases or sidecar

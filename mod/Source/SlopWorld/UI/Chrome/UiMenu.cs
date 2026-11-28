@@ -254,7 +254,7 @@ namespace SlopWorld
                     if (w + PadX * 2f >= maxWidth)
                         break;
                 }
-                return Mathf.Clamp(w + PadX * 2f, Mathf.Min(MinW, maxWidth), maxWidth);
+                return Mathf.Clamp(Mathf.Ceil(w + PadX * 2f), Mathf.Min(MinW, maxWidth), maxWidth);
             }
         }
 
@@ -262,7 +262,10 @@ namespace SlopWorld
             new Vector2(
                 _selector && _selectorWidth > 0f
                     ? Mathf.Min(_selectorWidth, UI.screenWidth)
-                    : WidthFor(_options),
+                    : WidthFor(
+                        _options,
+                        _parent == null ? Mathf.Min(MaxW, UI.screenWidth) : UI.screenWidth
+                    ),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen)
             );
 

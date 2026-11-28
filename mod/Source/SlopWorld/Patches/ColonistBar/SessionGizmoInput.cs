@@ -17,6 +17,9 @@ namespace SlopWorld
         static readonly List<Rect> ActionRects = new List<Rect>();
         static int RectFrame = -1;
 
+        public static float GridLeft => WorkspaceLayout.Current.Content.x + UiTheme.GapM;
+        public static float GridTop => Sidebar.AddBar.y - ActionRowHeight;
+
         public static void RememberActionRect(Rect rect)
         {
             // Terminal gizmos use window coordinates. Do not use their rectangles for map input.
@@ -63,7 +66,7 @@ namespace SlopWorld
                 var content = WorkspaceLayout.Current.Content;
                 var firstRow = new Rect(
                     content.x,
-                    Sidebar.AddBar.y - ActionRowHeight,
+                    GridTop,
                     content.width,
                     ActionRowHeight + AbsorbBottom
                 );

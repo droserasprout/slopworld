@@ -14,6 +14,9 @@ namespace SlopWorld
         public bool? LandlockAvailable;
         public string Runtime = "native";
         public bool AudioPlayback = true;
+        public bool RadioRelay;
+        public bool SharedAudioTransport;
+        public string Hostname = "";
         public bool Ncspot = true;
         public bool DesktopOpen = true;
         public bool PerSessionLimits = true;
@@ -33,6 +36,9 @@ namespace SlopWorld
                 LandlockAvailable = j.HasLandlockAvailable ? (bool?)j.LandlockAvailable : null,
                 Runtime = j.Runtime,
                 AudioPlayback = j.AudioPlayback,
+                RadioRelay = j.RadioRelay,
+                SharedAudioTransport = j.SharedAudioTransport,
+                Hostname = j.Hostname,
                 Ncspot = j.Ncspot,
                 DesktopOpen = j.DesktopOpen,
                 PerSessionLimits = j.PerSessionLimits,

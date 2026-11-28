@@ -1,0 +1,203 @@
+//! Application entry and ordered preparation; CLI, phase caches and AOT
+//! have separate owners. Server and fonts retain transport and native discovery.
+mod aot;
+mod appearance;
+mod cli;
+mod files;
+mod preparation;
+mod publication;
+#[cfg(test)]
+mod tests;
+
+use crate::{
+    fonts::FontService,
+    server::{self, ConnectionSource, ServerConfig},
+};
+use anyhow::{Context, Result};
+use clap::{CommandFactory, Parser};
+use std::{env, path::Path, sync::Arc, time::Instant};
+
+async fn connection(options: &cli::Options) -> Result<ConnectionSource> {
+    let source = if options.endpoint.is_some() {
+        ConnectionSource::Descriptor(options.query("endpoint")?)
+    } else if let Some(url) = &options.url {
+        ConnectionSource::Direct {
+            url: url.clone(),
+            token: None,
+            token_file: Some(cli::expand(
+                options
+                    .token_file
+                    .as_ref()
+                    .context("--url requires --token-file")?,
+            )?),
+        }
+    } else if let Ok(url) = env::var("SLOPD_URL") {
+        ConnectionSource::Direct {
+            url,
+            token: env::var("SLOPD_TOKEN").ok(),
+            token_file: None,
+        }
+    } else {
+        ConnectionSource::Descriptor(options.query("endpoint")?)
+    };
+    // Validate before expensive preparation; the server still reloads the source
+    // for each operation so a rotated descriptor/token never becomes stale.
+    source.validate().await?;
+    Ok(source)
+}
+
+fn run_local(options: &cli::Options, command: &cli::LocalCommand) -> Result<()> {
+    match command {
+        cli::LocalCommand::Paths { name } => println!("{}", options.query(name)?.display()),
+        cli::LocalCommand::Completions { shell } => clap_complete::generate(
+            *shell,
+            &mut cli::Options::command(),
+            "slopweb",
+            &mut std::io::stdout(),
+        ),
+        cli::LocalCommand::CheckFonts { install, output } => {
+            // SAFETY: umask accepts a permission mask and takes no pointers.
+            unsafe {
+                libc::umask(0o077);
+            }
+            let bundle = files::PinnedBundle::open(cli::bundle()?)?;
+            let game = cli::game_directory(Some(install))?;
+            let output = cli::expand(output)?;
+            let service = FontService::new(
+                bundle.path(),
+                &game,
+                &options.query("web-cache")?.join("font-service"),
+            )?;
+            prepare_fonts(
+                &service,
+                None,
+                &output,
+                &appearance::preferences(&options.profile_path()?)?,
+            )?;
+            println!("Prepared local font descriptors: {}", output.display());
+        }
+    }
+    Ok(())
+}
+
+pub async fn run() -> Result<()> {
+    if env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new(publication::RETIRE_READER)) {
+        return publication::retire_inherited();
+    }
+    let options = cli::Options::parse();
+    if let Some(command) = &options.command {
+        return run_local(&options, command);
+    }
+    // SAFETY: umask accepts a permission mask. Set before spawning helpers or writing any private game-derived output.
+    unsafe {
+        libc::umask(0o077);
+    }
+    if let Some(root) = &options.serve_prepared {
+        let runtime = publication::Runtime::open(root)?;
+        let root = runtime.root.clone();
+        let fonts = FontService::from_publication(&root, &options.query("web-cache")?)
+            .context("Open prepared fonts")?;
+        let connection = connection(&options)
+            .await
+            .context("Open daemon connection")?;
+        return server::serve(
+            ServerConfig {
+                root,
+                port: options.port,
+                public_origin: options.public_origin,
+                connection,
+            },
+            Arc::new(fonts),
+        )
+        .await;
+    }
+    let profile = options.profile_path()?;
+    let game = cli::game_directory(options.game.as_deref())?;
+    let cache = options.query("web-cache")?;
+    let connection = if options.prepare {
+        ConnectionSource::Unconfigured
+    } else {
+        connection(&options).await?
+    };
+    let started = Instant::now();
+    let sdk = if options.use_aot() {
+        Some(aot::toolchain(&options.sdk()?, options.ensure_workload)?)
+    } else {
+        None
+    };
+    let bundle = files::PinnedBundle::open(cli::bundle()?)?;
+    let fonts = Arc::new(FontService::new(
+        bundle.path(),
+        &game,
+        &cache.join("font-service"),
+    )?);
+    let appearance = appearance::preferences(&profile)?;
+    // The installed font inventory is a phase input, including changed file bytes.
+    let font_inventory = fonts.startup_fingerprint()?;
+    let publication = publication::Publication::begin(&cache)?;
+    let prepared = preparation::prepare_candidate(
+        &bundle,
+        &game,
+        &cache,
+        options.rebuild,
+        &appearance,
+        &font_inventory,
+        |phase, inputs, root, settings| {
+            phase.build(inputs, root, || {
+                prepare_fonts(&fonts, Some(&font_inventory), root, settings)
+            })
+        },
+    );
+    let result = prepared.and_then(|prepared| {
+        let mut inputs = prepared.components;
+        let root = if let Some(sdk) = &sdk {
+            let compiled = aot::prepare_candidate(bundle, &prepared.root, &cache, sdk)?;
+            inputs.extend([prepared.root, compiled.compilation, compiled.workspace]);
+            compiled.root
+        } else {
+            prepared.root
+        };
+        publication.commit(&root, &inputs)
+    });
+    println!(
+        "Runtime preparation summary: {:.2}s",
+        started.elapsed().as_secs_f64()
+    );
+    let runtime = result?;
+    drop(publication);
+    let root = runtime.root.clone();
+    if options.prepare {
+        println!("Prepared local runtime: {}", root.display());
+        return Ok(());
+    }
+    println!("Open http://127.0.0.1:{}/", options.port);
+    server::serve(
+        ServerConfig {
+            root,
+            port: options.port,
+            public_origin: options.public_origin,
+            connection,
+        },
+        fonts,
+    )
+    .await
+}
+
+fn prepare_fonts(
+    fonts: &FontService,
+    fingerprint: Option<&str>,
+    root: &Path,
+    settings: &serde_json::Map<String, serde_json::Value>,
+) -> Result<()> {
+    let resolved = fonts.prepare_startup_for(
+        root,
+        serde_json::Value::Object(settings.clone()),
+        fingerprint,
+    )?;
+    appearance::write_preferences(
+        root,
+        resolved
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("Font startup returned invalid appearance"))?,
+    )
+}

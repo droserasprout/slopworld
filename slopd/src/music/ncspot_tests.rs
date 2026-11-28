@@ -146,7 +146,7 @@ async fn failed_volume_marker_is_retried_without_repeating_applied_ipc_commands(
         volume: 0.42,
         ..Default::default()
     };
-    player.state(&tmux).await.unwrap();
+    player.state(&tmux, true).await.unwrap();
     assert_eq!(player.applied_volume, Some(0.42));
     assert_eq!(player.persisted_volume, None);
     tmux.spawn(
@@ -160,7 +160,7 @@ async fn failed_volume_marker_is_retried_without_repeating_applied_ipc_commands(
     .await
     .unwrap();
     tmux.mark_ncspot("player").await.unwrap();
-    player.state(&tmux).await.unwrap();
+    player.state(&tmux, true).await.unwrap();
     assert_eq!(player.persisted_volume, Some(0.42));
     assert_eq!(tmux.ncspot_volume("player").await, Some(0.42));
     server.await.unwrap();
@@ -218,25 +218,30 @@ async fn check_recovery(saved_volume: Option<f32>) {
     let socket_dir = root.join("slopworld-ncspot/ncspot");
     tokio::fs::create_dir_all(&socket_dir).await.unwrap();
     let listener = tokio::net::UnixListener::bind(socket_dir.join("ncspot.sock")).unwrap();
-    let server = tokio::spawn(async move {
-        let (mut stream, _) = listener.accept().await.unwrap();
-        stream
+    let server =
+        tokio::spawn(async move {
+            // A connecting reader can inspect a player before its pending gain is
+            // applied. Only the periodic poll sends commands or writes the marker.
+            for synchronize in [false, true] {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                stream
             .write_all(b"{\"mode\":{\"Playing\":{}},\"playable\":{\"title\":\"Surviving song\"}}\n")
             .await
             .unwrap();
-        let mut commands = Vec::new();
-        stream.read_to_end(&mut commands).await.unwrap();
-        let expected = if saved_volume.is_some() {
-            String::new()
-        } else {
-            volume_commands(1.0)
-        };
-        assert_eq!(
-            commands,
-            expected.as_bytes(),
-            "recovery preserves applied volume but initializes an unapplied volume"
-        );
-    });
+                let mut commands = Vec::new();
+                stream.read_to_end(&mut commands).await.unwrap();
+                let expected = if !synchronize || saved_volume.is_some() {
+                    String::new()
+                } else {
+                    volume_commands(1.0)
+                };
+                assert_eq!(
+                    commands,
+                    expected.as_bytes(),
+                    "recovery preserves applied volume but initializes an unapplied volume"
+                );
+            }
+        });
 
     let tmux = crate::tmux::Tmux::new(tmux_socket);
     let sessions = super::super::tests::TestSessions::new(vec!["player".into()], tmux.clone());
@@ -248,7 +253,12 @@ async fn check_recovery(saved_volume: Option<f32>) {
     );
     old_tmux.mark_ncspot("player").await.unwrap();
     music.recover_ncspot(&sessions, &root).await;
-    let state = music.state().await;
+    let observed = music.state().await;
+    assert_eq!(
+        observed.volume.to_bits(),
+        saved_volume.unwrap_or(1.0).to_bits()
+    );
+    let state = music.poll().await;
     assert!(state.playing);
     assert_eq!(state.source.as_deref(), Some("ncspot"));
     assert_eq!(state.session.as_deref(), Some("player"));

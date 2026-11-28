@@ -79,6 +79,8 @@ pub(crate) mod routes {
     pub(crate) const FILES: &str = "/api/files";
     pub(crate) const SEARCH: &str = "/api/search";
     pub(crate) const GIT: &str = "/api/git";
+    pub(crate) const RADIO_RELAY: &str = "/media/radio";
+    pub(crate) const RADIO_RELAY_TITLE: &str = "/media/radio/title";
 }
 
 pub(crate) mod events {

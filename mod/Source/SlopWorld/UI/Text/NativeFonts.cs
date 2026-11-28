@@ -34,8 +34,12 @@ namespace SlopWorld
                     pending ??= Task.Run(Scan);
         }
 
+        internal static Func<bool, string[]> CatalogNames { get; set; }
+
         public static string[] Names(bool monospaced = false)
         {
+            if (CatalogNames?.Invoke(monospaced) is string[] supplied)
+                return supplied;
             var current = EnsureCatalog();
             var names = monospaced
                 ? new List<string>(current.Mono)

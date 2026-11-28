@@ -15,8 +15,6 @@ namespace SlopWorld
         static int _selectionRevision;
         public const string OstSourceId = "ost";
 
-        static bool _stopOnExit;
-
         // Read settings once after initialization. They are unavailable when this class first loads.
         static bool _read;
 
@@ -36,10 +34,7 @@ namespace SlopWorld
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
 
-        static bool NativeAudio => LocalOst;
-
-        internal static Func<NativeTrackSnapshot> NativeTrackProvider =
-            NativeJukebox.ReadNativeTrack;
+        static bool NativeAudio => !ServerOutput && LocalOst && LocalPlaybackSupported;
 
         // Read metadata from the current native SongDef.
         static string NativeNowPlaying()
@@ -51,7 +46,9 @@ namespace SlopWorld
         {
             try
             {
-                return NativeTrackProvider();
+                return BrowserJukebox.Available
+                    ? BrowserJukebox.Current.ReadNativeTrack()
+                    : NativeJukebox.ReadNativeTrack();
             }
             catch
             {
@@ -76,7 +73,12 @@ namespace SlopWorld
             get
             {
                 Read();
-                return _muted;
+                return _muted
+                    || (
+                        BrowserJukebox.Available
+                        && !ServerOutput
+                        && !string.IsNullOrEmpty(BrowserJukebox.Current.Error)
+                    );
             }
         }
 
@@ -175,7 +177,7 @@ namespace SlopWorld
         // Format station metadata without recognition results so the UI can show both sources.
         static string StationNowPlaying()
         {
-            if (_spotify)
+            if (_spotify || (_station == null && SharedStationId != null))
                 return _rawTitle;
             return _station != null ? FormatTitle(_station, _rawTitle)
                 : string.IsNullOrEmpty(_rawTitle) ? "terry fail - OST"
@@ -280,9 +282,7 @@ namespace SlopWorld
             !string.IsNullOrEmpty(_recognizedArtist) && !string.IsNullOrEmpty(_recognizedTitle);
 
         static string SourceLabel() =>
-            _spotify ? "Spotify"
-            : _station == null ? "SlopWorld OST"
-            : _station.Name;
+            _spotify ? "Spotify" : _station?.Name ?? SharedStationId ?? "SlopWorld OST";
 
         static string OriginalArtist()
         {
@@ -302,7 +302,7 @@ namespace SlopWorld
                 title = track?.Title ?? "OST";
                 return;
             }
-            if (_spotify)
+            if (_spotify || (_station == null && SharedStationId != null))
             {
                 artist = "";
                 title = _rawTitle;
@@ -335,12 +335,21 @@ namespace SlopWorld
             return station == null ? title : station.FormatTitle(title);
         }
 
-        public static string RateLabel(int rate) => rate + "k mp3";
+        internal static int PickedRate =>
+            _station == null ? 0
+            : BrowserJukebox.Available && !ServerOutput
+                ? _station.RateFor(BrowserJukebox.Current.Stream)
+            : _station.Rate;
+
+        public static string RateLabel(int rate) => rate + " kbps";
 
         public static void PickOst()
         {
             Read();
-            SelectSource();
+            if (BrowserJukebox.Available)
+                PickBrowserSource(null, 0);
+            else
+                SelectSource();
         }
 
         public static void Previous() => Navigate(-1, false);
@@ -352,10 +361,30 @@ namespace SlopWorld
         static void Navigate(int direction, bool random)
         {
             Read();
+            if (_quit)
+                return;
+            if (ServerOutput)
+            {
+                InvalidateSpotifyOpen();
+                if (SharedReady)
+                    SessionHub.Instance.Audio.SendTransport(
+                        random ? "shuffle"
+                            : direction < 0 ? "previous"
+                            : "next",
+                        HiddenSources()
+                    );
+                return;
+            }
             if (_spotify)
                 return;
             if (_station == null)
             {
+                if (BrowserJukebox.Available)
+                {
+                    BrowserJukebox.Current.Navigate(direction, random);
+                    PickBrowserSource(null, 0);
+                    return;
+                }
                 NativeJukebox.Navigate(direction, random);
                 if (_muted)
                     ToggleMute();
@@ -373,6 +402,13 @@ namespace SlopWorld
         public static void ToggleMute()
         {
             Read();
+            if (_quit)
+                return;
+            if (BrowserJukebox.Available)
+            {
+                ToggleBrowserPlayback();
+                return;
+            }
             _muted = !_muted;
             _blamed = false;
             Save();
@@ -383,14 +419,19 @@ namespace SlopWorld
         public static void ToggleStopOnExit()
         {
             Read();
-            _stopOnExit = !_stopOnExit;
-            Save();
+            _stopOnExit = Settings.S.radioStopOnExit = !_stopOnExit;
+            Settings.S.Write();
         }
 
         // Select a station and rate. A null station selects OST and ignores the rate.
         public static void Pick(Station s, int rate)
         {
             Read();
+            if (BrowserJukebox.Available)
+            {
+                PickBrowserSource(s, rate);
+                return;
+            }
             // Selecting a source also unmutes playback. Skip only an identical selection that is already unmuted.
             if (!_spotify && _station == s && (s == null || s.Rate == rate) && !_muted)
                 return;
@@ -408,6 +449,11 @@ namespace SlopWorld
             if (_quit)
                 return;
             Read();
+            if (BrowserJukebox.Available)
+            {
+                UpdateBrowserPlayback();
+                return;
+            }
             var hub = SessionHub.Instance;
             if (hub == null)
                 return;
@@ -434,22 +480,7 @@ namespace SlopWorld
             if (!AcceptsReport(source, error))
                 return;
             ReportSpotify(error, source, session);
-            bool identityChanged = RecognitionTrack.Update(playing, _muted, SourceLabel());
-            if (identityChanged)
-            {
-                _recognizedArtist = null;
-                _recognizedTitle = null;
-            }
-            // Accept raw titles even while muted. Station metadata can arrive after selection and change during playback.
-            string raw = string.IsNullOrEmpty(title) ? null : title;
-            if (_rawTitle != raw)
-            {
-                _rawTitle = raw;
-                _recognizedArtist = null;
-                _recognizedTitle = null;
-                RecognitionTrack.Advance();
-            }
-            _playing = playing;
+            ObserveTrack(playing, title);
 
             // Muted playback stops audio, so ignore playback errors in that state.
             if (_muted)
@@ -471,26 +502,27 @@ namespace SlopWorld
                 JukeboxNoticeKind.Rejected,
                 $"Jukebox: {_station.Name} {RateLabel(_station.Rate)} would not play. Back to the OST."
             );
-            SelectSource(clearFailure: false);
+            SelectSource(userSelected: false);
         }
 
-        // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
-        public static void Quit()
+        static void ObserveTrack(bool playing, string title)
         {
-            Read();
-            // Prevent later frames from sending further playback updates.
-            _quit = true;
-            // Keep muted playback stopped even if the exit preference permits continued playback.
-            if (!_stopOnExit && !_muted)
-                return;
-
-            var hub = SessionHub.Instance;
-            if (hub == null || !hub.Online)
-                return;
-            if (!hub.Capabilities.AudioPlayback)
-                return;
-            if (!hub.Audio.StopForShutdown(Volume()))
-                Log.Warning("[SlopWorld] radio stop could not be flushed before shutdown");
+            bool identityChanged = RecognitionTrack.Update(playing, _muted, SourceLabel());
+            if (identityChanged)
+            {
+                _recognizedArtist = null;
+                _recognizedTitle = null;
+            }
+            // Accept raw titles even while muted. Station metadata can arrive after selection and change during playback.
+            string raw = string.IsNullOrEmpty(title) ? null : title;
+            if (_rawTitle != raw)
+            {
+                _rawTitle = raw;
+                _recognizedArtist = null;
+                _recognizedTitle = null;
+                RecognitionTrack.Advance();
+            }
+            _playing = playing;
         }
 
         // Mark the selection for the next Update, which checks connection state before sending.
@@ -528,6 +560,11 @@ namespace SlopWorld
             _muted = Settings.RadioMute;
             _stopOnExit = Settings.RadioStopOnExit;
 
+            if (BrowserJukebox.Available)
+            {
+                ReadBrowserPreferences();
+                return;
+            }
             // Retain the saved key until the catalog arrives. SetStations restores the matching station.
             _spotify = Settings.Radio == "ncspot";
             _station = FindSelection(Settings.Radio);

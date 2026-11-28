@@ -1,11 +1,10 @@
-//! Candidate metadata activation and identity-checked title publication; also owns open deadlines.
+//! Candidate metadata activation and identity-checked title publication.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
+use super::AudioState;
 use super::control::Control;
-use super::{AudioState, OPEN};
 
 /// Receive delayed station metadata. The generation prevents old metadata from changing a replacement station's title.
 /// `None` omits titles for files and tests.
@@ -21,9 +20,6 @@ pub(crate) struct TitleSink {
     /// Shared with the HTTP transport so replacing a source closes a blocked open/read instead
     /// of merely abandoning the thread that owns it.
     pub(crate) cancelled: Arc<AtomicBool>,
-    /// Monotonic deadline for one header or open operation.
-    /// Zero removes this deadline from the live body. Only the idle timeout then limits body reads.
-    pub(crate) opening_deadline: Arc<AtomicU64>,
 }
 
 // One lock serializes activation, pending updates (including clears), and publication.
@@ -51,7 +47,6 @@ impl TitleSink {
             generation,
             phase: Arc::new(Mutex::new(phase)),
             cancelled: Arc::new(AtomicBool::new(false)),
-            opening_deadline: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -122,25 +117,6 @@ impl TitleSink {
     pub(crate) fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
     }
-
-    pub(crate) fn begin_opening(&self) {
-        let deadline = monotonic_millis().saturating_add(crate::clock::duration_ms(OPEN));
-        self.opening_deadline.store(deadline, Ordering::Release);
-    }
-
-    pub(crate) fn finish_opening(&self) {
-        self.opening_deadline.store(0, Ordering::Release);
-    }
-}
-
-pub(super) fn monotonic_millis() -> u64 {
-    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
-    START
-        .get_or_init(Instant::now)
-        .elapsed()
-        .as_millis()
-        .try_into()
-        .unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 # Game settings, imported only by the root justfile.
+export STEAMCMD := env("STEAMCMD", 'steamcmd')
 export GOGDL := env("GOGDL", 'gogdl')
 config_home := if env("XDG_CONFIG_HOME", "") != '' { env("XDG_CONFIG_HOME") } else { env("HOME") + '/.config' }
 export GOGDL_AUTH := env("GOGDL_AUTH", config_home + '/heroic/gog_store/auth.json')

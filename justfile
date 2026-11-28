@@ -1,11 +1,31 @@
 # Imported recipe files share one flat namespace; root recipes combine components.
 set shell := ["bash", "-euc"]
 set quiet
-set default-list
 
 import 'just/settings-game.just'
 import 'just/config.just'
 import 'just/settings-release.just'
+
+[default]
+[private]
+help:
+    @printf '%-18s %s\n' \
+        'build'        'Build the daemon, launcher and mod' \
+        'install'      'Install the daemon, launcher and mod' \
+        'run'          'Launch the game' \
+        'devloop'      'Reinstall and relaunch after each game exit' \
+        'logs'         'Show new game log entries' \
+        'clean'        'Remove build and coverage output' \
+        'format'       'Format sources' \
+        'lint'         'Check source formatting and lint rules' \
+        'test'         'Run regular game-free tests' \
+        'ci'           'Run all game-free CI checks' \
+        'docs-serve'   'Serve the book locally' \
+        'web-run'      'Build and run the browser host' \
+        'web-test'     'Run the browser product tests' \
+        'deps-restore' 'Restore locked dependencies' \
+        'generate-all' 'Regenerate outputs from reviewed inputs'
+    @printf '\n%s\n' 'All recipes: just --list   |   Groups: just --groups   |   One group: just --list --group web'
 
 # Build the daemon, launcher and mod
 [group('Build and run')]
@@ -18,11 +38,11 @@ install: daemon-install install-mod
 # Install Bash, Zsh and Fish completions for all clients into user data directories
 [group('Build and run')]
 install-completions:
-    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar
+    uv run --locked python -m tools.cli_completions install slopctl slopworld slopcar slopweb
 
 # Remove ordinary build and coverage output
 [group('Build and run')]
-clean: mod-clean clean-coverage
+clean: mod-clean web-clean clean-coverage
     cargo clean
 
 # Remove installed files; preserve config and saves
@@ -31,15 +51,15 @@ uninstall: daemon-uninstall cli-uninstall uninstall-mod
 
 # Format Python, Rust and C# sources
 [group('Check and fix')]
-format: bench-format sidecar-format tools-format daemon-format mod-format
+format: bench-format sidecar-format tools-format daemon-format mod-format web-format
 
 # Check sources without rewriting them
 [group('Check and fix')]
-lint: bench-lint sidecar-lint tools-lint daemon-lint mod-lint
+lint: bench-lint sidecar-lint tools-lint daemon-lint mod-lint web-lint
 
 # Run regular game-free tests
 [group('Check and fix')]
-test: daemon-test sidecar-test mod-test test-tools
+test: daemon-test sidecar-test mod-test web-host-build web-host-test test-tools web-test-runtime
 
 # Run all game-free Python, pager and benchmark-helper tests
 [group('Check and fix')]
@@ -81,6 +101,7 @@ import 'just/bench.just'
 import 'just/trace.just'
 import 'just/sidecar.just'
 import 'just/game.just'
+import 'just/web.just'
 
 # Install the mod and its launcher
 [group('Build and run')]
@@ -100,11 +121,11 @@ uninstall-mod mods=MODS: daemon-build
 
 # Restore reviewed Python, runtime and .NET tool locks
 [group('Maintain')]
-deps-restore: tools-restore mod-restore mod-restore-tools
+deps-restore: tools-restore mod-restore mod-restore-tools web-restore
 
 # Update every dependency graph, then regenerate and stage notices
 [group('Maintain')]
-deps-update: deps-update-tools deps-update-rust deps-update-mod generate-daemon-licenses generate-sidecar-licenses generate-licenses
+deps-update: deps-update-tools deps-update-rust deps-update-mod deps-update-web generate-daemon-licenses generate-sidecar-licenses generate-web-licenses generate-licenses
 
 # Launch against an already running sidecar
 [group('Specialist commands')]

@@ -24,17 +24,19 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
-            bool eco = UiControls.Checkbox(
-                l,
-                "Eco mode",
-                s.ecoMode,
-                "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n"
-                    + "Pauses the game simulation and map drawing. Terminal sessions continue to run."
-            );
+            bool eco = s.ecoMode;
+            if (!ClientPlatform.IsBrowser)
+                eco = UiControls.Checkbox(
+                    l,
+                    "Eco mode",
+                    s.ecoMode,
+                    "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n"
+                        + "Pauses the game simulation and map drawing. Terminal sessions continue to run."
+                );
 
             // Show the dimming slider only when Eco mode draws the backdrop.
             // Offer 5% precision; Eco updates the color on its reused backdrop material.
-            if (s.ecoMode)
+            if (ClientPlatform.IsBrowser || s.ecoMode)
             {
                 l.Gap(UiTheme.GapS);
                 float dim =
@@ -62,10 +64,11 @@ namespace SlopWorld
                 "No fun allowed! Disable violence and offensive/harmful tips."
             );
 
-            if (gm != s.grandmaMode || eco != s.ecoMode)
+            if (gm != s.grandmaMode || (!ClientPlatform.IsBrowser && eco != s.ecoMode))
             {
                 s.grandmaMode = gm;
-                s.ecoMode = eco;
+                if (!ClientPlatform.IsBrowser)
+                    s.ecoMode = eco;
                 s.MarkDirty();
             }
 
@@ -188,7 +191,7 @@ namespace SlopWorld
 
             GUI.color = UiTheme.Dim;
             l.Label(
-                $"Client: SlopWorld {ModEntry.ClientVersion} · "
+                $"Client: {(ClientPlatform.IsBrowser ? "slopweb" : "SlopWorld")} {ModEntry.ClientVersion} · "
                     + $"RimWorld {VersionControl.CurrentVersionString}"
             );
             GUI.color = Color.white;

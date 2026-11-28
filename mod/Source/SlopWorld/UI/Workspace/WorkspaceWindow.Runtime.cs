@@ -10,10 +10,23 @@ namespace SlopWorld
         string _name => _terminal.SessionName;
         bool _showStopped => _terminal.ShowStopped;
         IContentView _content => _panels.Content;
+        internal TerminalPanel SelectedTerminal => _terminal;
         internal string SessionName => _name;
         IContentView ITerminalPanelHost.Content => _content;
         bool ITerminalPanelHost.InputAvailable =>
             Verse.Find.WindowStack == null || Verse.Find.WindowStack.GetsInput(this);
+
+        public static float NextUpdateDelay()
+        {
+            var window = Verse.Find.WindowStack?.WindowOfType<WorkspaceWindow>();
+            if (window == null || !window.TerminalVisible)
+                return .1f;
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            float delay = window._terminals.First.NextUpdateDelay(now);
+            if (window._terminals.Second != null)
+                delay = System.Math.Min(delay, window._terminals.Second.NextUpdateDelay(now));
+            return delay;
+        }
 
         internal static void FlushTerminalInput() =>
             Verse.Find.WindowStack?.WindowOfType<WorkspaceWindow>()?._terminals.Flush();

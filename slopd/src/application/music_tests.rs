@@ -30,15 +30,16 @@ async fn music_poll_publishes_only_changed_snapshots() {
         events.try_recv(),
         Err(tokio::sync::broadcast::error::TryRecvError::Empty)
     ));
-    let request = serde_json::from_str::<crate::music::AudioReq>(
-        r#"{"volume":0.5,"selection":{"stream":"orphan"}}"#,
-    )
-    .unwrap();
+    let request = crate::shared::wire::AudioRequest {
+        volume: Some(0.5),
+        ..Default::default()
+    }
+    .into();
     services.music.select(&NoHosts, request).await;
     services.publish_music_if_changed(&mut last).await;
     let event = events.try_recv().unwrap();
     assert!(
-        matches!(event.event(), crate::application::Event::Audio { audio } if audio.error.as_deref() == Some("Select a station and stream."))
+        matches!(event.event(), crate::application::Event::Audio { audio } if audio.volume.to_bits() == 0.5_f32.to_bits())
     );
     services.publish_music_if_changed(&mut last).await;
     assert!(matches!(

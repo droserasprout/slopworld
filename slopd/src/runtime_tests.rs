@@ -66,9 +66,11 @@ fn native_capabilities_keep_host_integrations() {
     }) else {
         return;
     };
-    let caps = capabilities();
+    let caps = capabilities(false);
     assert_eq!(caps.runtime, "native");
-    assert!(caps.audio_playback && caps.desktop_open && caps.per_session_limits);
+    assert!(caps.desktop_open && caps.per_session_limits && caps.radio_relay);
+    assert_eq!(caps.hostname, hostname());
+    assert_eq!(caps.audio_playback, crate::audio::host_output_available());
     assert!(!caps.host_network_is_container && !caps.host_terminals_are_container);
     assert_eq!(caps.ncspot, ncspot_available());
 }
@@ -88,4 +90,17 @@ fn non_unicode_runtime_is_rejected() {
             .to_string()
             .contains("UTF-8")
     );
+}
+
+#[test]
+fn sidecar_advertises_relay_and_identity_without_host_playback() {
+    let Some(_) = crate::test_support::isolated_with_env(|command, _| {
+        command.env("SLOPD_RUNTIME", SLOPCAR);
+    }) else {
+        return;
+    };
+    let caps = capabilities(false);
+    assert_eq!(caps.runtime, SLOPCAR);
+    assert!(caps.radio_relay && !caps.hostname.is_empty());
+    assert!(!caps.audio_playback && !caps.ncspot);
 }

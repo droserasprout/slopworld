@@ -163,6 +163,56 @@ namespace SlopWorld.Tests
             );
         }
 
+        public static void NonblockingAdmissionCoalescesBeforeCheckingCapacity()
+        {
+            var queue = new IncomingMessageQueue();
+            queue.Enqueue(Screen("pane", 0));
+            for (int i = 1; i < IncomingMessageQueue.MaxMessages; i++)
+                queue.Enqueue(Control((ulong)i));
+            AssertEx.Equal(IncomingEnqueueResult.Full, queue.TryEnqueue(Control(999)), "full");
+            AssertEx.Equal(
+                IncomingEnqueueResult.Accepted,
+                queue.TryEnqueue(Screen("pane", 999)),
+                "live replacement fits even at message capacity"
+            );
+            for (int i = 1; i < IncomingMessageQueue.MaxMessages; i++)
+            {
+                AssertEx.True(queue.TryDequeue(out var control), "control retained");
+                AssertEx.Equal((ulong)i, Identity(control.Value), "control order");
+            }
+            AssertEx.True(queue.TryDequeue(out var latest), "live replacement retained");
+            AssertEx.Equal(999UL, Identity(latest.Value), "replacement follows controls");
+            queue.Close();
+            AssertEx.Equal(IncomingEnqueueResult.Closed, queue.TryEnqueue(Control(0)), "closed");
+        }
+
+        public static void NonblockingAdmissionCreditsTheReplacedScreensBytes()
+        {
+            var queue = new IncomingMessageQueue();
+            byte[] frame = new Wire.Event
+            {
+                Screen = new Wire.ScreenView
+                {
+                    Name = "pane",
+                    Lines = { new string('x', IncomingMessageQueue.MaxMessageBytes - 128) },
+                },
+            }.ToByteArray();
+            queue.Enqueue(frame);
+            queue.Enqueue(new byte[IncomingMessageQueue.MaxMessageBytes]);
+            int bytes = queue.Bytes;
+            AssertEx.Equal(
+                IncomingEnqueueResult.Accepted,
+                queue.TryEnqueue(frame),
+                "replacement reuses its queued byte budget"
+            );
+            AssertEx.Equal(bytes, queue.Bytes, "replacement counted once");
+            AssertEx.Equal(
+                IncomingEnqueueResult.Full,
+                queue.TryEnqueue(new byte[256]),
+                "byte limit"
+            );
+        }
+
         public static void CloseReleasesProducerWaitingForCapacity()
         {
             var overloaded = new IncomingMessageQueue();

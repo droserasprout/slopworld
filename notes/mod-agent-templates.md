@@ -17,5 +17,5 @@ The shared Workers tab owns a deep-copied portable policy in agent/template draf
 Delegation defaults off; its template picker uses the full catalog. Settings > Agents >
 Workers owns only the global initial prompt.
 Worker editors also expose captured relationship access through a separate root-only
-endpoint; they cannot rename or replace worker launch settings. Legacy unbound workers
-show their settings but reject saves instead of inferring a parent from its name.
+endpoint. Worker launch settings and names are read-only in this editor. Workers
+without a bound parent ID show their settings and reject relationship edits.

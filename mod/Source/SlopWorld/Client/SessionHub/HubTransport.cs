@@ -7,6 +7,11 @@ using Verse;
 namespace SlopWorld
 {
     // Main-thread WebSocket pump with reconnect backoff. The coordinator dispatches its events.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1001",
+        Justification = "The session hub reuses its transport for the process lifetime. Disconnect cancels and releases its current attempt."
+    )]
     class HubTransport
     {
         // The coordinator assigns callbacks after creating the services.
@@ -39,9 +44,15 @@ namespace SlopWorld
         int _connectSerial;
         bool _connecting;
 
+        internal static Func<IHubSocket> CreateSocket { get; set; } = () => new MiniWebSocket();
+        internal static Action<Action> ScheduleConnect { get; set; } =
+            action => ThreadPool.QueueUserWorkItem(_ => action());
+        internal static Action ResultReady { get; set; }
+
+        CancellationTokenSource _attempt;
+
         public HubTransport()
-            : this(() => new MiniWebSocket(), action => ThreadPool.QueueUserWorkItem(_ => action()))
-        { }
+            : this(CreateSocket, ScheduleConnect) { }
 
         // The game uses ThreadPool and MiniWebSocket by default.
         // Tests can supply a controlled scheduler and socket while using the same result processing code.
@@ -77,7 +88,13 @@ namespace SlopWorld
         {
             if (TerminalLatency.Enabled)
                 TerminalLatency.Timeline.Reset();
-            _connectSerial++;
+            _attempt?.Cancel();
+            _attempt?.Dispose();
+            _attempt = null;
+            // Synchronize invalidation with completion publication, including when
+            // shutdown stops the main-thread pump permanently.
+            lock (_connectResults)
+                _connectSerial++;
             _connecting = false;
             _ws?.Dispose();
             _ws = null;
@@ -89,6 +106,8 @@ namespace SlopWorld
         // Send all hub socket messages through this method.
         // Discard messages when the socket is disconnected.
         public void Send(Wire.ClientMessage message) => TrySend(message);
+
+        internal IPageExitAudio PageExitAudio => Connected ? _ws as IPageExitAudio : null;
 
         internal bool FlushOutgoing(int timeoutMs) => _ws?.FlushOutgoing(timeoutMs) == true;
 
@@ -109,8 +128,7 @@ namespace SlopWorld
             {
                 // Disabling auto-connect must invalidate pending attempts, including attempts without an assigned socket.
                 // Otherwise, a delayed result can leave _connecting set indefinitely.
-                InvalidateConnectAttempt();
-                PumpConnectResults();
+                Disconnect();
                 return;
             }
 
@@ -161,34 +179,22 @@ namespace SlopWorld
             }
         }
 
-        void InvalidateConnectAttempt()
-        {
-            if (_ws != null)
-            {
-                // Disconnect also drains queued results and releases the installed socket.
-                Disconnect();
-                return;
-            }
-
-            _connectSerial++;
-            _connecting = false;
-            while (_connectResults.TryDequeue(out var result))
-                result.Socket?.Dispose();
-            Status = "disconnected";
-        }
-
         void BeginConnect()
         {
             if (_connecting)
                 return;
             var connection = Settings.Connection;
-            int serial = ++_connectSerial;
+            int serial;
+            lock (_connectResults)
+                serial = ++_connectSerial;
             _connecting = true;
             Status = "connecting";
+            _attempt = new CancellationTokenSource();
+            var cancellation = _attempt.Token;
             OnConnecting?.Invoke();
             try
             {
-                _queueConnect(() => OpenSocket(connection, serial));
+                _queueConnect(() => _ = OpenSocket(connection, serial, cancellation));
             }
             catch (Exception error)
             {
@@ -198,7 +204,11 @@ namespace SlopWorld
             }
         }
 
-        void OpenSocket(ConnectionInfo connection, int serial)
+        async System.Threading.Tasks.Task OpenSocket(
+            ConnectionInfo connection,
+            int serial,
+            CancellationToken cancellation
+        )
         {
             // Transfer even a partially initialized socket to the main-thread result
             // pump, which owns disposal, stale-attempt rejection, and retry timing.
@@ -207,13 +217,9 @@ namespace SlopWorld
             {
                 result.Socket = _socketFactory();
                 if (
-                    !result.Socket.Connect(
-                        connection.Host,
-                        connection.Port,
-                        connection.PathPrefix + WireProtocol.WsPath,
-                        connection.Token,
-                        useTls: connection.UseTls
-                    )
+                    !await result
+                        .Socket.ConnectAsync(connection, cancellation)
+                        .ConfigureAwait(false)
                 )
                     result.Error = result.Socket.LastError ?? "connection failed";
             }
@@ -221,7 +227,16 @@ namespace SlopWorld
             {
                 result.Error = error.Message;
             }
-            _connectResults.Enqueue(result);
+            bool stale;
+            lock (_connectResults)
+            {
+                stale = serial != _connectSerial;
+                if (!stale)
+                    _connectResults.Enqueue(result);
+            }
+            if (stale)
+                result.Socket?.Dispose();
+            ResultReady?.Invoke();
         }
 
         void PumpConnectResults()
@@ -233,11 +248,17 @@ namespace SlopWorld
                     // Ignore a completion with an older serial so it cannot release a newer attempt.
                     // Complete the current attempt even if the user disables auto-connect after BeginConnect.
                     if (result.Serial == _connectSerial)
+                    {
+                        _attempt?.Dispose();
+                        _attempt = null;
                         _connecting = false;
+                    }
                     result.Socket?.Dispose();
                     continue;
                 }
 
+                _attempt?.Dispose();
+                _attempt = null;
                 _connecting = false;
                 if (result.Error == null && result.Socket != null && result.Socket.Connected)
                 {

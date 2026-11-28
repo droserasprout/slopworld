@@ -81,6 +81,21 @@ namespace SlopWorld
                 return index < 0 ? null : _keys[index];
             }
 
+            internal string[] StreamsStartingWith(int rate)
+            {
+                var keys = new List<string> { Path(rate) };
+                foreach (var key in _keys)
+                    if (key != keys[0])
+                        keys.Add(key);
+                return keys.ToArray();
+            }
+
+            internal int RateFor(string stream)
+            {
+                int index = Array.IndexOf(_keys, stream);
+                return index < 0 ? Rate : Rates[index];
+            }
+
             public string SelectionKey(int rate) => Id + ":" + Path(rate);
 
             internal string FormatTitle(string title)
@@ -163,7 +178,10 @@ namespace SlopWorld
             // Publish the complete replacement before reconciling the saved selection.
             _stations = next.ToArray();
             _catalogReady = true;
-            RestoreSelection(saved);
+            if (BrowserJukebox.Available)
+                RestoreBrowserCatalog();
+            else
+                RestoreSelection(saved);
         }
 
         static void RestoreSelection(string saved)

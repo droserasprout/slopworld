@@ -1,77 +1,80 @@
 use super::*;
 
-/// Every half-formed or contradictory combination is refused before it can reach a source.
 #[test]
-fn resolve_audio_rejects_malformed_selections() {
+fn stop_and_pause_keep_gain_but_only_stop_acknowledges_the_token() {
+    for (change, expects_ack) in [
+        (WireChange::Stop(Default::default()), true),
+        (WireChange::Transport("pause".into()), false),
+    ] {
+        let req = AudioReq::from(AudioRequest {
+            change: Some(change),
+            volume: Some(0.0),
+            stop_token: Some("handoff".into()),
+            ..Default::default()
+        });
+        assert_eq!(req.change.unwrap(), Change::Stop);
+        assert!(req.volume.is_none());
+        assert_eq!(
+            matches!(req.reply, Reply::Stop(token) if token == "handoff"),
+            expects_ack
+        );
+    }
+}
+
+#[test]
+fn omitted_desktop_volume_decodes_as_zero_for_gain_and_selection_writes() {
+    use prost::Message;
+
+    // Desktop v2 encodings of a zero-volume write and a zero-volume ncspot selection.
+    for (bytes, expected) in [
+        (&[][..], Change::Volume),
+        (&[0x0a, 0x02, 0x20, 0x01], Change::Select(Source::Spotify)),
+    ] {
+        let req = AudioReq::from(AudioRequest::decode(bytes).unwrap());
+        assert_eq!(req.change.unwrap(), expected);
+        assert_eq!(req.volume.map(f32::to_bits), Some(0));
+    }
+}
+
+#[test]
+fn browser_selection_uses_shared_gain_and_keeps_spotify_correlation() {
+    let req = AudioReq::from(AudioRequest {
+        change: Some(WireChange::Selection(AudioSelection {
+            ncspot: true,
+            ..Default::default()
+        })),
+        keep_volume: true,
+        request_id: Some("open".into()),
+        ..Default::default()
+    });
+    assert_eq!(req.change.unwrap(), Change::Select(Source::Spotify));
+    assert!(req.volume.is_none());
+    assert!(matches!(req.reply, Reply::Spotify(Some(id)) if id == "open"));
+}
+
+#[test]
+fn malformed_selection_never_becomes_a_player_change() {
     for (station, stream) in [(None, None), (Some("s"), None), (None, Some("t"))] {
         let selection = AudioSelection {
-            station: station.map(str::to_string),
-            stream: stream.map(str::to_string),
-            ncspot: false,
+            station: station.map(str::to_owned),
+            stream: stream.map(str::to_owned),
+            ..Default::default()
         };
-        assert!(
-            AudioReq {
-                stop_token: None,
-                selection: Some(Some(selection)),
-                volume: 1.0
-            }
-            .change()
-            .is_err(),
-            "expected {station:?}/{stream:?} to be rejected"
-        );
+        Source::try_from(selection).expect_err("incomplete station selection should be rejected");
     }
 }
 
 #[test]
-fn audio_request_preserves_volume_stop_and_selection_distinction() {
-    let volume: AudioReq = serde_json::from_str(r#"{"volume":0.4}"#).unwrap();
-    assert!(volume.selection.is_none());
-    let stop: AudioReq = serde_json::from_str(r#"{"volume":0.4,"selection":null}"#).unwrap();
-    assert!(matches!(stop.selection, Some(None)));
-    let spotify: AudioReq =
-        serde_json::from_str(r#"{"volume":0.4,"selection":{"ncspot":true}}"#).unwrap();
-    assert!(spotify.selection.unwrap().unwrap().ncspot);
-}
-
-#[test]
-fn valid_requests_become_explicit_changes_without_losing_stop_or_volume() {
-    for (json, expected) in [
-        (r#"{"volume":0.4}"#, Change::Volume),
-        (r#"{"volume":0.4,"selection":null}"#, Change::Stop),
-        (
-            r#"{"volume":0.4,"selection":{"ncspot":true}}"#,
-            Change::Spotify,
-        ),
-        (
-            r#"{"volume":0.4,"selection":{"station":"radio","stream":"high"}}"#,
-            Change::Station {
-                station: "radio".into(),
-                stream: "high".into(),
-            },
-        ),
-    ] {
-        assert_eq!(
-            serde_json::from_str::<AudioReq>(json)
-                .unwrap()
-                .change()
-                .unwrap(),
-            expected
-        );
-    }
-}
-
-#[test]
-fn spotify_cannot_be_combined_with_any_other_source_field() {
-    for field in ["station", "stream"] {
-        let value = serde_json::json!({"volume":0.5,"selection":{"ncspot":true,field:"value"}});
-        let request: AudioReq = serde_json::from_value(value).unwrap();
-        assert!(request.wants_spotify());
-        assert!(
-            request
-                .change()
-                .unwrap_err()
-                .to_string()
-                .contains("not both")
-        );
-    }
+fn invalid_gain_still_returns_a_correlated_spotify_rejection() {
+    let req = AudioReq::from(AudioRequest {
+        change: Some(WireChange::Selection(AudioSelection {
+            ncspot: true,
+            ..Default::default()
+        })),
+        volume: Some(f32::NAN),
+        request_id: Some("open".into()),
+        ..Default::default()
+    });
+    assert!(req.change.unwrap_err().to_string().contains("finite"));
+    assert!(matches!(req.reply, Reply::Spotify(Some(id)) if id == "open"));
 }

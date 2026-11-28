@@ -50,6 +50,7 @@ pub(crate) struct Services {
     pub(crate) catalogs: catalogs::CatalogState,
     pub(crate) library: LibraryCatalog,
     pub(crate) templates: AgentTemplates,
+    pub(crate) radio_listeners: Arc<crate::audio::relay::Listeners>,
     pub(crate) music: crate::music::Music,
     usage: RwLock<crate::usage::Snapshot>,
     events: EventPublisher,
@@ -95,6 +96,7 @@ impl Services {
             library: LibraryCatalog::default(),
             templates,
             events,
+            radio_listeners: Arc::default(),
             music: crate::music::Music::new(tmux),
             usage: RwLock::new(Default::default()),
         }

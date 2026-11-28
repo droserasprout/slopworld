@@ -343,8 +343,6 @@ pub(crate) enum ClientMsg {
 }
 
 pub(crate) use crate::music::AudioReq;
-#[cfg(test)]
-pub(crate) use crate::music::AudioSelection;
 
 #[derive(Deserialize)]
 pub(crate) struct PasteReq {

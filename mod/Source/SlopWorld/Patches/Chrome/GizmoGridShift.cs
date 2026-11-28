@@ -35,7 +35,7 @@ namespace SlopWorld
         static float GridTop(float screenHeight, float spacingY)
         {
             if (Patch_GizmoGridFlag.Active)
-                return Sidebar.AddBar.y - SessionGizmoInput.ActionRowHeight;
+                return SessionGizmoInput.GridTop;
 
             return screenHeight - 35f - spacingY - 75f;
         }
@@ -44,8 +44,7 @@ namespace SlopWorld
         {
             if (!Patch_GizmoGridFlag.Active)
                 return;
-            var content = WorkspaceLayout.Current.Content;
-            float start = content.x + UiTheme.GapM;
+            float start = SessionGizmoInput.GridLeft;
             // Agent actions need no inspect-pane offset, even with the sidebar hidden.
             startX = InspectPaneAgent.AgentSelectionActive ? start : Mathf.Max(startX, start);
         }

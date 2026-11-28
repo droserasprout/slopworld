@@ -48,6 +48,9 @@ namespace SlopWorld
 
         public void InvalidateShown() => _shown = -1;
 
+        internal static System.Action<Texture2D, Vector2, CursorMode> Present { get; set; } =
+            Cursor.SetCursor;
+
         public void Show(int step)
         {
             if (step == _shown)
@@ -62,7 +65,7 @@ namespace SlopWorld
                     out _spunHot[step]
                 );
 
-            Cursor.SetCursor(_spun[step], _spunHot[step], CursorMode.Auto);
+            Present(_spun[step], _spunHot[step], CursorMode.Auto);
         }
 
         // Rotate the hotspot with the icon to keep the tip under the mouse.

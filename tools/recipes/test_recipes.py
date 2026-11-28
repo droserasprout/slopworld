@@ -206,7 +206,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         (call,) = self.calls('cargo')
         self.assertEqual(call['args'], ['build', '--quiet', '--locked', '--release', '--frozen'])
         self.log.unlink()
-        self.run_recipe(f'RUNNER={self.directory / "runner"}', 'install-mod')
+        # install-mod also copies its runner, desktop entry and icon using the real installer.
+        self.env['XDG_DATA_HOME'] = str(self.directory / 'data')
+        self.run_recipe(f'BIN={self.directory / "installed-bin"}', f'RUNNER={self.directory / "runner"}', 'install-mod')
         installer = next(call for call in self.calls('uv') if 'tools.host.install_mod' in call['args'])
         self.assertIn(str(self.directory / 'runner'), installer['args'])
 
@@ -263,19 +265,36 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertFalse(self.log.exists())
 
     def test_refresh_is_explicit_and_stages_licenses_last(self) -> None:
+        self.env['CARGO_TARGET_DIR'] = str(self.directory / 'other targets')
         self.run_recipe('generate-all')
         modules = [call['args'][call['args'].index('-m') + 1] for call in self.calls('uv')]
         self.assertEqual(modules[-1], 'tools.licenses.stage_licenses')
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual([call['tool'] for call in calls[:4]], ['uv', 'cargo', 'cargo', 'uv'])
+        self.assertEqual([call['tool'] for call in calls[:5]], ['uv', 'cargo', 'cargo', 'cargo', 'uv'])
         self.assertEqual(modules[:2], ['tools.assets.clown_nose', 'tools.cli_completions'])
         self.assertEqual(
             [(Path(call['cwd']).name, call['args']) for call in self.calls('cargo')],
-            [('slopd', ['build', '--quiet', '--locked']), ('slopcar', ['build', '--quiet', '--locked'])],
+            [
+                ('slopd', ['build', '--quiet', '--locked']),
+                ('slopcar', ['build', '--quiet', '--locked']),
+                (
+                    ROOT.name,
+                    [
+                        'build',
+                        '--manifest-path',
+                        'slopweb/host/Cargo.toml',
+                        '--target-dir',
+                        'target',
+                        '--locked',
+                        '--release',
+                        '--quiet',
+                    ],
+                ),
+            ],
         )
         self.assertEqual(self.calls('dotnet'), [])
         self.assertIn('tools.licenses.sidecar_licenses', modules)
-        for module in ('emoji', 'emoji_atlas', 'fileicons'):
+        for module in ('emoji', 'emoji_atlas', 'fileicons', 'ost_manifest'):
             self.assertIn(f'tools.assets.{module}', modules)
         self.assertFalse(any('lock' in call['args'] for call in self.calls('uv')))
 
@@ -285,6 +304,9 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
         self.assertEqual(cargo['cwd'], str(ROOT))
         self.assertEqual(cargo['args'], ['update'])
         dotnet = self.calls('dotnet')
+        web_projects = subprocess.run(
+            ['rg', '--files', 'slopweb', '-g', '*.csproj'], cwd=ROOT, check=True, capture_output=True, text=True
+        ).stdout.splitlines()
         self.assertEqual(
             [call['args'][1] for call in dotnet],
             [
@@ -292,13 +314,17 @@ if tool == os.environ.get("RECIPE_TEST_FAIL"):
                 'mod/Source/SlopWorld/SlopWorld.csproj',
                 'mod/Tests/SlopWorld.Tests.csproj',
                 'bench/ipc/csharp/IpcBench.csproj',
+                *sorted(web_projects),
             ],
         )
         self.assertTrue(all('--force-evaluate' in call['args'] for call in dotnet))
         self.assertTrue(all('-p:RestoreLockedMode=false' in call['args'] for call in dotnet))
         uv = self.calls('uv')
         self.assertEqual(uv[0]['args'], ['lock', '--upgrade'])
-        self.assertEqual(uv[-1]['args'][-1], 'tools.licenses.stage_licenses')
+        self.assertEqual(
+            [call['args'][-1] for call in uv[-2:]],
+            ['tools.licenses.web_licenses', 'tools.licenses.stage_licenses'],
+        )
 
     def test_failed_relock_does_not_publish_new_notices(self) -> None:
         self.env['RECIPE_TEST_FAIL'] = 'cargo'

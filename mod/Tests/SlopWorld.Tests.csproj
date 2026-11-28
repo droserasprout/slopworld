@@ -14,6 +14,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/BrowserJukebox.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/JukeboxLibrary.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxActions.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxLikesFile.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/KeyboardEventQueue.cs" />
     <Compile Include="../Source/SlopWorld/Settings/RenderSchedule.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Eco/RenderLoopRewrite.cs" />
@@ -68,6 +72,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowTarget.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Library/LibraryRowSelection.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TooltipLineBreaks.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiBubbleSequence.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiBubblePlacement.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/NativeTextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/NativeTextScope.cs" />
     <Compile Include="../Source/SlopWorld/Patches/Chrome/NativeText.cs" />
@@ -82,6 +88,9 @@
     <Compile Include="../Source/SlopWorld/Client/Catalog/WorktreeRequests.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioPlayback.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Playback.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Browser.cs" />
+    <Compile Include="../Source/SlopWorld/Application/Jukebox/JukeboxNotice.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/RadioNavigation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Audio/AudioBus.cs" />
     <Compile Include="../Source/SlopWorld/Application/Jukebox/Radio.Selection.cs" />
@@ -215,6 +224,7 @@
     <Compile Include="../Source/SlopWorld/Settings/OptionLabels.cs" />
     <Compile Include="../Source/SlopWorld/Settings/PreferenceFormats.cs" Link="Source/Settings/PreferenceFormats.cs" />
     <Compile Include="../Source/SlopWorld/Settings/WorkspacePreferences.cs" Link="Source/Settings/WorkspacePreferences.cs" />
+    <Compile Include="../Source/SlopWorld/Platform/ClientPlatform.cs" Link="Source/Platform/ClientPlatform.cs" />
     <Compile Include="../Source/SlopWorld/Settings/Settings.cs" Link="Source/Settings/Settings.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ProfileSettings.cs" Link="Source/Settings/ProfileSettings.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettingsStore.cs" Link="Source/Settings/ModSettingsStore.cs" />

@@ -4,20 +4,7 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
-        static bool _quit,
-            _blamed;
-        static bool _read;
-        static int _selectionRevision;
-
-        // Persistence is intentionally omitted; this harness checks Spotify lifecycle only.
-        static void Read() { }
-
-        static void Save() { }
-
-        static void Push()
-        {
-            InvalidatePlayback();
-        }
+        static readonly RecognitionTrackState RecognitionTrack = new RecognitionTrackState();
 
         internal static void SelectPlaybackTest(
             Station station = null,
@@ -37,8 +24,14 @@ namespace SlopWorld
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;
-            _daemonStopped = false;
-            _stopToken = null;
+            _stopOnExit = _handoffAcknowledged = _sharedActive = false;
+            _localStartPending = false;
+            _shared = null;
+            _rawTitle = _recognizedArtist = _recognizedTitle = null;
+            _playing = false;
+            _cachedNowPlayingAt = double.NegativeInfinity;
+            BrowserJukebox.Current = null;
+            _stopToken = _spotifyRequest = null;
             _spotifyOpened = _spotifyFailed = null;
             _station = null;
             _read = false;
@@ -75,6 +68,12 @@ namespace SlopWorld
     static class NativeJukebox
     {
         internal static void SetMuted(bool muted) { }
+
+        internal static void Navigate(int direction, bool random) { }
+
+        internal static float Volume => 0.5f;
+
+        internal static NativeTrackSnapshot ReadNativeTrack() => null;
     }
 
     sealed partial class SessionHub

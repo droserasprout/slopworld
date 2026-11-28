@@ -99,8 +99,10 @@ namespace SlopWorld
                 return;
             _phase = Phase.Confirming;
             var actions = new List<string>();
-            if (Settings.S.radioStopOnExit)
-                actions.Add("Radio will stop.");
+            if (Settings.S.radioStopOnExit && (!BrowserJukebox.Available || Radio.ServerOutput))
+                actions.Add(
+                    BrowserJukebox.Available ? "The shared jukebox will stop." : "Radio will stop."
+                );
             if (Settings.S.stopSessionsOnExit)
             {
                 var names = ActiveSessionNames(SessionHub.Instance)

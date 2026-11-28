@@ -28,9 +28,21 @@ revokes its credentials and closes affected WebSockets. See
 
 ## HTTP
 
-Send Protobuf bodies with `Content-Type: application/x-protobuf`. Responses,
+For `/api/` routes, send Protobuf bodies with `Content-Type: application/x-protobuf`. Responses,
 including `Error` messages, are Protobuf. Routes without a request message take
-no body; query parameters remain text. JSON is not a supported wire format.
+no body. Query parameters remain text.
+
+### Radio relay
+
+`GET /media/radio?station=ID&stream=KEY&listener=UUID` streams the station's encoded
+audio with its media content type. Use the station ID and stream key from the jukebox
+catalog and a fresh listener UUID for each playback attempt. An active duplicate UUID
+receives HTTP 409. Closing the response releases this listener's station socket.
+
+`GET /media/radio/title?listener=UUID` returns JSON with the current ICY `title`
+(string or null). HTTP 404 means the listener is absent. Both endpoints require root
+authorization. In slopweb, use the same paths prefixed with `/host`. The same-origin
+host supplies the daemon credential.
 
 ## WebSocket
 
@@ -62,12 +74,18 @@ Catalogs arrive on connect and again when changed.
 | `resize`, `scroll` | Negotiate terminal size or request scrollback. |
 | `paste` | Paste literal text or upload image bytes; see [Clipboard](#clipboard). |
 | `paste_prompt` | Expand a saved Prompt in the target session context and paste without submitting. |
-| `audio` | Set `volume` and optionally select a `station` and `stream` pair, select `ncspot`, or request a stop. An absent selection changes volume only. |
+| `audio` | Set volume, select a source, stop playback, or operate the shared player. See [Audio state](#audio-state). |
 
 ### Audio state
 
 Audio state contains `playing`, `source`, `volume`, `error`, `title`, and optional
 `session`. Station titles come from ICY metadata; stream URLs are not sent to the mod.
+
+A volume-only write or source selection defaults to zero gain when `volume` is
+absent. With `shared_audio_transport` advertised, a client can set `keep_volume`
+on a selection to use the current gain. The same capability enables relative
+transport and correlated Spotify replies. Stop and transport commands preserve gain.
+Browser server controls require both `shared_audio_transport` and `audio_playback`.
 
 ### Clipboard
 

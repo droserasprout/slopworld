@@ -14,6 +14,9 @@ worker identity belongs to its task. Ordinary agent editing excludes host and
 non-worker ephemeral sessions.
 
 Vanilla supplies pawn identities; the sidebar sorts indices and assigns geometry.
+Ordinary agents admitted without a pawn share agent-row geometry and text presentation,
+including state age, summary, indicators and fitting. Host/temporary rows retain compact
+geometry. A session-only row does not invent a pawn or portrait identity.
 Hiding it suppresses portraits and hit tests. Check for a live world during teardown.
 Park folded/filtered entries offscreen, and retain screen-space positions for external
 hit tests after restoring vanilla geometry. Nested swaps and exceptions must restore
@@ -27,11 +30,14 @@ insets must also reach vanilla buttons, inspect panes, gizmos, and colonist hit 
 changing drawing alone leaves invisible targets. Internal split changes must not
 resize terminals. The tab and open-files pane scroll independently.
 
-Worker hierarchy comes from daemon metadata. Children of missing or filtered
+Worker hierarchy comes from daemon metadata. Visible session-only agent parents are
+registered before workers are placed, independently of catalog enumeration order.
+Children of missing or filtered
 parents appear at the top level of their own project group and follow its folding and row
 sizing. Host, temporary, and worker rows do not count as ordinary project agents.
 Rename handoffs preserve membership until HTTP and WebSocket agree. Expand truncated
 host cwd labels only when their suffix matches `Dir`; preserve application/fixed titles.
+Host terminal headers share the row title and process context.
 
 `RoutedSessionRows` owns reader membership. Open-files visibility is independent of
 tabs and preserves readers/splitter state when hidden. Filtering alone cannot hide
@@ -41,6 +47,12 @@ choice. [Readers](mod-file-readers.md) owns the inventory and lifecycle.
 
 Rows and keyboard cycling apply both project and checkout filters, caching scope
 revision. Empty checkout IDs mean main; identity does not wait for descriptors.
+Outside the Agents tab, navigation uses pawn inventory in a live game and daemon
+session inventory in Entry mode. Entry must never resolve the game's ColonistBar
+or MapUI. SlopWeb draws the selected stopped session’s action grid inside its
+terminal window. Map gizmos require a live map.
+On the web, task board labels use the single-pass row renderer. Long summaries would
+otherwise submit their full text once per pixel strip of the overflow fade.
 The task board retains filtered rows, direction counts, and live selection membership
 until `TaskStore` replaces its snapshot or filters change; [tasks](agent-tasks.md) owns
 semantics. Library rows follow published catalog and worktree revisions plus their own

@@ -124,7 +124,7 @@ def test_ci_does_not_reuse_old_output(bundle: Path, release: gates.Release) -> N
         run.assert_not_called()
 
 
-@pytest.mark.parametrize('failed_stage', [0, 1, 2])
+@pytest.mark.parametrize('failed_stage', [0, 1, 2, 3])
 def test_failed_build_cannot_package(
     tmp_path: Path, release: gates.Release, monkeypatch: pytest.MonkeyPatch, failed_stage: int
 ) -> None:
@@ -141,6 +141,39 @@ def test_failed_build_cannot_package(
         package.assert_not_called()
         if failed_stage == 2:
             assert run.call_args.args[0][-2:] == ['mod-build', 'rimref']
+        if failed_stage == 3:
+            assert run.call_args.args[0][-1] == 'web-build'
+
+
+def test_web_ci_uses_resolved_commit_and_only_product_game_free_checks() -> None:
+    workflow = yaml.load((ROOT / '.github/workflows/test.yml').read_text(), Loader=yaml.BaseLoader)
+    job = workflow['jobs']['browser']
+    assert job['needs'] == 'revision'
+    checkout = next(step for step in job['steps'] if step.get('uses', '').startswith('actions/checkout@'))
+    assert checkout['with']['ref'] == '${{ needs.revision.outputs.commit }}'
+    assert job['env']['RIMWORLD'] == '/nonexistent/rimworld'
+    assert job['env']['MANAGED'] == '/nonexistent/rimworld-managed'
+    commands = [step['run'] for step in job['steps'] if 'run' in step]
+    assert commands == [
+        'sudo apt-get update && sudo apt-get install -y --no-install-recommends ripgrep libfontconfig1',
+        'just web-local-fonts-sdk\njust ci-web\n',
+        'dotnet workload install wasm-tools --version "$(dotnet --version)"',
+        'just web-build',
+    ]
+    result = subprocess.run(['just', '--dry-run', 'ci-web'], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert result.stderr.index('python3 slopweb/runtime/LocalFonts/build.py') < result.stderr.index('node --test')
+    assert 'InputTests' in result.stderr
+    assert 'StartupTests' in result.stderr
+    assert 'slopweb/tests/browser/*.test.mjs' in result.stderr
+    for native_dependency in (
+        'KeyBindingsTests',
+        'NativeTextTests',
+        'Probe.csproj',
+        'validate.mjs',
+        'experiments/',
+        'priv/',
+    ):
+        assert native_dependency not in result.stderr
 
 
 def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> None:
@@ -159,6 +192,10 @@ def test_release_workflow_gates_publication_and_downloads_exact_artifact() -> No
     assert jobs['publish']['permissions']['contents'] == 'write'
     assert workflow['concurrency']['group'] == 'release-v2-${{ github.ref }}'
     assert workflow['concurrency']['cancel-in-progress'] == 'true'
+    commands = [step['run'] for step in jobs['package']['steps'] if 'run' in step]
+    package = commands.index('just release-ci-package "$MODE"')
+    assert commands.index('just web-local-fonts-sdk') < package
+    assert commands.index('dotnet workload install wasm-tools --version "$(dotnet --version)"') < package
 
 
 @pytest.mark.parametrize('state', ['published', 'missing', 'moved', 'matching'])

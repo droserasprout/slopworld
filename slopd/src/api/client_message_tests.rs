@@ -75,34 +75,9 @@ fn missing_unknown_and_malformed_commands_are_rejected() {
 }
 
 #[test]
-fn audio_distinguishes_selection_stop_and_volume_only() {
-    use wire::audio_request::Change;
-    for change in [
-        None,
-        Some(Change::Stop(wire::Empty {})),
-        Some(Change::Selection(wire::AudioSelection {
-            station: Some("fixture".into()),
-            stream: Some("local".into()),
-            ..Default::default()
-        })),
-    ] {
-        let ClientMsg::Audio(req) = command(Payload::Audio(wire::AudioRequest {
-            stop_token: None,
-            volume: 0.5,
-            change: change.clone(),
-        }))
-        .unwrap() else {
-            panic!("expected audio command")
-        };
-        assert_eq!(req.volume.to_bits(), 0.5_f32.to_bits());
-        match change {
-            None => assert!(req.selection.is_none()),
-            Some(Change::Stop(_)) => assert!(req.selection.unwrap().is_none()),
-            Some(Change::Selection(_)) => {
-                let selection = req.selection.unwrap().unwrap();
-                assert_eq!(selection.station.as_deref(), Some("fixture"));
-                assert_eq!(selection.stream.as_deref(), Some("local"));
-            }
-        }
-    }
+fn audio_payload_reaches_music_dispatch() {
+    assert!(matches!(
+        command(Payload::Audio(wire::AudioRequest::default())).unwrap(),
+        ClientMsg::Audio(_)
+    ));
 }

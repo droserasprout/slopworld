@@ -9,6 +9,8 @@ namespace SlopWorld
     // this window places the active panel and draws shared chrome.
     public partial class WorkspaceWindow : Window, ITerminalPanelHost
     {
+        internal static System.Action<string, bool> DrawEntrySessionActions { get; set; }
+
         static float ContentPad => UiTheme.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
 
@@ -110,14 +112,21 @@ namespace SlopWorld
                         return;
                     Rect body = DrawTopBar(rect, input);
                     DrawBody(body, input);
-                    Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
                     if (
                         TerminalVisible
                         && _showStopped
                         && _name != null
                         && hub.Get(_name)?.Gone == true
                     )
-                        MapGizmoUtility.MapUIOnGUI();
+                    {
+                        if (Current.ProgramState == ProgramState.Entry)
+                            DrawEntrySessionActions?.Invoke(_name, input);
+                        else if (
+                            Current.ProgramState == ProgramState.Playing
+                            && Find.CurrentMap != null
+                        )
+                            MapGizmoUtility.MapUIOnGUI();
+                    }
                 }
             }
             finally

@@ -11,10 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock /build/
 COPY slopcar/Cargo.toml /build/slopcar/
+COPY slopweb/host/Cargo.toml /build/slopweb/host/
 COPY bench/ipc/rust/Cargo.toml /build/bench/ipc/rust/
 COPY slopd/Cargo.toml ./
 # Cargo parses every workspace member even when only the daemon is built.
-RUN for member in slopcar bench/ipc/rust; do mkdir -p "/build/$member/src"; touch "/build/$member/src/main.rs"; done
+RUN for member in slopcar slopweb/host bench/ipc/rust; do mkdir -p "/build/$member/src"; touch "/build/$member/src/main.rs"; done
 RUN mkdir src \
     && printf 'fn main() {}\n' > src/main.rs \
     && cargo build --release --locked --bin slopd \
@@ -23,6 +24,7 @@ COPY shared/slopworld.proto /build/shared/slopworld.proto
 COPY shared/magic-8-ball.txt /build/shared/magic-8-ball.txt
 COPY shared/loading-tips.txt /build/shared/loading-tips.txt
 COPY slopd/build.rs ./build.rs
+COPY mod/Sounds/SlopWorld/OST /build/mod/Sounds/SlopWorld/OST
 COPY slopd/src ./src
 COPY slopd/presets ./presets
 ARG SLOPWORLD_BUILD_VERSION

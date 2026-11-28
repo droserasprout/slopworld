@@ -39,6 +39,7 @@ namespace SlopWorld
             }
         }
 
+        [EcoPrefix]
         [HarmonyPatch(typeof(Selector), "HandleMapClicks")]
         static class Selection
         {

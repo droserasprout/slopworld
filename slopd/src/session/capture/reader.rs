@@ -648,12 +648,7 @@ impl SessionRuntime {
                 },
             }
         }
-        if let Some(error) = rx
-            .failure
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .take()
-        {
+        if let Some(error) = rx.take_failure() {
             tracing::warn!("control stream {name}: {error}");
         }
         self.flush_control_exit(name, &emu, &schedule).await;

@@ -14,9 +14,7 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(now))
                 return "Jukebox";
             string song = "\u266A " + now;
-            return !Radio.Spotify && Radio.Picked == null
-                ? song
-                : "\u25C9 " + Radio.Source + "\n" + song;
+            return Radio.OstSelected ? song : "\u25C9 " + Radio.Source + "\n" + song;
         }
 
         // Open the same menu from the map jukebox and status bar.
@@ -32,31 +30,66 @@ namespace SlopWorld
             string now = Radio.NowPlaying;
             if (!string.IsNullOrEmpty(now))
                 options.Add(new FloatMenuOption(now, null));
+            else if (Radio.SharedPlaybackLabel != null)
+                options.Add(new FloatMenuOption(Radio.SharedPlaybackLabel, null));
+            if (!string.IsNullOrEmpty(Radio.PlaybackMessage))
+                options.Add(new FloatMenuOption(Radio.PlaybackMessage, null));
+            if (!Radio.LocalPlaybackSupported)
+                options.Add(new FloatMenuOption("OST unavailable in this client", null));
             options.Add(TransportRow());
 
             // Sidecar mode uses native OST playback. Show only controls that this mode supports.
-            if (!SessionHub.Instance.Capabilities.AudioPlayback)
+            if (!BrowserJukebox.Available && !SessionHub.Instance.Capabilities.AudioPlayback)
             {
                 options.Add(new FloatMenuOption("Settings", ModOptions.OpenAudioTab));
                 return options;
             }
 
-            options.AddRange(
-                new FloatMenuOption[]
-                {
-                    new UiSubmenu("Tune", StationOptions),
-                    Radio.Spotify
-                    && Radio.SpotifyAvailable
-                    && Radio.SourceShown(Radio.SpotifySourceId)
-                        ? new FloatMenuOption("Open Spotify player", JukeboxActions.OpenSpotify)
-                        : RecognizeRow(),
-                    new FloatMenuOption("Like", JukeboxActions.Like),
-                    new FloatMenuOption("History", JukeboxHistoryView.Open),
-                    UiLayout.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
-                    new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
-                }
-            );
+            options.Add(new UiSubmenu("Tune", StationOptions));
+            if (BrowserJukebox.Available)
+                options.Add(new UiSubmenu("Output", OutputOptions));
+            if (Radio.Spotify && Radio.SpotifyAvailable && Radio.SourceShown(Radio.SpotifySourceId))
+                options.Add(new FloatMenuOption("Open Spotify player", JukeboxActions.OpenSpotify));
+            else if (!BrowserJukebox.Available)
+                options.Add(RecognizeRow());
+            options.Add(new FloatMenuOption("Like", JukeboxActions.Like));
+            options.Add(new FloatMenuOption("History", JukeboxHistoryView.Open));
+            if (!BrowserJukebox.Available || Radio.ServerOutput)
+                options.Add(
+                    UiLayout.MenuToggle(
+                        BrowserJukebox.Available ? "Stop shared player on exit" : "Stop on exit",
+                        Radio.StopOnExit,
+                        Radio.ToggleStopOnExit
+                    )
+                );
+            options.Add(new FloatMenuOption("Settings", ModOptions.OpenAudioTab));
             return options;
+        }
+
+        static List<FloatMenuOption> OutputOptions()
+        {
+            string browser = BrowserJukebox.Current.BrowserName;
+            string hostname = SessionHub.Instance.Capabilities.Hostname;
+            string server =
+                "Server — "
+                + (string.IsNullOrWhiteSpace(hostname) ? "daemon" : hostname)
+                + " (shared)";
+            var serverOption = UiLayout.MenuToggle(
+                server,
+                Radio.ServerOutput,
+                Radio.ServerAvailable ? () => Radio.SelectOutput(true) : null
+            );
+            if (!Radio.ServerAvailable)
+                serverOption.tooltip = Radio.ServerUnavailable;
+            return new List<FloatMenuOption>
+            {
+                UiLayout.MenuToggle(
+                    "This device — " + (string.IsNullOrWhiteSpace(browser) ? "browser" : browser),
+                    !Radio.ServerOutput,
+                    () => Radio.SelectOutput(false)
+                ),
+                serverOption,
+            };
         }
 
         // FloatMenuOption substitutes a diagnostic label for an empty string.
@@ -98,14 +131,14 @@ namespace SlopWorld
                             rect.height
                         );
                         TooltipHandler.TipRegion(button, tips[i]);
-                        if (
-                            UiLayout.Button(
-                                button,
-                                icons[i],
-                                UiTheme.Btn.Ghost,
-                                i == 1 || !Radio.Spotify
-                            )
-                        )
+                        bool enabled = Radio.TransportAvailable && (i == 1 || !Radio.Spotify);
+                        bool clicked = UiLayout.Button(
+                            button,
+                            icons[i],
+                            UiTheme.Btn.Ghost,
+                            enabled
+                        );
+                        if (clicked)
                         {
                             UiMenu.CloseAll();
                             actions[i]();
@@ -138,20 +171,49 @@ namespace SlopWorld
         public static List<FloatMenuOption> StationOptions()
         {
             var options = new List<FloatMenuOption>();
-            if (Radio.SourceShown(Radio.OstSourceId))
+            if (
+                (Radio.LocalPlaybackSupported || Radio.ServerOutput)
+                && Radio.SourceShown(Radio.OstSourceId)
+            )
                 options.Add(
                     new FloatMenuOption(
-                        Mark("OST", !Radio.Spotify && Radio.Picked == null),
-                        Radio.PickOst
+                        Mark("OST", Radio.OstSelected),
+                        !Radio.ServerOutput || Radio.ServerAvailable ? Radio.PickOst : null
                     )
                 );
-            if (Radio.SpotifyAvailable && Radio.SourceShown(Radio.SpotifySourceId))
+            if (
+                (Radio.SpotifyAvailable || BrowserJukebox.Available)
+                && Radio.SourceShown(Radio.SpotifySourceId)
+            )
                 options.Add(
                     new FloatMenuOption(
-                        Mark("Spotify (ncspot)", Radio.Spotify),
-                        JukeboxActions.OpenSpotify
+                        Mark(
+                            Radio.SpotifyAvailable
+                                ? "Spotify (ncspot)"
+                                : "Spotify · "
+                                    + (
+                                        Radio.ServerAvailable
+                                            ? "ncspot is unavailable"
+                                            : Radio.ServerUnavailable
+                                    ),
+                            Radio.Spotify
+                        ),
+                        Radio.SpotifyAvailable ? JukeboxActions.OpenSpotify : null
                     )
                 );
+            if (
+                BrowserJukebox.Available
+                && !(Radio.ServerOutput ? Radio.ServerAvailable : Radio.RelayAvailable)
+            )
+            {
+                options.Add(
+                    new FloatMenuOption(
+                        Radio.ServerOutput ? Radio.ServerUnavailable : "Radio relay unavailable",
+                        null
+                    )
+                );
+                return options;
+            }
             foreach (var station in Radio.Stations)
             {
                 var s = station; // the closure outlives the loop
@@ -163,7 +225,7 @@ namespace SlopWorld
 
         // Show the selected station rate in its row. Open the rate list when the player selects the row.
         static string StationRow(Radio.Station s) =>
-            Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}" : s.Name;
+            Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(Radio.PickedRate)}" : s.Name;
 
         // Show one row per available rate, including stations with only one rate.
         static List<FloatMenuOption> Presets(Radio.Station s)
@@ -174,7 +236,7 @@ namespace SlopWorld
                 var rate = preset; // the closure outlives the loop
                 options.Add(
                     new FloatMenuOption(
-                        Mark(Radio.RateLabel(rate), Radio.Picked == s && s.Rate == rate),
+                        Mark(Radio.RateLabel(rate), Radio.Picked == s && Radio.PickedRate == rate),
                         () => Radio.Pick(s, rate)
                     )
                 );
@@ -185,6 +247,6 @@ namespace SlopWorld
         // Mark the playing source without disabling its row.
         // When paused, leave source rows unmarked.
         static string Mark(string label, bool playing) =>
-            playing && !Radio.Muted ? label + "  (playing)" : label;
+            playing && !Radio.Muted ? label + "  \u266A" : label;
     }
 }

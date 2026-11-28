@@ -41,6 +41,7 @@ impl Music {
     // a default volume to a player with a saved applied volume. A missing marker means
     // IPC may never have become ready before shutdown, so volume still needs applying.
     pub(super) async fn recover_ncspot(&self, sessions: &impl HostSessions, root: &Path) {
+        let mut shared = self.transition.lock().await;
         let mut player = self.ncspot.lock().await;
         if player.session.is_some() {
             return;
@@ -48,6 +49,8 @@ impl Music {
         if let Some(session) = self.adopted_ncspot(sessions).await {
             let applied_volume = self.tmux.ncspot_volume(&session).await;
             let volume = applied_volume.unwrap_or(1.0);
+            shared.selection = Some(super::Source::Spotify);
+            shared.volume = volume;
             *player = Player {
                 session: Some(session),
                 socket: Some(root.join("slopworld-ncspot/ncspot/ncspot.sock")),
@@ -113,12 +116,16 @@ impl Music {
             tokio::net::UnixStream::connect(&socket).await.is_err(),
             "An unmanaged ncspot uses the SlopWorld socket. Close it before opening this player."
         );
-        self.audio.stop();
+        anyhow::ensure!(
+            self.output_device().is_some() || crate::audio::host_output_available(),
+            "No host audio output is available for Spotify."
+        );
         let session = sessions.launch(command, cols, rows).await?;
         if let Err(error) = self.tmux.mark_ncspot(&session).await {
             sessions.stop(&session).await?;
             return Err(error);
         }
+        self.audio.stop();
         player.session = Some(session.clone());
         player.socket = Some(socket);
         player.volume = volume.unwrap_or(1.0).clamp(0.0, 1.0);
@@ -154,6 +161,7 @@ impl Player {
     pub(super) async fn state(
         &mut self,
         tmux: &crate::tmux::Tmux,
+        sync_volume: bool,
     ) -> Option<crate::audio::AudioState> {
         let name = self.session.as_ref()?;
         let mut state = crate::audio::AudioState {
@@ -166,14 +174,19 @@ impl Player {
             state.error = Some("ncspot exited. Open Spotify again to restart it.".into());
             return Some(state);
         }
+        state.active = true;
         let Some(socket) = self.socket.as_ref() else {
             return Some(state);
         };
-        let volume = (self.applied_volume != Some(self.volume)).then_some(self.volume);
+        let volume =
+            (sync_volume && self.applied_volume != Some(self.volume)).then_some(self.volume);
         match snapshot(socket, volume).await {
             Ok((playing, title)) => {
                 state.playing = playing;
                 state.title = title;
+                if !sync_volume {
+                    return Some(state);
+                }
                 self.applied_volume = Some(self.volume);
                 if self.persisted_volume != Some(self.volume) {
                     match tmux.set_ncspot_volume(name, self.volume).await {

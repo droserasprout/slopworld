@@ -23,7 +23,7 @@ namespace SlopWorld
                     return;
                 return;
             }
-            if (ShortcutHelpView.HandleMapKey(Event.current))
+            if (ShortcutHelpView.HandleBackgroundKey(Event.current))
                 return;
 
             if (
@@ -113,7 +113,7 @@ namespace SlopWorld
         static string SelectedLive()
         {
             var colony = AgentColony.Current;
-            var selector = Find.Selector;
+            var selector = ColonistBarStrip.MapSelection;
             if (colony == null || selector == null)
                 return null;
 

@@ -394,18 +394,18 @@ impl AgentTemplate {
 
         session.workers = overrides.workers.clone();
         session.permissions = overrides.permissions;
-        session.command = overrides.command.clone();
-        session.cmd = overrides.cmd.clone();
-        session.args = overrides.args.clone();
-        session.sandbox = overrides.sandbox.clone();
+        session.command.clone_from(&overrides.command);
+        session.cmd.clone_from(&overrides.cmd);
+        session.args.clone_from(&overrides.args);
+        session.sandbox.clone_from(&overrides.sandbox);
         session.persistent_tmp = overrides.persistent_tmp;
-        session.worktree = overrides.worktree.clone();
+        session.worktree.clone_from(&overrides.worktree);
         session.network = overrides.network;
         session.dns = overrides.dns.clone();
         session.limits = overrides.limits;
         session.autostart = overrides.autostart;
         session.auto_resume = overrides.auto_resume;
-        session.initial_prompt = overrides.initial_prompt.clone();
+        session.initial_prompt.clone_from(&overrides.initial_prompt);
 
         session.preserve_selected_snapshots(&previous);
     }

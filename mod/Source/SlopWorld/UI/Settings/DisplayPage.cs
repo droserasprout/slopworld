@@ -12,6 +12,18 @@ namespace SlopWorld
         readonly SettingsForm _form = new SettingsForm();
         static ModSettings S => ModEntry.Instance.settings;
 
+        static bool VSyncOverridesLimit => !ClientPlatform.IsBrowser && S.vsync;
+        static string AutoLabel
+        {
+            get
+            {
+                int fps = ClientPlatform.IsBrowser
+                    ? FramePolicy.BrowserAutoFps
+                    : BackgroundFrames.AutoFps;
+                return OptionLabels.Auto(fps + " FPS");
+            }
+        }
+
         public void Load() { }
 
         public void Draw(Rect rect)
@@ -26,7 +38,9 @@ namespace SlopWorld
                 l,
                 "Fullscreen",
                 S.fullscreen,
-                "Use window-manager fullscreen while keeping the renderer windowed."
+                ClientPlatform.IsBrowser
+                    ? "Use browser fullscreen. Escape leaves fullscreen."
+                    : "Use window-manager fullscreen while keeping the renderer windowed."
             );
             if (fullscreen != S.fullscreen)
                 LinuxGameWindow.Set(fullscreen);
@@ -50,10 +64,11 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Rendering");
             string mode = FramePolicy.Normalize(S.displayMode);
             int fps = FramePolicy.NearestPreset(S.foregroundFps);
-            string autoLabel = OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS");
-            string frameLimitLabel = mode == FramePolicy.Auto ? autoLabel : fps + " FPS";
-            string frameLimitTip = S.vsync
-                ? "Turn off VSync to choose an FPS limit."
+            string frameLimitLabel = mode == FramePolicy.Auto ? AutoLabel : fps + " FPS";
+            string frameLimitTip =
+                VSyncOverridesLimit ? "Turn off VSync to choose an FPS limit."
+                : ClientPlatform.IsBrowser
+                    ? $"Auto limits workspace rendering to {FramePolicy.BrowserAutoFps} FPS."
                 : "Auto matches the current display refresh rate. Set lower to save power or higher to improve responsiveness.";
             UiSelector.Draw(
                 l,
@@ -62,8 +77,11 @@ namespace SlopWorld
                 FrameOptions(),
                 out _,
                 frameLimitTip,
-                enabled: !S.vsync
+                enabled: !VSyncOverridesLimit
             );
+
+            if (ClientPlatform.IsBrowser)
+                return;
 
             bool vsync = UiControls.Checkbox(
                 l,
@@ -105,10 +123,10 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
-                    OptionLabels.Auto(BackgroundFrames.AutoFps + " FPS"),
+                    AutoLabel,
                     () =>
                     {
-                        if (S.vsync)
+                        if (VSyncOverridesLimit)
                             return;
                         S.displayMode = FramePolicy.Auto;
                         S.MarkDirty();
@@ -120,7 +138,7 @@ namespace SlopWorld
                     preset + " FPS",
                     () =>
                     {
-                        if (S.vsync)
+                        if (VSyncOverridesLimit)
                             return;
                         S.displayMode = FramePolicy.Limit;
                         S.foregroundFps = preset;

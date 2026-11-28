@@ -1,14 +1,46 @@
 [[sandbox]]
 name = "slopworld-dev"
 description = "SlopWorld builds and game-free tests with read-only game files and shared compiler caches"
-requires = ["ccache", "git", "nuget-cache", "python", "rust-sccache"]
+requires = ["ccache", "git", "node", "nuget-cache", "python-cache", "rust-sccache"]
 # Game assemblies are build inputs. Installation and live debugging belong to slopworld-debug.
 # The project directory has separate write access.
 ro = [
+    "$RIMWORLD",
+    "$MANAGED",
     "$SLOPWORLD_GAME",
     "~/RimWorld/game",
     "~/GOG Games/RimWorld/game",
     "~/.steam/steam/steamapps/common/RimWorld",
     "~/.local/share/Steam/steamapps/common/RimWorld",
+    # Source-installed launcher payload; installation needs a writable parent prefix.
+    "~/.local/share/slopweb",
+    # A custom SDK outside the standard dotnet preset must expose its whole root.
+    # Use an absolute SDK directory for SLOPWEB_AOT_SDK, or pair its executable
+    # form with DOTNET_ROOT selecting the installation directory.
+    "$DOTNET_ROOT",
+    "$SLOPWEB_AOT_SDK",
+    # Match the native font resolver's user fonts and fontconfig policy.
+    "~/.fonts",
+    "~/.fonts.conf",
+    "~/.fonts.conf.d",
+    "~/.local/share/fonts",
+    "$XDG_DATA_HOME/fonts",
+    "~/.config/fontconfig",
+    "$XDG_CONFIG_HOME/fontconfig",
 ]
-env = ["SLOPWORLD_GAME"]
+env = [
+    "RIMWORLD",
+    "MANAGED",
+    "SLOPWORLD_GAME",
+    "SLOPWEB_AOT_SDK",
+    "BUILD",
+    "VERSION",
+    "COVERAGE_DIR",
+    "DOTNET_PROCESSOR_COUNT",
+    "BINARYEN_CORES",
+    "XDG_CACHE_HOME",
+    "XDG_DATA_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_DIRS",
+    "XDG_CONFIG_DIRS",
+]

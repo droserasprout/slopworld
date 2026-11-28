@@ -257,7 +257,7 @@ impl SessionEdits {
                             if let Some(tab) =
                                 cfg.host_terminals.iter_mut().find(|tab| tab.name == name)
                             {
-                                tab.label = saved.clone();
+                                tab.label.clone_from(&saved);
                             }
                         } else {
                             let session = cfg
@@ -265,7 +265,7 @@ impl SessionEdits {
                                 .iter_mut()
                                 .find(|session| session.name == name)
                                 .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                            session.label = saved.clone();
+                            session.label.clone_from(&saved);
                         }
                         Ok(())
                     },

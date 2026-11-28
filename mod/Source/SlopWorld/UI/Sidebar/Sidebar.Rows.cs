@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -379,6 +380,17 @@ namespace SlopWorld
         // Draw: agent rows keep the badge, name/time, summary and click target ordered.
         static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
         {
+            if (
+                row.Pawn == null
+                && OperatingSystem.IsBrowser()
+                && Event.current.type == EventType.Repaint
+            )
+                Patch_SidebarPortraitDraw.DrawPortrait(
+                    row.Face,
+                    Icons.Agents,
+                    state == AgentState.Down,
+                    1f
+                );
             DrawStateBadge(row.Face, row.Text, state);
             SidebarRowRenderer.DrawAgentText(
                 row.Text,

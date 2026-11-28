@@ -2,6 +2,15 @@ namespace SlopWorld
 {
     public static partial class Radio
     {
+        // Platform initialization enables this when a local OST transport exists
+        // (native music manager or browser decoder), before the first workspace frame.
+        public static bool LocalPlaybackSupported { get; set; } = true;
+        public static bool TransportAvailable =>
+            BrowserJukebox.Available
+                ? (ServerOutput ? SharedReady : !_muted || LocalOst || RelayAvailable)
+                : (!LocalOst && SessionHub.Instance.Capabilities.AudioPlayback)
+                    || (LocalOst && LocalPlaybackSupported);
+
         // Resolve the selected source and dispatch cadence decisions through the audio transport.
         // NativeJukebox adapts game music; Radio owns metadata.
         static readonly RadioPlayback Playback = new RadioPlayback();
@@ -9,42 +18,77 @@ namespace SlopWorld
         // A unique stop acknowledgment prevents delayed reports from starting local
         // music after a newer source selection or connection has taken ownership.
         static string _stopToken;
-        static bool _daemonStopped;
+        static bool _handoffAcknowledged;
+        static bool _sharedActive;
+        static bool _stopOnExit;
+
         static bool LocalOst => !_spotify && _station == null;
 
         internal static bool NativePlaybackAllowed =>
-            !_quit
+            !BrowserJukebox.Available
+            && LocalPlaybackSupported
+            && !_quit
             && !_muted
             && LocalOst
             && (_catalogReady || string.IsNullOrEmpty(Settings.Radio) || Settings.Radio == "ost")
             && (
                 SessionHub.Instance?.Capabilities.Known == true
-                && (!SessionHub.Instance.Capabilities.AudioPlayback || _daemonStopped)
+                && (
+                    !SessionHub.Instance.Capabilities.AudioPlayback
+                    || (_handoffAcknowledged && !_sharedActive)
+                )
             );
 
         internal static void AcknowledgeStop(string token, bool playing = false)
         {
+            // A later shared command temporarily owns the speakers. The completed
+            // handoff remains valid when that player goes idle again.
+            _sharedActive = playing;
             if (playing)
-            {
-                _daemonStopped = false;
-                _stopToken = null;
                 NativeJukebox.SetMuted(true);
-                if (LocalOst)
-                    Playback.Invalidate();
+            if (token != null && token == _stopToken)
+                _handoffAcknowledged = true;
+        }
+
+        // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
+        public static void Quit()
+        {
+            if (_quit)
+                return;
+            Read();
+            // Prevent later frames from sending further playback updates.
+            _quit = true;
+            // Keep muted playback stopped even if the exit preference permits continued playback.
+            if (BrowserJukebox.Available)
+            {
+                BrowserJukebox.Current.Stop();
+                if (ServerOutput && _stopOnExit && ServerAvailable)
+                    FlushStop(null);
                 return;
             }
-            if (token != null && token == _stopToken)
-                _daemonStopped = true;
+            if (!_stopOnExit && !_muted)
+                return;
+
+            var hub = SessionHub.Instance;
+            if (hub == null || !hub.Online)
+                return;
+            if (!hub.Capabilities.AudioPlayback)
+                return;
+            FlushStop(Volume());
+        }
+
+        static void FlushStop(float? volume)
+        {
+            if (!SessionHub.Instance.Audio.StopForShutdown(volume))
+                Verse.Log.Warning("[SlopWorld] radio stop could not be flushed before shutdown");
         }
 
         static void InvalidatePlayback()
         {
-            _daemonStopped = false;
+            _handoffAcknowledged = false;
             _stopToken = null;
             NativeJukebox.SetMuted(true);
-            _selectionRevision++;
-            _openingSpotify = false;
-            _spotifyOpened = _spotifyFailed = null;
+            InvalidateSpotifyOpen();
             Playback.Invalidate();
         }
 
@@ -52,7 +96,7 @@ namespace SlopWorld
         {
             if (!hub.Online)
             {
-                _daemonStopped = false;
+                _handoffAcknowledged = false;
                 _stopToken = null;
             }
             // A saved station has no object until its catalog arrives. Do not send
@@ -67,13 +111,19 @@ namespace SlopWorld
                 && Settings.Radio != "ncspot"
             )
                 return;
+            // A client without local audio starts as an observer. Its unavailable
+            // default OST must not stop a host stream merely by opening a tab.
+            // Explicit station pause still sends Stop because it retains _station.
+            if (!LocalPlaybackSupported && LocalOst)
+                return;
             switch (Playback.Step(now, hub.Online, PlaybackPlan, volume, out var plan))
             {
                 case RadioPlayback.UpdateKind.Selection:
                     SendSelection(hub, volume, plan);
                     break;
                 case RadioPlayback.UpdateKind.Volume:
-                    hub.Audio.SendVolume(volume);
+                    if (!LocalOst && !_muted)
+                        hub.Audio.SendVolume(volume);
                     break;
             }
         }
@@ -94,7 +144,7 @@ namespace SlopWorld
             switch (plan.Kind)
             {
                 case RadioPlaybackPlan.SourceKind.Stop:
-                    _daemonStopped = false;
+                    _handoffAcknowledged = false;
                     _stopToken = System.Guid.NewGuid().ToString("N");
                     hub.Audio.Stop(volume, _stopToken);
                     break;

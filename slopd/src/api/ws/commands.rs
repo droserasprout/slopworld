@@ -114,6 +114,7 @@ pub(super) async fn dispatch_client_msg(
             | ClientMsg::Paste(_)
             | ClientMsg::PastePrompt(_)
     );
+    let mut audio_reply = None;
     let operation = async {
         // This future starts only after the global or per-terminal guard is held.
         if !tx.is_valid(cap) {
@@ -132,16 +133,12 @@ pub(super) async fn dispatch_client_msg(
             ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
             ClientMsg::PastePrompt(req) => handle_prompt(req, m, cap).await,
             ClientMsg::Audio(req) => {
-                if let Some(audio) = handle_audio(req, m, cap).await {
-                    // The game may already be closing its read side after sending Stop.
-                    // A failed audio reply must not prevent draining that queued command.
-                    m.services.emit(Event::Audio { audio });
-                }
+                audio_reply = handle_audio(req, m, cap).await;
             }
         }
         true
     };
-    if terminal_guard.is_some() {
+    let handled = if terminal_guard.is_some() {
         if let Some(trace) = trace {
             crate::latency::CURRENT.scope(Some(trace), operation).await
         } else {
@@ -159,7 +156,15 @@ pub(super) async fn dispatch_client_msg(
         }
     } else {
         m.sessions.session_operation(operation).await
+    };
+    if let Some(audio) = audio_reply {
+        // Acknowledgments and validation errors belong to the requesting client.
+        // A lost acknowledgement requires a fresh connection and handoff.
+        return send(tx, cap, &EventMessage::new(Event::Audio { audio }))
+            .await
+            .is_ok();
     }
+    handled
 }
 
 fn handle_redraw(m: &App, cap: &Cap, shape: Option<(u16, u16)>) {

@@ -78,7 +78,9 @@ def test_unsupported_hosts_fail_before_package_queries(system: str, identifier: 
     'distribution,output', [('debian', 'installed\t1.2.3-1'), ('fedora', '1.2.3-1'), ('arch', 'slopworld 1.2.3-1')]
 )
 def test_installed_and_absent_packages(distribution: str, output: str) -> None:
-    results = [subprocess.CompletedProcess([], 0, output)] + [subprocess.CompletedProcess([], 1, '')] * 3
+    results = [subprocess.CompletedProcess([], 0, output)] + [subprocess.CompletedProcess([], 1, '')] * (
+        len(installer.COMPONENTS) - 1
+    )
     with patch('tools.host.release_installer.subprocess.run', side_effect=results):
         assert installer.installed_versions(installer.Host(distribution, 'amd64', 'Host')) == {'slopworld': '1.2.3-1'}
 
@@ -281,7 +283,7 @@ def test_unknown_hosts_require_unambiguous_manager_and_query_tool(commands: list
     'keys,expected',
     [
         (['down', 'space', 'down', 'space', 'enter'], ['slopd', 'slopctl']),
-        (['up', 'space', 'enter'], ['slopcar']),
+        (['up', 'space', 'enter'], ['slopweb']),
         (['space', 'space', 'enter'], []),
         (['space', 'escape'], None),
     ],
@@ -469,3 +471,26 @@ def test_cli_install_never_prompts_for_sudo_or_package_input() -> None:
     run.assert_called_once_with(
         ['sudo', '-n', 'pacman', '-U', '/tmp/package', '--noconfirm'], check=True, stdin=subprocess.DEVNULL
     )
+
+
+@pytest.mark.parametrize('distribution', ['arch', 'debian', 'fedora'])
+@pytest.mark.parametrize('action', ['--install', '--remove'])
+def test_slopweb_cli_changes_leave_native_components_unchanged(distribution: str, action: str) -> None:
+    host = installer.Host(distribution, 'amd64', 'Host')
+    with (
+        patch('tools.host.release_installer.sys.argv', ['install.py', action, 'slopweb', '--version', '1.2.3']),
+        patch.object(installer, 'detect_host', return_value=host),
+        patch.object(installer, 'installed_versions', return_value={'slopweb': '1.0.0', 'slopworld': '1.0.0'}),
+        patch.object(installer, 'fetch_packages', return_value=[]) as fetch,
+        patch.object(installer, 'install_packages'),
+        patch.object(installer, 'remove_packages') as remove,
+        patch.object(installer, 'select_components') as menu,
+    ):
+        installer.main()
+    menu.assert_not_called()
+    if action == '--install':
+        assert fetch.call_args.args[:3] == (host, '1.2.3', ['slopweb'])
+        assert remove.call_args.args[1] == []
+    else:
+        fetch.assert_not_called()
+        assert remove.call_args.args[1] == ['slopweb']

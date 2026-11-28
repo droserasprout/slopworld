@@ -141,11 +141,7 @@ namespace SlopWorld
 
             var renderTexture = RequestPortrait(colonist);
 
-            GUI.color = isDown
-                ? new Color(DownTint.r, DownTint.g, DownTint.b, alpha)
-                : new Color(1f, 1f, 1f, alpha);
-            GUI.DrawTexture(PortraitRect(face), renderTexture);
-            GUI.color = Color.white;
+            DrawPortrait(face, renderTexture, isDown, alpha);
 
             // Draw hover feedback after the opaque portrait so it remains visible.
             if (highlight)
@@ -156,6 +152,15 @@ namespace SlopWorld
             }
 
             return false;
+        }
+
+        internal static void DrawPortrait(Rect face, Texture texture, bool down, float alpha)
+        {
+            GUI.color = down
+                ? new Color(DownTint.r, DownTint.g, DownTint.b, alpha)
+                : new Color(1f, 1f, 1f, alpha);
+            GUI.DrawTexture(PortraitRect(face), texture);
+            GUI.color = Color.white;
         }
     }
 }

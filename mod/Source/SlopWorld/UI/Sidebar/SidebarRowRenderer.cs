@@ -103,8 +103,7 @@ namespace SlopWorld
         )
         {
             RowAct act = SessionRowAction.Of(info);
-            string title = GhostTitle(info, fallback, act);
-            string context = GhostContext(info, title, act);
+            var (title, context) = GhostText(info, fallback, act);
             GameFont oldFont = Text.Font;
             bool hostRow = hostIcon && info != null && (info.Host || info.Ephemeral);
             bool hostTerminal = hostIcon && info != null && info.Host;
@@ -355,6 +354,16 @@ namespace SlopWorld
             }
         }
 
+        internal static (string Title, string Context) GhostText(
+            SessionInfo info,
+            string fallback,
+            RowAct act
+        )
+        {
+            string title = GhostTitle(info, fallback, act);
+            return (title, GhostContext(info, title, act));
+        }
+
         static string GhostTitle(SessionInfo info, string fallback, RowAct act)
         {
             if (act != RowAct.None)
@@ -492,6 +501,11 @@ namespace SlopWorld
         // tmux can hand us zsh's width-limited cwd title ("..it/repo" or "..pository")
         // even though the durable host record carries the complete current directory.
         // Rebuild only that suffix. Commands and other application titles remain untouched.
+        internal static System.Func<
+            System.Environment.SpecialFolder,
+            string
+        > HomeFolder { get; set; } = System.Environment.GetFolderPath;
+
         static string RestoreHostPath(SessionInfo info, string title)
         {
             string dir = info?.Dir ?? "";
@@ -510,9 +524,7 @@ namespace SlopWorld
             )
                 return title;
 
-            string home = System
-                .Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
-                .TrimEnd('/');
+            string home = HomeFolder(System.Environment.SpecialFolder.UserProfile).TrimEnd('/');
             return
                 home.Length > 0
                 && (dir == home || dir.StartsWith(home + "/", System.StringComparison.Ordinal))

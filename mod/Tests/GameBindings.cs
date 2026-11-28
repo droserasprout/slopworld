@@ -568,6 +568,37 @@ namespace SlopWorld.Tests
                 );
                 count++;
 
+                // The native field allocates its own editor ID, including for repeated
+                // occurrences of a name. Exercise that allocation through GUI.TextField.
+                var utility = gui.GetType("UnityEngine.GUIUtility", throwOnError: true);
+                var textField = nativeGui.GetMethod("TextField", new[] { rect, typeof(string) });
+                string fieldName = "binding-check-field";
+                var ids = new HashSet<int>();
+                for (int occurrence = 0; occurrence < 2; occurrence++)
+                {
+                    nativeGui.GetMethod("SetNextControlName").Invoke(null, new[] { fieldName });
+                    textField.Invoke(null, new[] { Activator.CreateInstance(rect), "field text" });
+                    int id = (int)Invoke(
+                        mod,
+                        "TextEntryController",
+                        "NamedId",
+                        fieldName,
+                        occurrence
+                    );
+                    var editorType = gui.GetType("UnityEngine.TextEditor", throwOnError: true);
+                    var editor = utility
+                        .GetMethod("QueryStateObject")
+                        .Invoke(null, new object[] { editorType, id });
+                    Require(
+                        id != 0
+                            && ids.Add(id)
+                            && (string)editorType.GetProperty("text").GetValue(editor)
+                                == "field text",
+                        "named field must resolve its own native editor"
+                    );
+                }
+                count++;
+
                 // A retiring form clears keyboardControl. Exercise the native filter
                 // with no focused control; this path does not query OS keyboard state.
                 var keyboardControl = gui.GetType("UnityEngine.GUIUtility", throwOnError: true)
@@ -576,6 +607,46 @@ namespace SlopWorld.Tests
                 object previousControl = keyboardControl.GetValue(null);
                 try
                 {
+                    foreach (string kind in new[] { "TextField", "TextArea" })
+                    {
+                        var draw = nativeGui.GetMethod(kind, new[] { rect, typeof(string) });
+                        void DrawField()
+                        {
+                            utility
+                                .GetMethod("ResetControlIds", Type.EmptyTypes)
+                                .Invoke(null, null);
+                            nativeGui
+                                .GetMethod("SetNextControlName")
+                                .Invoke(null, new[] { fieldName });
+                            draw.Invoke(
+                                null,
+                                new[] { Activator.CreateInstance(rect), "field text" }
+                            );
+                        }
+                        int id = (int)Invoke(mod, "TextEntryController", "NamedId", fieldName, 0);
+                        keyboardControl.SetValue(null, id);
+                        DrawField();
+                        var editorType = gui.GetType("UnityEngine.TextEditor", throwOnError: true);
+                        var editor = utility
+                            .GetMethod("QueryStateObject")
+                            .Invoke(null, new object[] { editorType, id });
+                        var cursor = editorType.GetProperty("cursorIndex");
+                        var anchor = editorType.GetProperty("selectIndex");
+                        cursor.SetValue(editor, 4);
+                        anchor.SetValue(editor, kind == "TextField" ? 4 : 1);
+                        DrawField();
+                        keyboardControl.SetValue(null, 0);
+                        Invoke(mod, "FieldFocusScope", "RestoreFocus", id);
+                        Invoke(mod, "FieldFocusScope", "RestoreFocus", id);
+                        DrawField();
+                        Require(
+                            (int)cursor.GetValue(editor) == 4
+                                && (int)anchor.GetValue(editor) == (kind == "TextField" ? 4 : 1),
+                            kind + " focus restoration changed the selection"
+                        );
+                        if (kind == "TextArea")
+                            CheckPrimaryPublication(mod, gui, fieldName, editor);
+                    }
                     keyboardControl.SetValue(null, 0);
                     Require(
                         !(bool)
@@ -640,6 +711,52 @@ namespace SlopWorld.Tests
             {
                 Console.Error.WriteLine(error);
                 return 1;
+            }
+        }
+
+        static void CheckPrimaryPublication(Assembly mod, Assembly gui, string name, object editor)
+        {
+            var provider = mod.GetType("SlopWorld.UiClipboard", true).GetProperty("Provider");
+            var copy = AccessTools.Property(
+                mod.GetType("SlopWorld.DesktopClipboard", true),
+                "CopyPrimaryHandler"
+            );
+            var oldProvider = provider.GetValue(null);
+            var oldCopy = copy.GetValue(null);
+            var writes = new List<string>();
+            try
+            {
+                provider.SetValue(
+                    null,
+                    Activator.CreateInstance(mod.GetType("SlopWorld.DesktopUiClipboard", true))
+                );
+                copy.SetValue(
+                    null,
+                    (Action<string, Action, Action<string>>)((text, ok, fail) => writes.Add(text))
+                );
+                var lifetime = Activator.CreateInstance(
+                    mod.GetType("SlopWorld.FieldLifetime", true)
+                );
+                var eventType = gui.GetType("UnityEngine.EventType", true);
+                foreach (string pass in new[] { "Repaint", "MouseUp", "Repaint" })
+                    Invoke(
+                        mod,
+                        "TextFieldSelection",
+                        "PublishSelection",
+                        name,
+                        lifetime,
+                        editor,
+                        Enum.Parse(eventType, pass)
+                    );
+                Require(
+                    writes.SequenceEqual(new[] { "iel" }),
+                    "native selection must reach PRIMARY exactly once without a tracked drag"
+                );
+            }
+            finally
+            {
+                provider.SetValue(null, oldProvider);
+                copy.SetValue(null, oldCopy);
             }
         }
 

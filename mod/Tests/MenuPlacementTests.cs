@@ -50,6 +50,24 @@ namespace SlopWorld.Tests
             Assert.That(placed.x, Is.EqualTo(599f));
         }
 
+        [Test]
+        public void SubmenuStaysOnScreenWhenNeitherSideFitsItsMinimumWidth()
+        {
+            var parent = new Rect(40, 10, 200, 100);
+            var placed = MenuPlacement.Place(
+                parent,
+                new[] { parent },
+                new Vector2(280, 50),
+                10,
+                300,
+                200,
+                160,
+                1
+            );
+            Assert.That(placed.xMax, Is.LessThanOrEqualTo(300f));
+            Assert.That(placed.width, Is.EqualTo(160f));
+        }
+
         static Rect Place(Rect parent, Rect root) =>
             MenuPlacement.Place(
                 parent,

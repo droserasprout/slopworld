@@ -75,12 +75,22 @@ namespace SlopWorld
 
         // Mirrors the private ColonistBar.Visible: the bar hides itself under 800x500 and
         // while the tile picker is up.
+        internal static Selector MapSelection =>
+            MaplessWorkspace && Current.ProgramState != ProgramState.Playing ? null : Find.Selector;
+
+        internal static bool MaplessWorkspace { get; set; }
+        static readonly List<ColonistBar.Entry> EmptyEntries = new();
+        static readonly List<Vector2> EmptyLocations = new();
+
         public static bool BarShown =>
-            // The menu/loading handoff can retain ProgramState.Playing after clearing the world.
-            Current.Game?.World != null
-            && UI.screenWidth >= 800
-            && UI.screenHeight >= 500
-            && !Find.TilePicker.Active;
+            MaplessWorkspace
+                ? UI.screenWidth > 0 && UI.screenHeight > 0
+                :
+                // The menu/loading handoff can retain ProgramState.Playing after clearing the world.
+                Current.Game?.World != null
+                    && UI.screenWidth >= 800
+                    && UI.screenHeight >= 500
+                    && !Find.TilePicker.Active;
 
         // Whether the column's add strip has the foot of the panel, which is the same
         // question as whether the panel is on screen at all. The layout is told so it can
@@ -91,19 +101,33 @@ namespace SlopWorld
         // From WorkspaceWindow.DoWindowContents, after the background fill.
         public static void Draw(bool interactive)
         {
-            if (!Ready || Drawing || Settings.SidebarHidden)
+            if ((!MaplessWorkspace && !Ready) || Drawing || Settings.SidebarHidden)
                 return;
             if (Event.current.type == EventType.Layout)
                 return;
-            var bar = Find.ColonistBar;
-            if (bar == null)
+            var bar = MaplessWorkspace ? null : Find.ColonistBar;
+            if (!MaplessWorkspace && bar == null)
                 return;
 
             Drawing = true;
             Blocked = !interactive;
             try
             {
-                bar.ColonistBarOnGUI();
+                if (MaplessWorkspace)
+                {
+                    try
+                    {
+                        Sidebar.Place(EmptyEntries, EmptyLocations, 0);
+                        Sidebar.DrawBack();
+                        Sidebar.DrawFront();
+                    }
+                    finally
+                    {
+                        Sidebar.EndDraw();
+                    }
+                }
+                else
+                    bar.ColonistBarOnGUI();
             }
             finally
             {

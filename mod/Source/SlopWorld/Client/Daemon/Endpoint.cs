@@ -39,7 +39,11 @@ namespace SlopWorld
         const string DefaultHost = "127.0.0.1";
         const int DefaultPort = 7717;
 
-        public static ConnectionInfo Resolve()
+        internal static Func<ConnectionInfo> Provider { get; set; } = ReadDescriptor;
+
+        public static ConnectionInfo Resolve() => Provider();
+
+        static ConnectionInfo ReadDescriptor()
         {
             try
             {

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -43,9 +42,13 @@ namespace SlopWorld
             WorkspaceWindow.ToggleContent(() => new JukeboxHistoryView());
         }
 
-        public override void Opened() => Reload();
+        public override void Opened()
+        {
+            JukeboxLibrary.Changed += Reload;
+            Reload();
+        }
 
-        public override void Closed() { }
+        public override void Closed() => JukeboxLibrary.Changed -= Reload;
 
         public override void Draw(Rect body)
         {
@@ -408,13 +411,12 @@ namespace SlopWorld
 
         void Reload()
         {
-            _path = ApplicationPaths.LikesPath;
+            _path = JukeboxLibrary.Location;
             _all.Clear();
             _error = null;
             try
             {
-                if (File.Exists(_path))
-                    _all.AddRange(JukeboxHistory.Parse(File.ReadAllText(_path)));
+                _all.AddRange(JukeboxHistory.Parse(JukeboxLibrary.Read()));
             }
             catch (Exception e)
             {

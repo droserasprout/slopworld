@@ -140,6 +140,37 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void NativeHistoryAndEditorUseTheGameLocalFile()
+        {
+            var directory = Directory.CreateTempSubdirectory("slopworld-likes-");
+            string previous = Environment.GetEnvironmentVariable("SLOPD_DATA");
+            try
+            {
+                Environment.SetEnvironmentVariable("SLOPD_DATA", directory.FullName);
+                JukeboxLikesFile.Edit();
+                string path = Path.Combine(directory.FullName, "jukebox.toml");
+                AssertEx.Equal(
+                    new Uri(path).AbsoluteUri,
+                    UnityEngine.Application.OpenedUrl,
+                    "native editor URI"
+                );
+                AssertEx.True(File.Exists(path), "edit creates the file before opening it");
+                File.WriteAllText(path, "[[like]]\ntitle = \"existing\"\n");
+                var record = new JukeboxLikeRecord(DateTime.UtcNow, "Radio", "", "next", "", "raw");
+                JukeboxLibrary.Append(record).GetAwaiter().GetResult();
+                var entries = JukeboxHistory.Parse(JukeboxLibrary.Read());
+                AssertEx.Equal(2, entries.Count, "Like appends to existing history");
+                AssertEx.Equal("next", entries[0].Title, "latest like is first");
+                AssertEx.Equal("existing", entries[1].Title, "file editor changes remain visible");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("SLOPD_DATA", previous);
+                UnityEngine.Application.OpenedUrl = null;
+                directory.Delete(true);
+            }
+        }
+
         static void CancellationWins()
         {
             using (var cancel = new CancellationTokenSource())

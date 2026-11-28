@@ -150,7 +150,19 @@ def validate(data: dict[str, Any]) -> None:
             )
             if not 0 <= value <= maximum:
                 raise ValueError(f'protocol.{name}: integer must be between 0 and {maximum}')
-    validate_names(routes, 'routes')
+    media = protocol['http'].get('media')
+    if not isinstance(media, dict) or not media:
+        raise ValueError('invalid HTTP media declaration')
+    for name, entry in media.items():
+        if (
+            not isinstance(entry, dict)
+            or not isinstance(entry.get('path'), str)
+            or not entry['path'].startswith('/media/')
+            or not isinstance(entry.get('response'), str)
+            or not entry['response']
+        ):
+            raise ValueError(f'invalid media route {name}')
+    validate_names([*routes, *media], 'routes')
     validate_names(protocol['constants'], 'constants')
     validate_names(protocol['enums'], 'enum modules', allow_hyphens=False)
     for section, values in {**protocol['websocket'], **protocol['enums']}.items():
@@ -258,7 +270,7 @@ def rust(data: dict[str, Any]) -> str:
         '',
         'pub(crate) mod routes {',
     ]
-    for name, route in data['http']['routes'].items():
+    for name, route in (data['http']['routes'] | data['http']['media']).items():
         lines.append(f'    pub(crate) const {upper(name)}: &str = {rust_string(route["path"])};')
     lines += ['}', '', 'pub(crate) mod events {']
     for value in data['websocket']['events']:
@@ -310,7 +322,7 @@ def csharp(data: dict[str, Any]) -> str:
         '        internal static class Routes',
         '        {',
     ]
-    for name, route in data['http']['routes'].items():
+    for name, route in (data['http']['routes'] | data['http']['media']).items():
         lines.append(f'            public const string {pascal(name)} = {cs_string(route["path"])};')
     lines += ['        }', '', '        internal static class Events', '        {']
     for value in data['websocket']['events']:

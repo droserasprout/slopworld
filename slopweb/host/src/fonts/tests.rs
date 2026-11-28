@@ -1,0 +1,509 @@
+//! Contract tests for validation, regular-face extraction and cache identity.
+use super::*;
+
+#[test]
+fn invalid_unicode_and_rasterization_requests_are_rejected() {
+    for value in [
+        json!({"face":{}}),
+        json!({"fallback":{"family":"mono","scalars":[0xd800]}}),
+        json!({"fallback":{"family":"mono","scalars":[0x110000]}}),
+        json!({"fallback":{"family":"mono","scalars":[true]}}),
+        json!({"fallback":{"family":"mono","scalars":[]}}),
+        json!({"fontSize":7}),
+        json!({"density":5}),
+        json!({"uiFontName":"x\n"}),
+    ] {
+        assert!(parse_request(&value).is_err(), "{value}");
+    }
+    let Request::Fallback { scalars, .. } =
+        parse_request(&json!({"fallback":{"family":"mono","scalars":[66,65,66,0x1f642]}})).unwrap()
+    else {
+        panic!()
+    };
+    assert_eq!(scalars, vec![65, 66, 0x1f642]);
+}
+#[test]
+fn coverage_ranges_preserve_holes_and_supplementary_scalars() {
+    let ranges = opentype::compress(&[0, 1, 5, 6, 0x1f600, 0x10ffff]);
+    assert_eq!(
+        ranges,
+        vec![[0, 1], [5, 6], [0x1f600, 0x1f600], [0x10ffff, 0x10ffff]]
+    );
+    for scalar in [0, 1, 5, 6, 0x1f600, 0x10ffff] {
+        assert!(opentype::contains(&ranges, scalar));
+    }
+    for scalar in [2, 4, 7, 0x1f601] {
+        assert!(!opentype::contains(&ranges, scalar));
+    }
+}
+#[test]
+fn unsupported_fonts_and_truncated_collections_fail_without_panicking() {
+    for bytes in [
+        b"not a font".as_slice(),
+        b"ttcf",
+        b"ttcf\0\x01\0\0\0\0\0\x01",
+    ] {
+        opentype::metadata(bytes, 0, true).unwrap_err();
+        if bytes.starts_with(b"ttcf") {
+            opentype::extract(bytes, 0).unwrap_err();
+        }
+    }
+}
+#[test]
+fn collection_extraction_rebases_tables_and_repairs_checksum() {
+    let mut bytes = vec![0u8; 60];
+    bytes[..4].copy_from_slice(b"ttcf");
+    bytes[8..12].copy_from_slice(&1u32.to_be_bytes());
+    bytes[12..16].copy_from_slice(&16u32.to_be_bytes());
+    bytes[16..20].copy_from_slice(&0x00010000u32.to_be_bytes());
+    bytes[20..22].copy_from_slice(&1u16.to_be_bytes());
+    bytes[28..32].copy_from_slice(b"head");
+    bytes[36..40].copy_from_slice(&44u32.to_be_bytes());
+    bytes[40..44].copy_from_slice(&16u32.to_be_bytes());
+    bytes[44..48].copy_from_slice(&0x00010000u32.to_be_bytes());
+    let extracted = opentype::extract(&bytes, 0).unwrap();
+    assert_eq!(
+        u32::from_be_bytes(extracted[20..24].try_into().unwrap()),
+        28
+    );
+    assert_eq!(extracted.len(), 44);
+    let sum = extracted
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .fold(0u32, |sum, v| sum.wrapping_add(u32::from_be_bytes(*v)));
+    assert_eq!(sum, 0xb1b0afba);
+    opentype::extract(&bytes, 1).unwrap_err();
+}
+#[test]
+fn content_objects_reject_corruption_and_path_traversal() {
+    let root = tempfile::tempdir().unwrap();
+    let bytes = b"private font bytes";
+    let hash = cache::digest(bytes);
+    cache::write(&cache::object(root.path(), &hash), bytes).unwrap();
+    assert_eq!(read_object(root.path(), &hash).unwrap(), bytes);
+    cache::write(&cache::object(root.path(), &hash), b"corrupt").unwrap();
+    read_object(root.path(), &hash).unwrap_err();
+    read_object(root.path(), "../../etc/passwd").unwrap_err();
+}
+#[test]
+fn file_identity_detects_same_length_replacement_and_removal() {
+    let root = tempfile::tempdir().unwrap();
+    let file = root.path().join("font");
+    fs::write(&file, b"first").unwrap();
+    let before = cache::stamp(&file);
+    cache::write(&file, b"other").unwrap();
+    assert_ne!(before, cache::stamp(&file));
+    fs::remove_file(&file).unwrap();
+    assert!(cache::stamp(&file).is_none());
+}
+#[test]
+fn preload_uses_order_and_coverage_contribution_without_named_glyphs() {
+    let mut catalog = Catalog::default();
+    catalog.faces = vec![
+        test_face("a", vec![[65, 66]]),
+        test_face("b", vec![[65, 65]]),
+        test_face("c", vec![[0x400, 0x410]]),
+        test_face("d", vec![[0x1f600, 0x1f600]]),
+    ];
+    assert_eq!(
+        preload(&catalog, &["a".into(), "b".into(), "c".into(), "d".into()]),
+        vec!["a", "c", "d"]
+    );
+}
+fn test_face(name: &str, coverage: Vec<[u32; 2]>) -> Face {
+    Face {
+        family: name.into(),
+        mono: false,
+        score: 0,
+        hash: name.into(),
+        byte_len: 1024,
+        coverage,
+    }
+}
+
+#[test]
+fn fontconfig_catalog_reloads_and_repairs_cached_faces() {
+    const FIXTURE: &str = "SLOPWEB_FONTCONFIG_TEST_CHILD";
+    // Fontconfig caches configuration process-wide. Set its environment before
+    // starting the child so concurrently running tests keep their own configuration.
+    if std::env::var_os(FIXTURE).is_none() {
+        let work = tempfile::tempdir().unwrap();
+        let fonts = work.path().join("fonts");
+        fs::create_dir(&fonts).unwrap();
+        fs::write(
+            fonts.join("clacon2.ttf"),
+            include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+        )
+        .unwrap();
+        let config = work.path().join("fonts.conf");
+        fs::write(
+            &config,
+            r#"<fontconfig>
+            <dir prefix="xdg">fonts</dir>
+            <cachedir prefix="xdg">fontconfig</cachedir>
+        </fontconfig>"#,
+        )
+        .unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                std::thread::current().name().unwrap(),
+                "--nocapture",
+            ])
+            .env(FIXTURE, "1")
+            .env("FONTCONFIG_FILE", config)
+            .env("FONTCONFIG_PATH", work.path())
+            .env_remove("FONTCONFIG_SYSROOT")
+            .env("HOME", work.path())
+            .env("XDG_DATA_HOME", work.path())
+            .env("XDG_DATA_DIRS", work.path().join("share"))
+            .env("XDG_CACHE_HOME", work.path().join("cache"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let mut catalog = Catalog::default();
+    catalog.rebuild(root.path()).unwrap();
+    assert_eq!(catalog.faces.len(), 1);
+    let generation = catalog.generation.clone();
+    assert!(catalog.fresh(root.path()));
+    let chain = catalog.chain(root.path(), "monospace").unwrap();
+    assert_eq!(chain, ["Classic Console Neue"]);
+    let sans = catalog.chain(root.path(), "sans-serif").unwrap();
+    assert_eq!(
+        select_ui(&mut catalog, root.path(), "sans-serif")
+            .unwrap()
+            .family,
+        sans[0]
+    );
+    let loaded = Catalog::load(root.path());
+    assert_eq!(loaded.generation, generation);
+    assert!(loaded.fresh(root.path()));
+    let first = loaded.faces.first().unwrap();
+    let bytes = read_object(root.path(), &first.hash).unwrap();
+    opentype::metadata(&bytes, 0, true).unwrap();
+    fs::remove_file(cache::object(root.path(), &first.hash)).unwrap();
+    assert!(!loaded.fresh(root.path()));
+    catalog.rebuild(root.path()).unwrap();
+    assert!(catalog.fresh(root.path()));
+}
+
+#[test]
+fn preload_skips_large_faces_without_consuming_the_coverage_budget() {
+    let mut catalog = Catalog::default();
+    let mut large = test_face("large", vec![[65, 66]]);
+    large.byte_len = 8 * 1024 * 1024;
+    let small = test_face("small", vec![[65, 66]]);
+    catalog.faces = vec![large, small];
+    assert_eq!(
+        preload(&catalog, &["large".into(), "small".into()]),
+        vec!["small"]
+    );
+}
+
+#[test]
+fn regular_style_distance_and_cmap_come_from_opentype_tables() {
+    let original = include_bytes!("../../../../assets/fonts/clacon2.ttf");
+    let base = opentype::metadata(original, 0, true).unwrap();
+    assert!(opentype::contains(&base.coverage, 'A' as u32));
+    let mut bold_italic = original.to_vec();
+    let count = u16::from_be_bytes(original[4..6].try_into().unwrap()) as usize;
+    let record = (0..count)
+        .map(|i| 12 + i * 16)
+        .find(|&i| &original[i..i + 4] == b"OS/2")
+        .unwrap();
+    let offset = u32::from_be_bytes(original[record + 8..record + 12].try_into().unwrap()) as usize;
+    bold_italic[offset + 4..offset + 6].copy_from_slice(&700u16.to_be_bytes());
+    bold_italic[offset + 6..offset + 8].copy_from_slice(&5u16.to_be_bytes());
+    bold_italic[offset + 62..offset + 64].copy_from_slice(&1u16.to_be_bytes());
+    let alternate = opentype::metadata(&bold_italic, 0, true).unwrap();
+    assert_eq!(alternate.family, base.family);
+    assert_eq!(alternate.score, 100_300);
+    assert!(base.score < alternate.score);
+    assert_eq!(alternate.coverage, base.coverage);
+    let post = (0..count)
+        .map(|i| 12 + i * 16)
+        .find(|&i| &original[i..i + 4] == b"post")
+        .unwrap();
+    let offset = u32::from_be_bytes(original[post + 8..post + 12].try_into().unwrap()) as usize;
+    bold_italic[offset + 12..offset + 16].copy_from_slice(&1u32.to_be_bytes());
+    assert!(opentype::metadata(&bold_italic, 0, false).unwrap().mono);
+}
+
+#[test]
+fn unicode_coverage_skips_missing_glyphs_in_bmp_and_supplementary_ranges() {
+    let mut font = include_bytes!("../../../../assets/fonts/clacon2.ttf").to_vec();
+    let count = u16::from_be_bytes(font[4..6].try_into().unwrap()) as usize;
+    let record = (0..count)
+        .map(|i| 12 + i * 16)
+        .find(|&i| &font[i..i + 4] == b"cmap")
+        .unwrap();
+    // Format 4 maps A to glyph zero and B to glyph one. Format 12 does
+    // the same for U+1F600 and U+1F601. Offsets are relative to cmap.
+    let words: &[u16] = &[
+        0, 2, 3, 1, 0, 20, 3, 10, 0, 52, 4, 32, 0, 4, 4, 1, 0, 66, 0xffff, 0, 65, 0xffff, 0xffbf,
+        1, 0, 0, 12, 0, 0, 28, 0, 0, 0, 1, 1, 0xf600, 1, 0xf601, 0, 0,
+    ];
+    let offset = u32::try_from(font.len()).unwrap();
+    font[record + 8..record + 12].copy_from_slice(&offset.to_be_bytes());
+    font[record + 12..record + 16]
+        .copy_from_slice(&(2 * u32::try_from(words.len()).unwrap()).to_be_bytes());
+    font.extend(words.iter().flat_map(|word| word.to_be_bytes()));
+    let face = opentype::metadata(&font, 0, true).unwrap();
+    assert_eq!(face.coverage, [[66, 66], [0x1f601, 0x1f601]]);
+}
+
+#[test]
+fn persistent_catalog_detects_replaced_added_removed_and_unsupported_sources() {
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().join("cache");
+    let installed = work.path().join("fonts");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(&installed).unwrap();
+    let source = installed.join("regular.ttf");
+    let unsupported = installed.join("broken.ttf");
+    fs::write(
+        &source,
+        include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+    )
+    .unwrap();
+    fs::write(&unsupported, b"unsupported").unwrap();
+    let mut catalog = Catalog::default();
+    catalog
+        .rebuild_inventory(
+            &root,
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
+        )
+        .unwrap();
+    assert_eq!(catalog.faces.len(), 1);
+    assert!(catalog.fresh(&root));
+    let generation = catalog.generation.clone();
+    let reloaded = Catalog::load(&root);
+    assert!(reloaded.fresh(&root));
+    assert_eq!(reloaded.generation, generation);
+    let file = cache::object(&root, &catalog.faces[0].hash);
+    let object_stamp = cache::stamp(&file);
+    catalog
+        .rebuild_inventory(
+            &root,
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
+        )
+        .unwrap();
+    assert_eq!(object_stamp, cache::stamp(&file));
+    let added = installed.join("new.ttf");
+    fs::write(&added, b"new unsupported font").unwrap();
+    assert!(!catalog.fresh(&root));
+    catalog
+        .rebuild_inventory(
+            &root,
+            &[source.clone(), unsupported.clone(), added.clone()],
+            std::slice::from_ref(&installed),
+        )
+        .unwrap();
+    assert_ne!(catalog.generation, generation);
+    assert!(catalog.fresh(&root));
+    fs::remove_file(&added).unwrap();
+    assert!(!catalog.fresh(&root));
+    catalog
+        .rebuild_inventory(
+            &root,
+            &[source.clone(), unsupported.clone()],
+            std::slice::from_ref(&installed),
+        )
+        .unwrap();
+    cache::write(
+        &source,
+        include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+    )
+    .unwrap();
+    assert!(!catalog.fresh(&root));
+    catalog
+        .rebuild_inventory(&root, &[source, unsupported], &[installed])
+        .unwrap();
+    assert!(catalog.fresh(&root));
+    fs::remove_file(file).unwrap();
+    assert!(!catalog.fresh(&root));
+}
+
+fn fixture_service() -> (tempfile::TempDir, FontService) {
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().join("cache");
+    let installed = work.path().join("fonts");
+    fs::create_dir(&root).unwrap();
+    fs::create_dir(&installed).unwrap();
+    let source = installed.join("font.ttf");
+    fs::write(
+        &source,
+        include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+    )
+    .unwrap();
+    let mut catalog = Catalog::default();
+    catalog
+        .rebuild_inventory(&root, &[source], &[installed])
+        .unwrap();
+    catalog.faces[0].family = "DejaVu Sans".into();
+    catalog
+        .chains
+        .insert("monospace".into(), vec!["DejaVu Sans".into()]);
+    let service = FontService {
+        inner: Arc::new(Inner {
+            root,
+            flags: 513,
+            state: Mutex::new(State {
+                catalog,
+                checked: Some(Instant::now()),
+            }),
+        }),
+    };
+    (work, service)
+}
+
+#[test]
+fn default_ui_uses_the_fontconfig_sans_serif_order_after_named_preferences() {
+    let root = tempfile::tempdir().unwrap();
+    let mut catalog = Catalog::default();
+    catalog.faces = vec![test_face("Local A", vec![]), test_face("Local B", vec![])];
+    catalog.chains.insert(
+        "sans-serif".into(),
+        vec!["Local B".into(), "Local A".into()],
+    );
+    let select =
+        |catalog: &mut Catalog, family| select_ui(catalog, root.path(), family).map(|f| f.family);
+    assert_eq!(select(&mut catalog, "").unwrap(), "Local B");
+    select(&mut catalog, "Missing").unwrap_err();
+    catalog.faces.push(test_face("PT Sans", vec![]));
+    assert_eq!(select(&mut catalog, "").unwrap(), "PT Sans");
+    assert_eq!(select(&mut catalog, "sans-serif").unwrap(), "Local B");
+    assert_eq!(select(&mut catalog, "Local A").unwrap(), "Local A");
+}
+
+#[tokio::test]
+async fn selection_omits_binary_payloads_and_fallback_misses_are_explicit() {
+    let (_work, service) = fixture_service();
+    let selected = service.request(json!({})).await.unwrap();
+    assert!(selected.get("fonts").is_none());
+    assert_eq!(selected["faces"].as_array().unwrap().len(), 4);
+    let hash = selected["files"]["ui.ttf"].as_str().unwrap();
+    assert_eq!(hash.len(), 64);
+    let bytes = service.font_bytes(hash).await.unwrap();
+    assert_eq!(cache::digest(&bytes), hash);
+    let reply = service
+        .request(json!({"fallback":{"family":"monospace","scalars":[65,0x10ffff]}}))
+        .await
+        .unwrap();
+    assert_eq!(reply["assignments"]["65"], "face0.ttf");
+    assert!(reply["assignments"]["1114111"].is_null());
+    assert_eq!(reply["files"]["face0.ttf"], hash);
+}
+
+#[test]
+fn startup_preserves_three_native_indices_when_sizes_collapse_and_normalizes_removed_ui() {
+    let (work, service) = fixture_service();
+    let output = work.path().join("runtime");
+    let before = service.startup_fingerprint().unwrap();
+    let selected = service
+        .prepare_startup_for(
+            &output,
+            json!({"uiFontName":"Removed Font","uiFontSize":1}),
+            Some(&before),
+        )
+        .unwrap();
+    assert_eq!(selected["uiFontName"], "");
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(output.join("assets/fonts/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(manifest["faces"].as_array().unwrap().len(), 4);
+    for index in 0..3 {
+        assert_eq!(manifest["faces"][index]["index"], index);
+        let descriptor: Value =
+            serde_json::from_str(manifest["faces"][index]["bake"].as_str().unwrap()).unwrap();
+        assert_eq!(descriptor["size"], [1, 1, 3][index]);
+    }
+    service.inner.state.lock().unwrap().catalog.generation =
+        "changed source or config identity".into();
+    assert_ne!(service.startup_fingerprint().unwrap(), before);
+    let stale = work.path().join("stale");
+    let error = service
+        .prepare_startup_for(&stale, json!({}), Some(&before))
+        .unwrap_err();
+    assert!(error.to_string().contains("Font inventory changed"));
+    assert!(!stale.exists());
+}
+
+#[tokio::test]
+async fn corrupted_content_download_recovers_from_cached_original_without_a_rescan() {
+    let (_work, service) = fixture_service();
+    let reply = service.request(json!({})).await.unwrap();
+    let hash = reply["files"]["ui.ttf"].as_str().unwrap();
+    cache::write(&cache::object(&service.inner.root, hash), b"broken object").unwrap();
+    assert_eq!(
+        cache::digest(&service.font_bytes(hash).await.unwrap()),
+        hash
+    );
+}
+
+#[test]
+fn pruning_bounds_retired_bytes_and_count_and_never_evicts_current_objects() {
+    let root = tempfile::tempdir().unwrap();
+    fs::write(root.path().join("current"), vec![0; 100]).unwrap();
+    for name in ["old-a", "old-b", "old-c"] {
+        fs::write(root.path().join(name), vec![0; 4]).unwrap();
+    }
+    cache::prune_stale(root.path(), &HashSet::from(["current".into()]), 2, 6).unwrap();
+    assert!(root.path().join("current").exists());
+    assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+    cache::prune_stale(root.path(), &HashSet::from(["current".into()]), 0, 0).unwrap();
+    assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn directory_watches_follow_empty_font_symlinks_without_following_cycles() {
+    let work = tempfile::tempdir().unwrap();
+    let fonts = work.path().join("fonts");
+    let target = work.path().join("target");
+    let root = work.path().join("cache");
+    fs::create_dir(&fonts).unwrap();
+    fs::create_dir(&target).unwrap();
+    fs::create_dir(&root).unwrap();
+    std::os::unix::fs::symlink(&target, fonts.join("linked")).unwrap();
+    std::os::unix::fs::symlink(&fonts, target.join("cycle")).unwrap();
+    let source = fonts.join("regular.ttf");
+    fs::write(
+        &source,
+        include_bytes!("../../../../assets/fonts/clacon2.ttf"),
+    )
+    .unwrap();
+    let mut catalog = Catalog::default();
+    catalog
+        .rebuild_inventory(&root, &[source], &[fonts])
+        .unwrap();
+    assert!(catalog.fresh(&root));
+    fs::write(target.join("new.ttf"), b"new").unwrap();
+    assert!(!catalog.fresh(&root));
+}
+
+#[test]
+fn prepared_listener_uses_published_flags_and_a_separate_cache() {
+    let publication = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let fonts = publication.path().join("assets/fonts");
+    fs::create_dir_all(&fonts).unwrap();
+    let manifest = fonts.join("manifest.json");
+    fs::write(&manifest, br#"{"faces":[]}"#).unwrap();
+    assert!(FontService::from_publication(publication.path(), cache.path()).is_err());
+    let value = json!({"faces": [{"bake": json!({"loaderFlags": 513}).to_string()}]});
+    fs::write(&manifest, serde_json::to_vec(&value).unwrap()).unwrap();
+    let service = FontService::from_publication(publication.path(), cache.path()).unwrap();
+    assert_eq!(service.inner.flags, 513);
+    assert!(cache.path().join("font-index-v1/.lock").is_file());
+    assert!(!publication.path().join("font-index-v1").exists());
+}

@@ -10,8 +10,8 @@ REPOSITORY = 'https://github.com/droserasprout/slopworld/blob/main/'
 def adapt_links(text: str) -> str:
     # Book links and HTML images are relative to docs/src rather than the repo root.
     text = text.replace('](docs/src/', '](').replace('src="docs/src/', 'src="')
-    # Repository license files are not published as book pages.
-    for path in ('LICENSE', 'licenses/README.md'):
+    # Repository license files and product guides are not published as book pages.
+    for path in ('LICENSE', 'licenses/README.md', 'slopweb/README.md'):
         text = text.replace(f']({path})', f']({REPOSITORY}{path})')
     return text
 

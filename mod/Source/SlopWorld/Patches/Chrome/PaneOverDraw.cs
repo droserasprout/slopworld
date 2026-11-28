@@ -35,6 +35,7 @@ namespace SlopWorld
         }
 
         // Control drawing for terrain and objects printed into map meshes, including plants.
+        [EcoPrefix]
         [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
         public static class Patch_MapMesh
         {
@@ -49,6 +50,7 @@ namespace SlopWorld
         }
 
         // Control drawing for dynamic objects, including pawn render trees and fires.
+        [EcoPrefix]
         [HarmonyPatch(typeof(DynamicDrawManager), nameof(DynamicDrawManager.DrawDynamicThings))]
         public static class Patch_DynamicThings
         {

@@ -43,7 +43,7 @@ pub struct Metadata {
 }
 
 /// A stream identified by its quality and stable key.
-/// Do not serialize the URL. Only the daemon's audio worker needs it.
+/// Shared playback and relay listeners resolve the private URL on the daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stream {
     pub rate: u32,
@@ -301,7 +301,7 @@ fn normalize(mut station: Station, path: Option<&Path>) -> Result<Station> {
     }
     valid_id(&station.id)?;
     if station.metadata.name.trim().is_empty() {
-        station.metadata.name = station.id.clone();
+        station.metadata.name.clone_from(&station.id);
     }
     if station.streams.is_empty() {
         bail!("no [[stream]] entries");
@@ -350,6 +350,14 @@ pub fn catalog() -> Catalog {
         .read()
         .unwrap_or_else(|error| error.into_inner())
         .clone()
+}
+
+/// Capture only this stream's URL before opening a listener outside the catalog lock.
+pub(crate) fn resolve(id: &str, key: &str) -> Result<String> {
+    cell()
+        .read()
+        .unwrap_or_else(|error| error.into_inner())
+        .resolve(id, key)
 }
 
 pub fn reload() -> Result<()> {

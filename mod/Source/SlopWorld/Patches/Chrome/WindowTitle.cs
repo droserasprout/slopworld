@@ -17,12 +17,16 @@ namespace SlopWorld
             if (Application.platform != RuntimePlatform.LinuxPlayer)
                 return;
 
+            Apply(Current());
+        }
+
+        // Shared title policy; browser tabs do not use the Linux window setter.
+        public static string Current()
+        {
             string hostname = SessionHub.Instance.Health.Hostname;
-            Apply(
-                string.IsNullOrEmpty(hostname) || hostname == "?"
-                    ? "SlopWorld"
-                    : "SlopWorld - " + hostname
-            );
+            return string.IsNullOrEmpty(hostname) || hostname == "?"
+                ? "SlopWorld"
+                : "SlopWorld - " + hostname;
         }
 
         static void Apply(string title)

@@ -72,9 +72,15 @@ namespace SlopWorld
             SlopWorld.TemperatureUnit.Normalize(S.temperatureUnit);
         public static bool EcoMode => S.ecoMode;
         public static bool VSync => S.vsync;
-        public static string VisualEffects => VisualEffectsMode.Normalize(S.visualEffects);
+        public static string VisualEffects =>
+            ClientPlatform.IsBrowser
+                ? VisualEffectsMode.Off
+                : VisualEffectsMode.Normalize(S.visualEffects);
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
         public static int ForegroundFps => FramePolicy.NearestPreset(S.foregroundFps);
+
+        public static int BrowserFrameLimit =>
+            DisplayMode == FramePolicy.Limit ? ForegroundFps : FramePolicy.BrowserAutoFps;
         public static float EcoDim => S.ecoDim;
     }
 }

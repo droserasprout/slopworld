@@ -463,9 +463,13 @@ impl AudioWorker {
         match playback::commit(opened, output.as_ref(), self.control.volume()) {
             Ok(Some(committed)) => {
                 let cancel = committed.title.cancelled.clone();
-                let published =
-                    self.control
-                        .publish_playing(&self.state, source, generation, cancel.clone());
+                let published = self.control.publish_playing(
+                    &self.state,
+                    source,
+                    generation,
+                    cancel.clone(),
+                    committed.remaining_track,
+                );
                 if !published {
                     committed.title.cancel();
                     return;

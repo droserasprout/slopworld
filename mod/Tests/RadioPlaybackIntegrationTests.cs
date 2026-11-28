@@ -1,13 +1,54 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace SlopWorld.Tests
 {
+    [TestFixture]
     static class RadioPlaybackIntegrationTests
     {
+        [Test]
+        public static void BrowserWithoutLocalAudioLeavesHostPlaybackUntilADaemonSourceIsSelected()
+        {
+            using var profile = new RadioTestProfile();
+            using var socket = new Socket();
+            var transport = new HubTransport(() => socket, action => action());
+            try
+            {
+                Radio.ResetSpotifyTest();
+                Radio.LocalPlaybackSupported = false;
+                SessionHub.Instance.Capabilities = DaemonCapabilities.FromWire(
+                    new Wire.Capabilities { AudioPlayback = true }
+                );
+                SessionHub.Instance.Audio = new AudioBus(transport);
+                transport.Connect();
+                transport.Update();
+                Radio.SelectPlaybackTest();
+                Radio.UpdatePlaybackTest(0, 0.5f);
+                Assert.That(socket.Sent.Count, Is.EqualTo(0));
+                Assert.That(Radio.NativePlaybackAllowed, Is.False);
+                Assert.That(Radio.TransportAvailable, Is.False);
+                Radio.SelectPlaybackTest(spotify: true);
+                Assert.That(Radio.TransportAvailable, Is.True);
+                Radio.UpdatePlaybackTest(1, 0.5f);
+                Assert.That(socket.Sent[0].Selection.Ncspot, Is.True);
+                Radio.MutePlaybackTest();
+                Radio.UpdatePlaybackTest(2, 0.5f);
+                Assert.That(socket.Sent[1].Stop, Is.Not.Null);
+            }
+            finally
+            {
+                transport.Disconnect();
+                Radio.LocalPlaybackSupported = true;
+                Radio.ResetSpotifyTest();
+            }
+        }
+
         public static void OstAlwaysStaysLocalWhileOtherSourcesUseDaemon()
         {
+            using var profile = new RadioTestProfile();
             string saved = Environment.GetEnvironmentVariable("SLOPWORLD_INITIAL_AUDIO");
             string savedRadio = Settings.S.radio;
             using var socket = new Socket();
@@ -45,6 +86,7 @@ namespace SlopWorld.Tests
 
         public static void LocalPlaybackRequiresCurrentStopAcknowledgmentAndReconnectRevokesIt()
         {
+            using var profile = new RadioTestProfile();
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
@@ -85,7 +127,9 @@ namespace SlopWorld.Tests
                 Radio.AcknowledgeStop(null, playing: true);
                 Assert.That(Radio.NativePlaybackAllowed, Is.False);
                 Radio.UpdatePlaybackTest(3.01, 0.5f);
-                Radio.AcknowledgeStop(socket.Sent[3].StopToken);
+                Radio.UpdatePlaybackTest(4, 0.8f);
+                Assert.That(socket.Sent.Count, Is.EqualTo(3));
+                Radio.AcknowledgeStop(null);
                 Assert.That(Radio.NativePlaybackAllowed, Is.True);
                 Radio.MutePlaybackTest();
                 Assert.That(Radio.NativePlaybackAllowed, Is.False);
@@ -99,6 +143,7 @@ namespace SlopWorld.Tests
 
         public static void SavedStationDoesNotStopDaemonWhileWaitingForInitialCatalog()
         {
+            using var profile = new RadioTestProfile();
             string saved = Settings.S.radio;
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
@@ -145,7 +190,7 @@ namespace SlopWorld.Tests
             }
         }
 
-        sealed class Socket : IHubSocket
+        internal class Socket : IHubSocket
         {
             public bool Connected { get; private set; }
             public string LastError => null;
@@ -154,14 +199,10 @@ namespace SlopWorld.Tests
             public int FlushedCount;
             public bool FlushSucceeds = true;
 
-            public bool Connect(
-                string host,
-                int port,
-                string path,
-                string token,
-                int timeoutMs = 3000,
-                bool useTls = false
-            ) => Connected = true;
+            public Task<bool> ConnectAsync(
+                ConnectionInfo connection,
+                CancellationToken cancellation
+            ) => Task.FromResult(Connected = true);
 
             public bool SendBinary(byte[] payload)
             {
@@ -187,6 +228,7 @@ namespace SlopWorld.Tests
 
         public static void ShutdownStopFlushesAfterQueuedSelectionAndReportsFailure()
         {
+            using var profile = new RadioTestProfile();
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
             try
@@ -210,6 +252,7 @@ namespace SlopWorld.Tests
 
         public static void SourceChangesDispatchSelectionsImmediatelyAndReconnectRetainsMute()
         {
+            using var profile = new RadioTestProfile();
             string saved = Settings.S.radio;
             using var socket = new Socket();
             var transport = new HubTransport(() => socket, action => action());
@@ -235,10 +278,13 @@ namespace SlopWorld.Tests
                     64
                 );
                 Radio.SelectPlaybackTest(station, 128);
-                Radio.UpdatePlaybackTest(0.01, 0.5f);
+                Radio.UpdatePlaybackTest(0.01, 0f);
                 Assert.That(socket.Sent.Count, Is.EqualTo(2));
                 Assert.That(socket.Sent[1].Selection.Station, Is.EqualTo("radio"));
                 Assert.That(socket.Sent[1].Selection.Stream, Is.EqualTo("high"));
+                Assert.That(socket.Sent[1].HasVolume, Is.True);
+                Assert.That(socket.Sent[1].Volume, Is.Zero);
+                Assert.That(socket.Sent[1].KeepVolume, Is.False);
                 Radio.SelectPlaybackTest(spotify: true);
                 Radio.UpdatePlaybackTest(0.02, 0.5f);
                 Assert.That(socket.Sent[2].Selection.Ncspot, Is.True);
