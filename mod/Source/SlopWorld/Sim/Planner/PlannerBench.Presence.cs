@@ -2,7 +2,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Owns the map's planner bench, including cargo that has not landed yet.
+    // Owns the map's board chess table, including cargo that has not landed yet.
     public partial class PlannerBench : MapComponent
     {
         public PlannerBench(Map map)
@@ -16,7 +16,7 @@ namespace SlopWorld
             Scribe_References.Look(ref _bench, "plannerBench");
         }
 
-        // Keep ownership while the separate planner bench pod is in flight or opening.
+        // Keep ownership while the separate board chess table pod is in flight or opening.
         public Thing ArrivalCargo()
         {
             if (On(map) || (_bench != null && !_bench.Destroyed))
@@ -33,7 +33,7 @@ namespace SlopWorld
             if (!GenPlace.TryPlaceThing(bench, cell, map, ThingPlaceMode.Near))
             {
                 bench.Destroy(DestroyMode.Vanish);
-                Log.Warning("[SlopWorld] Could not place the map planner bench.");
+                Log.Warning("[SlopWorld] Could not place the map board chess table.");
             }
         }
 
@@ -47,7 +47,7 @@ namespace SlopWorld
             // Remove items from the end because destruction changes the list.
             while (benches.Count > 1)
                 benches[benches.Count - 1].Destroy(DestroyMode.Vanish);
-            Log.Message($"[SlopWorld] planner bench: removed {extra} duplicate(s)");
+            Log.Message($"[SlopWorld] board chess table: removed {extra} duplicate(s)");
         }
 
         // Pending pod cargo is intentionally absent until it lands on the map.

@@ -5,26 +5,13 @@ http:
     token: x-slop-token
     session: x-slop-session
   routes:
-    planner_links:
+    boards:
       protobuf:
-        PUT: [PlannerLinksReq, PlannerDocument]
-      path: "/api/planner/items/:id/links"
-      methods: [PUT]
-      scope: root
-    planner_description:
-      protobuf:
-        GET: [Empty, PlannerDescription]
-        PUT: [PlannerSaveReq, PlannerDescription]
-      path: "/api/planner/items/:id/description"
-      methods: [GET, PUT]
-      scope: root
-    planner:
-      protobuf:
-        GET: [Empty, PlannerDocument]
-        PUT: [PlannerSaveReq, PlannerDocument]
-      path: "/api/planner"
-      methods: [GET, PUT]
-      scope: root
+        GET: [Empty, BoardCatalog]
+        POST: [BoardEdit, BoardCatalog]
+      path: "/api/boards"
+      methods: [GET, POST]
+      scope: scoped
     health:
       protobuf:
         GET: [Empty, Health]

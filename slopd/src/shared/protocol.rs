@@ -10,9 +10,7 @@ pub(crate) const SESSION_HEADER: &str = "x-slop-session";
 pub(crate) const WS_PATH: &str = "/ws";
 
 pub(crate) mod routes {
-    pub(crate) const PLANNER_LINKS: &str = "/api/planner/items/:id/links";
-    pub(crate) const PLANNER_DESCRIPTION: &str = "/api/planner/items/:id/description";
-    pub(crate) const PLANNER: &str = "/api/planner";
+    pub(crate) const BOARDS: &str = "/api/boards";
     pub(crate) const HEALTH: &str = "/api/health";
     pub(crate) const SESSIONS: &str = "/api/sessions";
     pub(crate) const SESSION: &str = "/api/sessions/:name";

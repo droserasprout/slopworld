@@ -4,14 +4,6 @@ use futures::{SinkExt, StreamExt};
 use prost::Message;
 use tokio_tungstenite::tungstenite::{Message as WsMessage, client::IntoClientRequest};
 
-#[expect(
-    dead_code,
-    reason = "the shared wire schema includes other API operations"
-)]
-mod wire {
-    include!(concat!(env!("OUT_DIR"), "/slopworld.rs"));
-}
-
 type Socket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 const WORKER: &str = "recovery-worker";

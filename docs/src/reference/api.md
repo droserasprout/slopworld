@@ -145,11 +145,33 @@ Explicit host commands and file actions are temporary. See
 
 Cancellation and removal validate the whole selection before changing it.
 Disk failures can still leave partial completion: replies distinguish committed,
-unchanged or absent, failed, and unattempted IDs. The task board applies committed
-changes and refreshes even on failure.
+unchanged or absent, failed, and unattempted IDs. Clients can refresh their task lists after partial failure.
 
 Retries are safe: canceled tasks stay canceled and removed tasks stay absent.
 Storage requests may finish after the client disconnects.
+
+### Project boards
+
+`GET /api/boards` returns a `BoardCatalog`. Use `?task=TASK_ID` to return only linked cards and their containing columns and boards. Array order is display order. Reads and mutation replies contain only the caller’s selected boards. The catalog reports effective write and admin capabilities. Off denies board requests, Read permits queries, and Write permits card and column edits and link changes. Admin is required to change prefixes or delete cards, columns, discussion entries, or archives. `POST /api/boards` accepts one `BoardEdit` and returns the committed catalog. Card references accept either an internal ID or the issued public key. Moves stay within one board. A move identifies its destination board, column and optional insertion anchor by ID. A stale destination fails the transaction.
+
+| Action | Fields in addition to `action` and `board` |
+| --- | --- |
+| `enable-board` | Project ID in `board`, board name in `text`, optional `prefix`. Creates or updates the board. Requires host access. |
+| `disable-board` | Project ID in `board`. Hides the board and retains its contents. Requires host access. |
+| `set-prefix` | New prefix in `text`. Rekeys every card on the board in one transaction, preserving card numbers, internal IDs, and task links. Each card accepts its immediately preceding key until the next prefix change. |
+| `edit-comment` | `card`, numeric `entry_id`, replacement `text`. Requires Admin. Preserves the author and timestamp. |
+| `remove-comment`, `remove-activity` | `card`, decimal entry ID in `text`. Requires Admin. |
+| `add-column` | Name in `text`, optional column ID in `before` |
+| `rename-column`, `remove-column` | `column`, new name in `text` for rename. Removal requires an empty column. |
+| `move-column` | `column`, optional column ID in `before` |
+| `add-card` | `column`, title in `text`, optional card ID in `before` |
+| `move-card` | `card`, destination `column`, optional card ID in `before` |
+| `title`, `describe`, `assign`, `comment` | `card`, value in `text`. Empty assignment clears the assignee. Comments use the authenticated author. |
+| `link`, `unlink` | `card`, resource `kind`, target in `text` |
+| `remove-card` | `card` |
+| `delete-archive` | `confirm` set to true |
+
+Archived boards support browsing, moving a card out, and confirmed permanent deletion. Project removal archives the board. Moving to Done only changes the card’s position.
 
 ## Workspace and files
 

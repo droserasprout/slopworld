@@ -41,9 +41,11 @@ namespace SlopWorld
 
         public static void ShowGit() => Show(SidebarTab.Git);
 
-        public static void ShowLibrary() => Show(SidebarTab.Library);
-
         public static void ShowTasks() => Show(SidebarTab.Tasks);
+
+        internal static bool TasksVisible => CurrentTab == SidebarTab.Tasks && Wanted();
+
+        public static void ShowLibrary() => Show(SidebarTab.Library);
 
         // The sidebar owns all view-specific routed readers. Keep terminal teardown in the
         // owner so a panel does not need to know which views retain session-backed previews.
@@ -203,15 +205,6 @@ namespace SlopWorld
 
         public static SidebarTab CurrentTab => CurrentDefinition.Tab;
 
-        // TaskStore is driven from Root.Update, not OnGUI. Poll only while the task list can
-        // actually be seen. Tab entry/reselection still requests an immediate refresh.
-        public static bool TasksVisible =>
-            Verse.Current.ProgramState == ProgramState.Playing
-            && ColonistBarStrip.BarShown
-            && !Settings.SidebarHidden
-            && !Cutscene.Playing
-            && CurrentTab == SidebarTab.Tasks;
-
         // Whether the view draws controls in the always-reserved second row.
         static bool HasActions => CurrentDefinition.HasActions;
 
@@ -336,7 +329,7 @@ namespace SlopWorld
                     case SidebarViewLocationKind.Git:
                         return GitView.FocusLocation(location.Primary, location.Secondary);
                     case SidebarViewLocationKind.Task:
-                        return TasksView.FocusLocation(location.Primary);
+                        return TaskDetailView.FocusLocation(location.Primary);
                     case SidebarViewLocationKind.Library:
                         return LibraryView.FocusLocation(
                             location.Primary,

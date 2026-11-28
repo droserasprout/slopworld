@@ -223,3 +223,24 @@ fn injected_project_preserves_spaces() {
         }))
     );
 }
+
+#[test]
+fn board_cli_transmits_inferred_assignment_and_requires_archive_confirmation() {
+    let args = |s: &str| s.split_whitespace().map(str::to_owned).collect::<Vec<_>>();
+    let Err(error) = parse(args("board delete-archive archived"), None) else {
+        panic!("archive deletion requires confirmation");
+    };
+    assert!(error.to_string().contains("--confirm"));
+    let (endpoint, server) = crate::tests::http_fixture::serve("200 OK", r#"{"boards":[]}"#);
+    let Command::Remote(command) = parse(args("board assign root card-id"), None)
+        .unwrap()
+        .command
+    else {
+        panic!("remote command expected")
+    };
+    command.run(&endpoint, "reviewer", true).unwrap();
+    let request = server.join().unwrap().unwrap();
+    assert!(request.starts_with("POST /api/boards "));
+    assert!(request.contains(r#""action":"assign""#));
+    assert!(request.contains(r#""text":"reviewer""#));
+}

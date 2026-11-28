@@ -14,7 +14,7 @@ namespace SlopWorld
     {
         internal static readonly KeyboardEventQueue Events = new KeyboardEventQueue();
         static readonly Dictionary<Key, KeyCode> Codes = new Dictionary<Key, KeyCode>();
-        delegate bool GetControl(KeyCode code, out KeyControl control);
+        delegate bool GetControl(KeyCode code, out ButtonControl control);
         static readonly GetControl FindControl = AccessTools.MethodDelegate<GetControl>(
             AccessTools.Method(typeof(Input), "TryGetKeyControl")
         );
@@ -44,8 +44,9 @@ namespace SlopWorld
         {
             if (Codes.Count == 0)
                 foreach (KeyCode code in Enum.GetValues<KeyCode>())
-                    if (FindControl(code, out var control) && control != null)
-                        Codes.TryAdd(control.keyCode, code);
+                    // Input also resolves mouse buttons; only keyboard controls have a Key.
+                    if (FindControl(code, out var control) && control is KeyControl keyControl)
+                        Codes.TryAdd(keyControl.keyCode, code);
             if (Codes.TryGetValue(key, out var mapped))
                 Events.Key(mapped, pressed, repeat, Modifiers());
         }

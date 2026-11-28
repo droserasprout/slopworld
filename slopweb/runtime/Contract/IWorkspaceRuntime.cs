@@ -39,6 +39,7 @@ public interface IWorkspaceRuntime
     string WorkspaceFontSnapshot();
     int WorkspaceFont(byte[] font, string bake, int defaultIndex);
     void WorkspaceAppearance(string json);
+    bool WorkspaceTouchKeyboard();
     string WorkspaceTitle();
     bool WorkspaceFullscreenKey(string key);
     void WorkspaceWindow(Action<bool> request);

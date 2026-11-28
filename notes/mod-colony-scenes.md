@@ -10,12 +10,12 @@ the new colony starts clear.
 `Patches/Chrome/NextPlanetFade` draws after the root GUI pass so pawn labels fade
 with the map, and yields to long-event loading screens.
 
-The intro releases the player, jukebox, and Planner chess table in separate pods when agent arrivals begin,
+The intro releases the player, jukebox, and Board chess table in separate pods when agent arrivals begin,
 even with an empty daemon. `PlayerPawn` owns the pawn reference while it is in
 transit; the initial waiting phase also holds automatic player placement so
 component update order cannot create the player before the scene starts.
 `PlannerBench` retains pending cargo identity across saves and delivers a missing bench
-to existing colonies. Its map click and top-bar building icon open Planner.
+to existing colonies. Its map click and the top-bar chessboard open Board.
 Settings opens from the top-bar gear and has no map object.
 `ArrivalDrops` owns workspace pod spacing and falls back to vanilla placement on
 constrained terrain.

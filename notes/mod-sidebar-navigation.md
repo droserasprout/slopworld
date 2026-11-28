@@ -5,6 +5,8 @@ persisted IDs, capabilities, and lookup. Each `SidebarTabDefinition` holds its c
 `Sidebar` binds game-owned behavior. Persist IDs,
 never enum positions/rows. Unknown tabs fall back to Agents.
 
+The Tasks tab reads the task mailbox independently of card links and requests polling while visible. Task rows open the shared fullscreen feed.
+
 Every tab reserves its action row so switching keeps body height stable. Drawing,
 input, and tooltips share full-height targets; targets exclude the resize grip.
 Navigation/folds/filter menus activate on press, refresh actions on release.

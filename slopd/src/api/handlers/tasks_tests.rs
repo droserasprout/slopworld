@@ -2,24 +2,6 @@ use super::*;
 
 use axum::http::HeaderValue;
 
-#[tokio::test]
-async fn scoped_workers_cannot_attach_planner_links() {
-    let app = crate::application::test_application(crate::config::Config::default());
-    let result = spawn_worker(
-        State(app),
-        Extension(scoped("caller")),
-        caller("caller"),
-        Proto(wire::SpawnWorkerReq {
-            template: Some("review".into()),
-            body: Some("Work".into()),
-            planner_id: uuid::Uuid::new_v4().to_string(),
-            ..Default::default()
-        }),
-    )
-    .await;
-    assert_eq!(result.unwrap_err().0, StatusCode::FORBIDDEN);
-}
-
 #[test]
 fn root_worker_requests_use_the_explicit_session_caller() {
     let mut headers = HeaderMap::new();
@@ -141,6 +123,113 @@ async fn host_can_open_agent_tasks_but_agent_visibility_and_missing_tasks_stay_r
         .await
         .unwrap_err()
         .0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn completed_assignment_is_read_through_its_card_link_and_reverse_lookup() {
+    use crate::api::handlers::{BoardFilter, edit_board, get_boards};
+    let app = mailbox_manager();
+    let task = mailbox_task(&app, "alice", "bob", "private assignment")
+        .await
+        .unwrap();
+    for status in [crate::tasks::Status::Accepted, crate::tasks::Status::Done] {
+        app.sessions
+            .task_store()
+            .update_task_async(
+                &mailbox_identity("bob"),
+                "bob",
+                &task.id,
+                status,
+                Some("test result".into()),
+            )
+            .await
+            .unwrap();
+    }
+    let catalog = edit_board(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Proto(wire::BoardEdit {
+            action: "enable-board".into(),
+            board: "0000000000000001".into(),
+            text: "Plan".into(),
+            ..Default::default()
+        }),
+    )
+    .await
+    .unwrap()
+    .0;
+    let mut edit = wire::BoardEdit {
+        action: "add-card".into(),
+        board: "0000000000000001".into(),
+        column: catalog.boards[0].columns[0].id.clone(),
+        text: "plan".into(),
+        ..Default::default()
+    };
+    let catalog = edit_board(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Proto(edit.clone()),
+    )
+    .await
+    .unwrap()
+    .0;
+    edit.card = catalog.boards[0].columns[0].cards[0].key.clone();
+    edit.action = "link".into();
+    edit.kind = "task".into();
+    edit.text = task.id.clone();
+    let catalog = edit_board(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Proto(edit.clone()),
+    )
+    .await
+    .unwrap()
+    .0;
+    let target = &catalog.boards[0].columns[0].cards[0].links[0].target;
+    let task_read = |cap, who| {
+        one_task(
+            State(app.clone()),
+            Extension(cap),
+            caller(who),
+            Path(target.clone()),
+        )
+    };
+    assert_eq!(
+        task_read(Cap::Root, "host")
+            .await
+            .unwrap()
+            .0
+            .task
+            .unwrap()
+            .note
+            .as_deref(),
+        Some("test result")
+    );
+    assert_eq!(
+        task_read(scoped("carol"), "carol").await.unwrap_err().0,
+        StatusCode::NOT_FOUND
+    );
+    let catalog = get_boards(
+        State(app.clone()),
+        Extension(Cap::Root),
+        Query(BoardFilter {
+            task: Some(task.id.clone()),
+        }),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert_eq!(catalog.boards[0].columns.len(), 1);
+    assert_eq!(catalog.boards[0].columns[0].cards[0].key, edit.card);
+    app.sessions
+        .task_store()
+        .remove_task_async(&mailbox_identity("bob"), target, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        task_read(Cap::Root, "host").await.unwrap_err().0,
         StatusCode::NOT_FOUND
     );
 }
@@ -524,6 +613,12 @@ async fn unknown_task_endpoints_fail_before_persistence() {
 
 fn mailbox_manager() -> App {
     crate::application::test_application(crate::config::Config {
+        projects: vec![crate::config::ProjectCfg {
+            id: "0000000000000001".into(),
+            name: "Plan".into(),
+            temp: true,
+            ..Default::default()
+        }],
         sessions: ["alice", "bob", "carol", "dave"]
             .into_iter()
             .map(|name| crate::config::SessionCfg {
@@ -694,7 +789,6 @@ async fn worker_api_maps_checkouts_and_returns_committed_identity() {
                     template: Some("review".into()),
                     project: Some("repo".into()),
                     body: Some("inspect API wiring".into()),
-                    planner_id: String::new(),
                     name: new_worktree.then(|| "custom-review".into()),
                     durable: Some(durable),
                     new_worktree: Some(new_worktree),

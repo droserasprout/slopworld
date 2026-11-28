@@ -338,7 +338,7 @@ impl AgentTemplate {
             description,
             defaults: AgentTemplateDefaults {
                 workers: source.workers.clone(),
-                permissions: source.permissions,
+                permissions: source.permissions.clone(),
                 command,
                 cmd: source.cmd.clone(),
                 args: source.args.clone(),
@@ -364,7 +364,7 @@ impl AgentTemplate {
             name,
             project,
             workers: defaults.workers.clone(),
-            permissions: defaults.permissions,
+            permissions: defaults.permissions.clone(),
             initial_prompt: defaults.initial_prompt.clone(),
             command: defaults
                 .command
@@ -393,7 +393,7 @@ impl AgentTemplate {
         let previous = session.clone();
 
         session.workers = overrides.workers.clone();
-        session.permissions = overrides.permissions;
+        session.permissions.clone_from(&overrides.permissions);
         session.command.clone_from(&overrides.command);
         session.cmd.clone_from(&overrides.cmd);
         session.args.clone_from(&overrides.args);

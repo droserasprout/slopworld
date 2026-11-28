@@ -27,40 +27,9 @@ Every task record requires a history array, empty when there are no updates.
 
 `application/task_summaries.rs` uses the shared [title provider](agent-titles.md) with
 separate task policy. See [workers](daemon-workers.md) for startup and failure,
-[sidebar](mod-sidebar.md) for the board, and [slopctl](../docs/src/reference/slopctl.md)
-for commands.
+[slopctl](../docs/src/reference/slopctl.md) for commands. Open task readers register polling demand with `TaskStore` and release it on close.
 
-The mod's `TaskStore` owns HTTP polling deadlines. The visible sidebar board and
-open task readers independently demand polling; readers release their registration
-on close or replacement, so hiding or switching the sidebar cannot freeze a reader.
-
-## Planner
-
-`application/planner/` owns the manual todo.txt backlog and explicit Task/Worker links.
-The mod's `PlannerDocumentState` owns endpoint-scoped backlog and description drafts,
-revisions, and request settlement; saves compare document revisions. `PlannerView` owns
-selection, its row field editor, polling demand, and window presentation.
-Only root may read or mutate the Planner API. Agents update existing Tasks, whose status
-is projected on links independently of Planner completion.
-See [Planner](../docs/src/workspace/planner.md).
-
-`TodoText` owns field edits and preserves unrelated text and metadata. The view holds
-TaskStore polling demand while open. Drafts and requests belong to the endpoint and
-stable task ID; replies settle after selection changes or closure. Navigation has a
-separate lifetime so late replies cannot reopen a closed view.
-
-Links have independent revisions and store identities and fallback labels, never live
-status. An explicit empty list suppresses inferred associations. Worker navigation uses
-private state IDs. Removing a link leaves its Task or worker intact. Spawn ordering
-belongs to [workers](daemon-workers.md).
-
-Description writes check saved task membership under the backlog gate and compare
-content revisions. Deletion retains descriptions for recovery. Save writes the backlog
-before dirty descriptions; partial failures retain drafts and accepted revisions for
-retry. An endpoint switch stops further writes but lets accepted replies settle.
-Backlog saves cannot remove rows with dirty descriptions. Refresh must preserve pending
-edits and cannot supersede a newer save. UI procedures and storage paths belong to the
-[Planner guide](../docs/src/workspace/planner.md).
+Project planning and informational assignments belong to [Board](project-boards.md).
 
 ## Cancellation
 
@@ -72,3 +41,5 @@ Cancellation preserves the latest result note and prevents subsequent recipient
 updates. It does not stop the process.
 
 The host task reader and task menus share this policy through `TaskInfo.CanCancel`.
+
+The card panel and fullscreen task reader share the board feed. Board permissions govern comments and activity, and the visible task mailbox supplies linked task histories. The fullscreen reader owns its own card selection and comment draft.

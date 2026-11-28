@@ -33,6 +33,12 @@ namespace SlopWorld.Tests
                 )
                     context.LoadFromAssemblyPath(Path.Combine(Path.GetFullPath(managed), assembly));
                 int count = 0;
+                // Target lookup alone does not initialize a beforefieldinit type. Bind
+                // the keyboard delegate explicitly so signature drift fails this check.
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+                    mod.GetType("SlopWorld.OrderedKeyboard", throwOnError: true).TypeHandle
+                );
+                count++;
                 Require(
                     Invoke(mod, "LinuxGameWindow+Native", "MainWindow") == null,
                     "native window bindings must resolve before startup"
@@ -60,6 +66,24 @@ namespace SlopWorld.Tests
                             && m.Name == "Up"
                         ) == 1,
                     "mouse replay must replace both press polls and the release poll"
+                );
+                count++;
+                var bake = (MethodBase)Invoke(mod, "Patch_NativeGlyphBake", "TargetMethod");
+                var guardedBake =
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(
+                            mod,
+                            "Patch_NativeGlyphBake",
+                            "Transpiler",
+                            PatchProcessor.GetOriginalInstructions(bake)
+                        );
+                Require(
+                    guardedBake.Count(i =>
+                        i.operand is MethodInfo m
+                        && m.DeclaringType?.FullName == "SlopWorld.Patch_NativeGlyphBake"
+                        && m.Name == "Lookup"
+                    ) == 1,
+                    "native glyph bake must validate the lookup before reading metrics"
                 );
                 count++;
                 var pacingLoop = (MethodBase)Invoke(mod, "Patch_RenderPacing", "TargetMethod");

@@ -33,6 +33,7 @@ complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "completions" -d 'Pr
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "worker" -d 'Create task-owned workers from agent templates'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "agent" -d 'Create agents and control their sessions'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "project" -d 'Inspect configured projects (requires the root token)'
+complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "board" -d 'Collaborate on project boards and archives'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "template" -d 'Discover and inspect agent templates'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "worktree" -d 'Manage project worktrees; mutations require worktree management permission'
 complete -c slopctl -n "__fish_slopctl_needs_command" -f -a "task" -d 'Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set'
@@ -53,6 +54,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_s
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -s h -l help -d 'Print help'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -f -a "spawn" -d 'Spawn a worker and deliver TASK; its worktree remains until removed'
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and not __fish_seen_subcommand_from spawn help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l card -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l name -d 'Exact worker name; omitted names are generated from the project or caller' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l project -d 'Project that owns the agent' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand worker; and __fish_seen_subcommand_from spawn" -l template -d 'Agent template name' -r
@@ -127,6 +129,143 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand project; and __fish_seen
 complete -c slopctl -n "__fish_slopctl_using_subcommand project; and __fish_seen_subcommand_from help" -f -a "list" -d 'List configured project names'
 complete -c slopctl -n "__fish_slopctl_using_subcommand project; and __fish_seen_subcommand_from help" -f -a "show" -d 'Show a project\'s full configuration'
 complete -c slopctl -n "__fish_slopctl_using_subcommand project; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "list" -d 'List active and archived boards with their stable IDs'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "show" -d 'Show ordered columns, cards, assignments, comments and resource links'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "set-prefix"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "edit-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "remove-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "remove-activity"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "add-column" -d 'Append a column, or insert it before another column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "rename-column"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "move-column" -d 'Reorder a column; omit --before to append'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "remove-column" -d 'Remove an empty column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "add-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "move-card" -d 'Move an existing card between columns of the same board'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "remove-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "title"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "describe"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "assign" -d 'Set the sole assignee; omit name to assign yourself'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "unassign"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "link"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "unlink"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "delete-archive" -d 'Permanently delete an archived board and its remaining cards'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and not __fish_seen_subcommand_from list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from list" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from list" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from list" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from list" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from show" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from show" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from show" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from show" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from set-prefix" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from set-prefix" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from set-prefix" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from set-prefix" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from edit-comment" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from edit-comment" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from edit-comment" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from edit-comment" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-comment" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-comment" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-comment" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-comment" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-activity" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-activity" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-activity" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-activity" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-column" -l before -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-column" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-column" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-column" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-column" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from rename-column" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from rename-column" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from rename-column" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from rename-column" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-column" -l before -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-column" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-column" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-column" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-column" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-column" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-column" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-column" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-column" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-card" -l before -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-card" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-card" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-card" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from add-card" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-card" -l before -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-card" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-card" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-card" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from move-card" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-card" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-card" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-card" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from remove-card" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from title" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from title" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from title" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from title" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from describe" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from describe" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from describe" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from describe" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from assign" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from assign" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from assign" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from assign" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unassign" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unassign" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unassign" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unassign" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from comment" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from comment" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from comment" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from comment" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from link" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from link" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from link" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from link" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unlink" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unlink" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unlink" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from unlink" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from delete-archive" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from delete-archive" -l confirm
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from delete-archive" -l json -d 'Print JSON instead of human-readable output'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from delete-archive" -l sidecar -d 'Select the sidecar endpoint and log sources'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from delete-archive" -s h -l help -d 'Print help'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "list" -d 'List active and archived boards with their stable IDs'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "show" -d 'Show ordered columns, cards, assignments, comments and resource links'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "set-prefix"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "edit-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "remove-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "remove-activity"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "add-column" -d 'Append a column, or insert it before another column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "rename-column"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "move-column" -d 'Reorder a column; omit --before to append'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "remove-column" -d 'Remove an empty column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "add-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "move-card" -d 'Move an existing card between columns of the same board'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "remove-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "title"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "describe"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "assign" -d 'Set the sole assignee; omit name to assign yourself'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "unassign"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "link"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "unlink"
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "delete-archive" -d 'Permanently delete an archived board and its remaining cards'
+complete -c slopctl -n "__fish_slopctl_using_subcommand board; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c slopctl -n "__fish_slopctl_using_subcommand template; and not __fish_seen_subcommand_from list show help" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand template; and not __fish_seen_subcommand_from list show help" -l json -d 'Print JSON instead of human-readable output'
 complete -c slopctl -n "__fish_slopctl_using_subcommand template; and not __fish_seen_subcommand_from list show help" -l sidecar -d 'Select the sidecar endpoint and log sources'
@@ -202,6 +341,7 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand task; and not __fish_see
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and not __fish_seen_subcommand_from delegate list show wait accept progress finish fail followup cancel remove prune help" -f -a "remove" -d 'Remove one terminal task'
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and not __fish_seen_subcommand_from delegate list show wait accept progress finish fail followup cancel remove prune help" -f -a "prune" -d 'Remove terminal tasks sent or received by the caller'
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and not __fish_seen_subcommand_from delegate list show wait accept progress finish fail followup cancel remove prune help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand task; and __fish_seen_subcommand_from delegate" -l card -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and __fish_seen_subcommand_from delegate" -l endpoint -d 'Select endpoints/NAME.toml and its automatic game profile' -r
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and __fish_seen_subcommand_from delegate" -l json -d 'Print JSON instead of human-readable output'
 complete -c slopctl -n "__fish_slopctl_using_subcommand task; and __fish_seen_subcommand_from delegate" -l sidecar -d 'Select the sidecar endpoint and log sources'
@@ -321,20 +461,21 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -l endpoint -d 'S
 complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -l json -d 'Print JSON instead of human-readable output'
 complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -l sidecar -d 'Select the sidecar endpoint and log sources'
 complete -c slopctl -n "__fish_slopctl_using_subcommand paths" -s h -l help -d 'Print help'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "completions" -d 'Print a shell completion script without contacting the daemon'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "worker" -d 'Create task-owned workers from agent templates'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "agent" -d 'Create agents and control their sessions'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "project" -d 'Inspect configured projects (requires the root token)'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "template" -d 'Discover and inspect agent templates'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "worktree" -d 'Manage project worktrees; mutations require worktree management permission'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "task" -d 'Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "peers" -d 'List sessions visible to the caller, including host'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "status" -d 'Show caller, endpoint, daemon reachability, and pending task counts'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "sandbox" -d 'Inspect sanitized sandbox launch plans and live process trees'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "config" -d 'Read or persist daemon settings (requires the root token)'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "logs" -d 'Read local game and daemon logs, even while the daemon is down'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "paths" -d 'Print an absolute application path without contacting the daemon'
-complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project template worktree task peers status sandbox config logs paths help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "completions" -d 'Print a shell completion script without contacting the daemon'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "worker" -d 'Create task-owned workers from agent templates'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "agent" -d 'Create agents and control their sessions'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "project" -d 'Inspect configured projects (requires the root token)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "board" -d 'Collaborate on project boards and archives'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "template" -d 'Discover and inspect agent templates'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "worktree" -d 'Manage project worktrees; mutations require worktree management permission'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "task" -d 'Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "peers" -d 'List sessions visible to the caller, including host'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "status" -d 'Show caller, endpoint, daemon reachability, and pending task counts'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "sandbox" -d 'Inspect sanitized sandbox launch plans and live process trees'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "config" -d 'Read or persist daemon settings (requires the root token)'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "logs" -d 'Read local game and daemon logs, even while the daemon is down'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "paths" -d 'Print an absolute application path without contacting the daemon'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and not __fish_seen_subcommand_from completions worker agent project board template worktree task peers status sandbox config logs paths help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from worker" -f -a "spawn" -d 'Spawn a worker and deliver TASK; its worktree remains until removed'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from agent" -f -a "start" -d 'Start an existing agent session'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from agent" -f -a "resume" -d 'Resume an agent from its saved state'
@@ -344,6 +485,27 @@ complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_su
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from agent" -f -a "create" -d 'Create an agent, stopped unless --start is supplied'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from project" -f -a "list" -d 'List configured project names'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from project" -f -a "show" -d 'Show a project\'s full configuration'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "list" -d 'List active and archived boards with their stable IDs'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "show" -d 'Show ordered columns, cards, assignments, comments and resource links'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "set-prefix"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "edit-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "remove-comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "remove-activity"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "add-column" -d 'Append a column, or insert it before another column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "rename-column"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "move-column" -d 'Reorder a column; omit --before to append'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "remove-column" -d 'Remove an empty column'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "add-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "move-card" -d 'Move an existing card between columns of the same board'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "remove-card"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "title"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "describe"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "assign" -d 'Set the sole assignee; omit name to assign yourself'
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "unassign"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "comment"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "link"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "unlink"
+complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from board" -f -a "delete-archive" -d 'Permanently delete an archived board and its remaining cards'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from template" -f -a "list" -d 'List templates enabled for the caller; root sees the full catalog'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from template" -f -a "show" -d 'Show one accessible template'
 complete -c slopctl -n "__fish_slopctl_using_subcommand help; and __fish_seen_subcommand_from worktree" -f -a "list" -d 'List registered worktrees'

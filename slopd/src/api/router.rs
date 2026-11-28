@@ -73,6 +73,7 @@ fn shared_routes(m: App) -> Router<App> {
     // These handlers keep session identity fixed but do not mutate it. Sharing the guard
     // allows terminal input while Git checkout or task persistence is in progress.
     Router::new()
+        .route(routes::BOARDS, get(get_boards).post(edit_board))
         .route(routes::HEALTH, get(health))
         .route(
             routes::TASKS,
@@ -93,12 +94,6 @@ fn root_routes(m: App) -> Router<App> {
     // Host controls and configuration default to root-only access.
     Router::new()
         .route(routes::AGENT_PERMISSIONS, put(set_agent_permissions))
-        .route(routes::PLANNER, get(get_planner).put(save_planner))
-        .route(routes::PLANNER_LINKS, put(save_planner_links))
-        .route(
-            routes::PLANNER_DESCRIPTION,
-            get(get_planner_description).put(save_planner_description),
-        )
         .route(routes::SESSION_UPDATE, put(update))
         .route(routes::SETTINGS_PREVIEW, post(settings_preview))
         .route(routes::TEMPLATES, get(list_templates).post(save_template))

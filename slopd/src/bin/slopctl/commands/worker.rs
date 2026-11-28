@@ -8,6 +8,7 @@ use serde_json::json;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct SpawnArgs {
+    pub(crate) card: Option<String>,
     pub(crate) name: String,
     pub(crate) project: String,
     pub(crate) template: String,
@@ -22,6 +23,7 @@ pub(crate) fn run_spawn(
     json: bool,
     args: &SpawnArgs,
 ) -> Result<(), String> {
+    let target = super::board::attachment_target(endpoint, session, args.card.as_deref())?;
     let v = request(
         endpoint,
         session,
@@ -38,5 +40,5 @@ pub(crate) fn run_spawn(
     )?;
     emit(&v, json);
     print_wait_hint(&v, json);
-    Ok(())
+    super::board::attach_created(endpoint, session, target, &v)
 }

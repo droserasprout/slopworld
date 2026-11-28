@@ -52,6 +52,70 @@ namespace SlopWorld
             string tip = null,
             bool enabled = true,
             float selectorWidth = 200f
+        ) =>
+            DrawMenuRow(
+                listing,
+                caption,
+                value,
+                () =>
+                    (source ?? Enumerable.Empty<SelectorOption>())
+                        .Select(option => new FloatMenuOption(option.Label, option.Choose)
+                        {
+                            Disabled = !option.Enabled,
+                        })
+                        .ToList(),
+                out box,
+                tip,
+                enabled,
+                selectorWidth
+            );
+
+        public static void MultiSelectRow(
+            Listing_Standard listing,
+            string caption,
+            List<(string Label, Func<bool> Selected, Action Toggle)> choices,
+            bool enabled = true,
+            string summary = null
+        )
+        {
+            string value =
+                summary
+                ?? string.Join(
+                    ", ",
+                    choices.Where(o => o.Selected()).Select(o => o.Label).DefaultIfEmpty("None")
+                );
+            DrawMenuRow(
+                listing,
+                caption,
+                value,
+                () =>
+                    choices
+                        .Select(o =>
+                            (FloatMenuOption)
+                                new UiLayout.ToggleOption(
+                                    o.Label,
+                                    o.Selected(),
+                                    o.Toggle,
+                                    o.Selected
+                                )
+                        )
+                        .ToList(),
+                out _,
+                value,
+                enabled,
+                200f
+            );
+        }
+
+        static bool DrawMenuRow(
+            Listing_Standard listing,
+            string caption,
+            string value,
+            Func<List<FloatMenuOption>> options,
+            out Rect box,
+            string tip,
+            bool enabled,
+            float selectorWidth
         )
         {
             var row = listing.GetRect(Mathf.Max(UiTheme.RowH, UiTheme.CompactH));
@@ -69,13 +133,7 @@ namespace SlopWorld
             if (!UiControls.SelectInline(box, value, tip, enabled))
                 return false;
 
-            var options = (source ?? Enumerable.Empty<SelectorOption>())
-                .Select(option => new FloatMenuOption(option.Label, option.Choose)
-                {
-                    Disabled = !option.Enabled,
-                })
-                .ToList();
-            Find.WindowStack.Add(Menu(options, ScreenBox(box)));
+            Find.WindowStack.Add(Menu(options(), ScreenBox(box)));
             return true;
         }
 

@@ -125,10 +125,10 @@ namespace SlopWorld
             );
             UiControls.CheckboxSetting(
                 l,
-                "Show Planner in statusbar",
+                "Show Board in statusbar",
                 S,
                 ref S.statusbarPlanner,
-                "Show the Planner chess table icon."
+                "Show the Board chessboard icon."
             );
             UiControls.CheckboxSetting(
                 l,

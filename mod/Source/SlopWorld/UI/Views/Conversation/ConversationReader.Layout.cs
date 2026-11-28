@@ -6,10 +6,16 @@ using TextRange = SlopWorld.TextElementLayout.Range;
 
 namespace SlopWorld
 {
-    public sealed partial class TaskDetailView
+    internal sealed partial class ConversationReader
     {
-        void EnsureLayout(float width)
+        void EnsureLayout(
+            float width,
+            object source,
+            IEnumerable<(string Body, string Sender, long Time, string Status)> entries,
+            bool hasHeading
+        )
         {
+            long now = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string fontName = Settings.UIFontName ?? "";
             int layoutRevision = WorkspaceLayout.Revision;
             bool fontChanged =
@@ -17,14 +23,16 @@ namespace SlopWorld
                 || _layoutFontName != fontName
                 || !Mathf.Approximately(_layoutScale, Prefs.UIScale);
             if (
-                _layoutTask == _task
+                ReferenceEquals(_layoutSource, source)
                 && Mathf.Approximately(_layoutWidth, width)
+                && _layoutMinute == now / 60000
                 && !fontChanged
                 && _layoutRevision == layoutRevision
             )
                 return;
 
-            _layoutTask = _task;
+            _layoutMinute = now / 60000;
+            _layoutSource = source;
             _layoutWidth = width;
             _layoutScale = Prefs.UIScale;
             _layoutFontSize = Settings.UIFontSize;
@@ -37,25 +45,15 @@ namespace SlopWorld
             _messages.Clear();
             _selectionLines.Clear();
             var text = new StringBuilder();
-            float y = UiTheme.TinyRowH + UiTheme.GapS;
-            AddMessage(width, _task.Body ?? "", _task.From, _task.CreatedMs, null, text, ref y);
-            foreach (var update in _task.History)
+            float y = hasHeading ? UiTheme.TinyRowH + UiTheme.GapS : 0;
+            foreach (var entry in entries)
                 AddMessage(
                     width,
-                    update.Note ?? "",
-                    update.Sender,
-                    update.TimestampMs,
-                    TaskInfo.StatusText(update.Status),
-                    text,
-                    ref y
-                );
-            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
-                AddMessage(
-                    width,
-                    _task.Note,
-                    _task.To,
-                    _task.UpdatedMs,
-                    TaskInfo.StatusText(_task.Status),
+                    entry.Body,
+                    entry.Sender,
+                    entry.Time,
+                    entry.Status,
+                    now,
                     text,
                     ref y
                 );
@@ -69,6 +67,7 @@ namespace SlopWorld
             string sender,
             long timestamp,
             string status,
+            long now,
             StringBuilder text,
             ref float y
         )
@@ -79,18 +78,31 @@ namespace SlopWorld
                 text.Append("\n\n");
             }
             var ranges = WrappedRanges(body, TextWidth(width));
-            float height = MessageCardHeight(ranges.Count);
+            string age = timestamp > 0 ? RelativeTime(timestamp, now) : "";
+            bool timestampBelow;
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                timestampBelow =
+                    timestamp > 0
+                    && UiTheme.Wide(Prefix(status) + SenderLabel(sender) + "  ·  " + age)
+                        > TextWidth(width);
+            }
+            float headerH = UiTheme.LineHOf(GameFont.Tiny) * (timestampBelow ? 2 : 1);
+            float height = MessageCardHeight(ranges.Count, headerH);
             _messages.Add(
                 new MessageLayout
                 {
                     Sender = sender,
                     Timestamp = timestamp,
+                    Age = age,
                     Status = status,
+                    TimestampBelow = timestampBelow,
                     Y = y,
                     Height = height,
                 }
             );
-            float textY = y + UiTheme.FieldPadY + UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
+            float textY = y + UiTheme.FieldPadY + headerH + UiTheme.GapXS;
             CollectSelectableText(body, MessageTextX, textY, ranges, text.Length);
             text.Append(body);
             y += height;

@@ -220,7 +220,5 @@ namespace SlopWorld
                     return UiTheme.Info;
             }
         }
-
-        public static bool FocusLocation(string id) => TaskDetailView.FocusLocation(id);
     }
 }

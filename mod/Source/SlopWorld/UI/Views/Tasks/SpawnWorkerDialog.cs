@@ -15,7 +15,7 @@ namespace SlopWorld
         string ChoiceKey => DaemonClient.BaseUrl + "\n" + _project;
         readonly string _fixedCaller;
         readonly string _project;
-        readonly string _plannerId;
+        readonly Action<string> _created;
         readonly Action _settled;
         readonly List<SessionInfo> _agents;
         string _caller;
@@ -36,16 +36,16 @@ namespace SlopWorld
             string caller,
             string project,
             string body = "",
-            string plannerId = "",
-            Action settled = null
+            Action settled = null,
+            Action<string> created = null
         )
         {
             resizeable = true;
             _fixedCaller = caller;
             _project = project ?? "";
             _body = body ?? "";
-            _plannerId = plannerId;
             _settled = settled;
+            _created = created;
             if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice))
             {
                 _worktree = choice.Worktree;
@@ -396,8 +396,11 @@ namespace SlopWorld
                     if (submittedNewWorktree)
                         SidebarScopes.IncludeWorktree(worker.Project, worker.Worktree);
                     WorktreeChoices[ChoiceKey] = (submittedWorktree, submittedNewWorktree);
-                    WorkspaceWindow.Open(worker.Session);
-                    Close();
+                    if (_created == null)
+                    {
+                        WorkspaceWindow.Open(worker.Session);
+                        Close();
+                    }
                 },
                 error =>
                 {
@@ -413,7 +416,13 @@ namespace SlopWorld
                     WorktreeName = _worktreeName,
                 },
                 _name.Trim(),
-                _plannerId
+                _created == null
+                    ? null
+                    : id =>
+                    {
+                        _created(id);
+                        Close();
+                    }
             );
         }
     }

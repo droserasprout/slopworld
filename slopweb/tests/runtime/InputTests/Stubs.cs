@@ -71,6 +71,10 @@ namespace UnityEngine
 
     public static class GUI
     {
+        // Installed GUI exposes these private capture flags to the reset bridge.
+        static bool _buttonDownActive = false,
+            _repeatDownActive = false;
+        public static bool Captured => _buttonDownActive || _repeatDownActive;
         public static Matrix4x4 matrix;
 
         public static Action? OnDispatchInput,

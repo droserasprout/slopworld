@@ -176,10 +176,10 @@ namespace SlopWorld
             .. NavigationCommands(),
             .. TaskCommands(),
             new CommandDef(
-                "view.toggle-planner",
-                "View: Toggle Planner",
+                "view.toggle-board",
+                "View: Toggle Board",
                 "View",
-                _ => PlannerView.Toggle(),
+                _ => BoardView.Toggle(),
                 enabled: Playing
             ),
             new CommandDef(
@@ -306,8 +306,8 @@ namespace SlopWorld
             new CommandDef("focus.files", "Focus: Files", "Focus", _ => Sidebar.ShowFiles()),
             new CommandDef("focus.search", "Focus: Search", "Focus", _ => Sidebar.ShowSearch()),
             new CommandDef("focus.git", "Focus: Git", "Focus", _ => Sidebar.ShowGit()),
-            new CommandDef("focus.library", "Focus: Library", "Focus", _ => Sidebar.ShowLibrary()),
             new CommandDef("focus.tasks", "Focus: Tasks", "Focus", _ => Sidebar.ShowTasks()),
+            new CommandDef("focus.library", "Focus: Library", "Focus", _ => Sidebar.ShowLibrary()),
             new CommandDef(
                 "view.fold-all",
                 "View: Fold All",

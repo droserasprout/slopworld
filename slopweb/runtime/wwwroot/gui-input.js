@@ -9,7 +9,7 @@ export function attachGuiInput(canvas, managed) {
   const abort = new AbortController();
   const proxy = acquireTextInput(canvas);
   let disposed = false, composing = false, cancelled = false, pendingText = null, committed = null;
-  let commitTimer;
+  let commitTimer, capturedPointer;
   let queue = [], queuedAt = null;
   const clipboard = clipboardBridge(managed, text => {
     if (proxy.composing) throw new Error('Cannot publish selection during composition');
@@ -85,6 +85,7 @@ export function attachGuiInput(canvas, managed) {
   };
   for (const name of ['pointerdown', 'pointerup', 'pointermove']) {
     listen(name, event => {
+      if (event.isPrimary === false) return;
       const action = pointerAction(event);
       // The device adapter exposes thumb buttons. Native GUI controls only
       // support the first three, and some clamp higher buttons during hit testing.
@@ -94,10 +95,15 @@ export function attachGuiInput(canvas, managed) {
       const middle = managed.ClipboardTake && button === 2 && transition;
       if (kind === 'down') clipboard.cancelPrimary();
       if (!middle) event.preventDefault();
-      if (kind === 'down') { cancelled = false; proxy.focus(event); if (event.isTrusted && name === 'pointerdown') canvas.setPointerCapture(event.pointerId); }
-      enqueue({kind, button, ...point(event), ...modifiers(event)});
+      // A touch on a Board handle or scroll surface must keep the keyboard closed.
+      // Native hit testing runs synchronously while the gesture can still focus an editor.
+      const touchFocus = kind === 'down' && event.pointerType === 'touch' && managed.touchKeyboard;
+      if (kind === 'down') { capturedPointer = event.pointerId; cancelled = false; if (!touchFocus) proxy.focus(event); if (event.isTrusted && name === 'pointerdown') canvas.setPointerCapture(event.pointerId); }
+      if (name === 'pointerup') capturedPointer = undefined;
+      enqueue({kind, button, pointerType:event.pointerType, ...point(event), ...modifiers(event)});
       // Clipboard actions and native URL opening need the initiating user activation.
-      if (managed.ClipboardTake && transition) frame();
+      if (touchFocus || (managed.ClipboardTake && transition)) frame();
+      if (touchFocus && managed.touchKeyboard()) proxy.focus(event);
       if (middle && !clipboard.primaryPending) event.preventDefault();
     });
   }
@@ -205,6 +211,7 @@ export function attachGuiInput(canvas, managed) {
     enqueue({kind:'wheel', ...point(event), dx:event.deltaX * scale, dy:event.deltaY * scale, ...modifiers(event)});
   });
   const reset = () => {
+    capturedPointer = undefined;
     composing = false; cancelled = true; pendingText = null; committed = null;
     if (proxy.composing) proxy.element.value = '';
     clipboard.cancelPrimary();
@@ -215,6 +222,7 @@ export function attachGuiInput(canvas, managed) {
   listen('focus', () => { cancelled = false; });
   listen('blur', event => { if (!proxy.owns(event.relatedTarget)) reset(); });
   listen('pointercancel', reset);
+  listen('lostpointercapture', event => { if (capturedPointer !== undefined && capturedPointer === event.pointerId) reset(); });
   window.addEventListener('blur', reset, {signal:abort.signal});
   window.addEventListener('focus', () => { cancelled = false; }, {signal:abort.signal});
   document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); }, {signal:abort.signal});

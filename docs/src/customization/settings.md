@@ -63,8 +63,7 @@ without either, it prints directly. Save and restart active readers after a chan
 Set date and time formatting under **General > Locale**. The **Auto** time zone uses
 the game desktop’s zone, even with a remote daemon. Choose a named zone to override it.
 Changes apply live to clocks and timestamps and are saved with the profile.
-Date formatting also applies to the game build date. The time zone also sets Planner’s Today and overdue
-calculations and the colony clock. Due dates remain calendar dates.
+Date formatting also applies to the game build date. The colony clock uses the selected time zone.
 [Calendar timers](../workspace/library.md#timers) use their saved time zone; this
 preference supplies the initial zone for new timers and displays occurrence
 timestamps without changing existing schedules.
@@ -84,10 +83,9 @@ Changes apply to new workers.
 Configure delegation, allowed templates, and current agent permissions in **Edit agent > Permissions**.
 See [Agent collaboration](../agents/agent-collaboration.md#parent-worker-access).
 
-## Planner
+## Board
 
-Open Planner with the chess table button beside Settings or the chess table on the map.
-See [Planner](../workspace/planner.md) for the backlog, notes, and worker assignments.
+Open [Board](../workspace/board.md) with the chessboard beside Settings or the colony chess table.
 
 ## Configuration file
 

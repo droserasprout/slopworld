@@ -8,18 +8,14 @@ namespace SlopWorld
     // Menus and confirmations for task state changes.
     public static class TaskActions
     {
-        public static void OpenMenu(TaskInfo task, Action<TaskInfo> updated = null)
+        public static void OpenMenu(
+            TaskInfo task,
+            Action<TaskInfo> updated = null,
+            List<TaskInfo> selection = null
+        )
         {
             if (task == null)
                 return;
-
-            var selected = TasksView.SelectionFor(task);
-            var cancelable = selected
-                .Where(candidate => candidate != null && candidate.CanCancel)
-                .ToList();
-            var removable = selected
-                .Where(candidate => candidate != null && candidate.Terminal)
-                .ToList();
 
             var options = new List<FloatMenuOption>();
             if (task.Incoming && !task.Terminal)
@@ -30,12 +26,17 @@ namespace SlopWorld
                 AddStatus(options, task, DelegatedTaskStatus.Failed, updated);
             }
 
+            var selected = selection ?? new List<TaskInfo> { task };
+            var cancelable = selected.Where(t => t.CanCancel).ToList();
             if (cancelable.Count > 0)
-            {
-                string label =
-                    cancelable.Count == 1 ? "Cancel" : $"Cancel {cancelable.Count} selected tasks";
-                options.Add(new FloatMenuOption(label, () => CancelTasks(cancelable)));
-            }
+                options.Add(
+                    new FloatMenuOption(
+                        cancelable.Count == 1
+                            ? "Cancel"
+                            : $"Cancel {cancelable.Count} selected tasks",
+                        () => CancelTasks(cancelable, updated)
+                    )
+                );
 
             var counterpart = SessionHub.Instance.Get(task.Counterpart);
             if (counterpart != null)
@@ -48,12 +49,16 @@ namespace SlopWorld
                 options.Add(terminal);
             }
 
+            var removable = selected.Where(t => t.Terminal).ToList();
             if (removable.Count > 0)
-            {
-                string label =
-                    removable.Count == 1 ? "Remove" : $"Remove {removable.Count} selected tasks";
-                options.Add(new FloatMenuOption(label, () => RemoveTasks(removable)));
-            }
+                options.Add(
+                    new FloatMenuOption(
+                        removable.Count == 1
+                            ? "Remove"
+                            : $"Remove {removable.Count} selected tasks",
+                        () => RemoveTasks(removable)
+                    )
+                );
 
             if (options.Count > 0)
                 WorkspaceWindow.OpenOverPane(new UiMenu(options));

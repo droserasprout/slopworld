@@ -60,6 +60,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (spawn)
 _arguments "${_arguments_options[@]}" : \
+'--card=[]:CARD:_default' \
 '--name=[Exact worker name; omitted names are generated from the project or caller]:NAME:_default' \
 '--project=[Project that owns the agent]:PROJECT:_default' \
 '--template=[Agent template name]:TEMPLATE:_default' \
@@ -297,6 +298,378 @@ esac
     ;;
 esac
 ;;
+(board)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_slopctl__subcmd__board_commands" \
+"*::: :->board" \
+&& ret=0
+
+    case $state in
+    (board)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-board-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'::board -- Omit to show the first visible board:_default' \
+&& ret=0
+;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':prefix:_default' \
+&& ret=0
+;;
+(edit-comment)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
+':text:_default' \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
+&& ret=0
+;;
+(remove-activity)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':entry:_default' \
+&& ret=0
+;;
+(add-column)
+_arguments "${_arguments_options[@]}" : \
+'--before=[]:BEFORE:_default' \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':name:_default' \
+&& ret=0
+;;
+(rename-column)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':column:_default' \
+':name:_default' \
+&& ret=0
+;;
+(move-column)
+_arguments "${_arguments_options[@]}" : \
+'--before=[]:BEFORE:_default' \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':column:_default' \
+&& ret=0
+;;
+(remove-column)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':column:_default' \
+&& ret=0
+;;
+(add-card)
+_arguments "${_arguments_options[@]}" : \
+'--before=[]:BEFORE:_default' \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':column:_default' \
+':title:_default' \
+&& ret=0
+;;
+(move-card)
+_arguments "${_arguments_options[@]}" : \
+'--before=[]:BEFORE:_default' \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':column:_default' \
+':card:_default' \
+&& ret=0
+;;
+(remove-card)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+&& ret=0
+;;
+(title)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':text:_default' \
+&& ret=0
+;;
+(describe)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':text:_default' \
+&& ret=0
+;;
+(assign)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+'::name:_default' \
+&& ret=0
+;;
+(unassign)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':text:_default' \
+&& ret=0
+;;
+(link)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':kind:_default' \
+':target:_default' \
+&& ret=0
+;;
+(unlink)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+':card:_default' \
+':kind:_default' \
+':target:_default' \
+&& ret=0
+;;
+(delete-archive)
+_arguments "${_arguments_options[@]}" : \
+'--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
+'--confirm[]' \
+'--json[Print JSON instead of human-readable output]' \
+'--sidecar[Select the sidecar endpoint and log sources]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':board:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopctl__subcmd__board__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-board-help-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-activity)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rename-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(move-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(move-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(title)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(describe)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(assign)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unassign)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(link)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unlink)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete-archive)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (template)
 _arguments "${_arguments_options[@]}" : \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
@@ -489,6 +862,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (delegate)
 _arguments "${_arguments_options[@]}" : \
+'--card=[]:CARD:_default' \
 '--endpoint=[Select endpoints/NAME.toml and its automatic game profile]:ENDPOINT:_default' \
 '--json[Print JSON instead of human-readable output]' \
 '--sidecar[Select the sidecar endpoint and log sources]' \
@@ -955,6 +1329,106 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
+(board)
+_arguments "${_arguments_options[@]}" : \
+":: :_slopctl__subcmd__help__subcmd__board_commands" \
+"*::: :->board" \
+&& ret=0
+
+    case $state in
+    (board)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:slopctl-help-board-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(show)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(set-prefix)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-activity)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rename-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(move-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-column)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(move-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-card)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(title)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(describe)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(assign)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unassign)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(link)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(unlink)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete-archive)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (template)
 _arguments "${_arguments_options[@]}" : \
 ":: :_slopctl__subcmd__help__subcmd__template_commands" \
@@ -1155,6 +1629,7 @@ _slopctl_commands() {
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents and control their sessions' \
 'project:Inspect configured projects (requires the root token)' \
+'board:Collaborate on project boards and archives' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -1259,6 +1734,277 @@ _slopctl__subcmd__agent__subcmd__stop_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl agent stop commands' commands "$@"
 }
+(( $+functions[_slopctl__subcmd__board_commands] )) ||
+_slopctl__subcmd__board_commands() {
+    local commands; commands=(
+'list:List active and archived boards with their stable IDs' \
+'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'edit-comment:' \
+'remove-comment:' \
+'remove-activity:' \
+'add-column:Append a column, or insert it before another column' \
+'rename-column:' \
+'move-column:Reorder a column; omit --before to append' \
+'remove-column:Remove an empty column' \
+'add-card:' \
+'move-card:Move an existing card between columns of the same board' \
+'remove-card:' \
+'title:' \
+'describe:' \
+'assign:Set the sole assignee; omit name to assign yourself' \
+'unassign:' \
+'comment:' \
+'link:' \
+'unlink:' \
+'delete-archive:Permanently delete an archived board and its remaining cards' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopctl board commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__add-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__add-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board add-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__add-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__add-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board add-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__assign_commands] )) ||
+_slopctl__subcmd__board__subcmd__assign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board assign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__delete-archive_commands] )) ||
+_slopctl__subcmd__board__subcmd__delete-archive_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board delete-archive commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__describe_commands] )) ||
+_slopctl__subcmd__board__subcmd__describe_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board describe commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board edit-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help_commands] )) ||
+_slopctl__subcmd__board__subcmd__help_commands() {
+    local commands; commands=(
+'list:List active and archived boards with their stable IDs' \
+'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'edit-comment:' \
+'remove-comment:' \
+'remove-activity:' \
+'add-column:Append a column, or insert it before another column' \
+'rename-column:' \
+'move-column:Reorder a column; omit --before to append' \
+'remove-column:Remove an empty column' \
+'add-card:' \
+'move-card:Move an existing card between columns of the same board' \
+'remove-card:' \
+'title:' \
+'describe:' \
+'assign:Set the sole assignee; omit name to assign yourself' \
+'unassign:' \
+'comment:' \
+'link:' \
+'unlink:' \
+'delete-archive:Permanently delete an archived board and its remaining cards' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'slopctl board help commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__add-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__add-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help add-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__add-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__add-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help add-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__assign_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__assign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help assign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__delete-archive_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__delete-archive_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help delete-archive commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__describe_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__describe_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help describe commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help edit-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__help_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help help commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__link_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__link_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help link commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__list_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__move-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__move-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help move-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__move-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__move-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help move-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-activity commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help remove-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__rename-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__rename-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help set-prefix commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__show_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help show commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__title_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__title_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help title commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__unassign_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__unassign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help unassign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__help__subcmd__unlink_commands] )) ||
+_slopctl__subcmd__board__subcmd__help__subcmd__unlink_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board help unlink commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__link_commands] )) ||
+_slopctl__subcmd__board__subcmd__link_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board link commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__list_commands] )) ||
+_slopctl__subcmd__board__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__move-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__move-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board move-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__move-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__move-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board move-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-activity commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-card_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__board__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board remove-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__rename-column_commands] )) ||
+_slopctl__subcmd__board__subcmd__rename-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__board__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board set-prefix commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__show_commands] )) ||
+_slopctl__subcmd__board__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board show commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__title_commands] )) ||
+_slopctl__subcmd__board__subcmd__title_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board title commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__unassign_commands] )) ||
+_slopctl__subcmd__board__subcmd__unassign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board unassign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__board__subcmd__unlink_commands] )) ||
+_slopctl__subcmd__board__subcmd__unlink_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl board unlink commands' commands "$@"
+}
 (( $+functions[_slopctl__subcmd__completions_commands] )) ||
 _slopctl__subcmd__completions_commands() {
     local commands; commands=()
@@ -1314,6 +2060,7 @@ _slopctl__subcmd__help_commands() {
 'worker:Create task-owned workers from agent templates' \
 'agent:Create agents and control their sessions' \
 'project:Inspect configured projects (requires the root token)' \
+'board:Collaborate on project boards and archives' \
 'template:Discover and inspect agent templates' \
 'worktree:Manage project worktrees; mutations require worktree management permission' \
 'task:Manage delegated tasks; omit IDs when SLOPWORLD_TASK_ID is set' \
@@ -1368,6 +2115,138 @@ _slopctl__subcmd__help__subcmd__agent__subcmd__start_commands() {
 _slopctl__subcmd__help__subcmd__agent__subcmd__stop_commands() {
     local commands; commands=()
     _describe -t commands 'slopctl help agent stop commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board_commands] )) ||
+_slopctl__subcmd__help__subcmd__board_commands() {
+    local commands; commands=(
+'list:List active and archived boards with their stable IDs' \
+'show:Show ordered columns, cards, assignments, comments and resource links' \
+'set-prefix:' \
+'edit-comment:' \
+'remove-comment:' \
+'remove-activity:' \
+'add-column:Append a column, or insert it before another column' \
+'rename-column:' \
+'move-column:Reorder a column; omit --before to append' \
+'remove-column:Remove an empty column' \
+'add-card:' \
+'move-card:Move an existing card between columns of the same board' \
+'remove-card:' \
+'title:' \
+'describe:' \
+'assign:Set the sole assignee; omit name to assign yourself' \
+'unassign:' \
+'comment:' \
+'link:' \
+'unlink:' \
+'delete-archive:Permanently delete an archived board and its remaining cards' \
+    )
+    _describe -t commands 'slopctl help board commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__add-card_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__add-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board add-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__add-column_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__add-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board add-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__assign_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__assign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board assign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__comment_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__delete-archive_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__delete-archive_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board delete-archive commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__describe_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__describe_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board describe commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__edit-comment_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__edit-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board edit-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__link_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__link_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board link commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__list_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board list commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__move-card_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__move-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board move-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__move-column_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__move-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board move-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-activity_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-activity_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-activity commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-card_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-card_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-card commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-column_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__remove-comment_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__remove-comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board remove-comment commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__rename-column_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__rename-column_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board rename-column commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__set-prefix_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__set-prefix_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board set-prefix commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__show_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__show_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board show commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__title_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__title_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board title commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__unassign_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__unassign_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board unassign commands' commands "$@"
+}
+(( $+functions[_slopctl__subcmd__help__subcmd__board__subcmd__unlink_commands] )) ||
+_slopctl__subcmd__help__subcmd__board__subcmd__unlink_commands() {
+    local commands; commands=()
+    _describe -t commands 'slopctl help board unlink commands' commands "$@"
 }
 (( $+functions[_slopctl__subcmd__help__subcmd__completions_commands] )) ||
 _slopctl__subcmd__help__subcmd__completions_commands() {

@@ -2,8 +2,8 @@
 <Defs>
   <ThingDef>
     <defName>SlopPlannerBench</defName>
-    <label>planner</label>
-    <description>Plan your next move. Click to open Planner.</description>
+    <label>board</label>
+    <description>Plan your next move. Click to open Board.</description>
     <thingClass>Building</thingClass>
     <category>Building</category>
     <altitudeLayer>Building</altitudeLayer>

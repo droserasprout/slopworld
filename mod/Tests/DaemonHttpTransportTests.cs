@@ -47,7 +47,7 @@ namespace SlopWorld.Tests
 
         [TestCase("GET", false)]
         [TestCase("POST", true)]
-        [TestCase("PUT", true)]
+        [TestCase("POST", true)]
         [TestCase("DELETE", false)]
         [TestCase("DELETE", true)]
         public async Task SendsProtocolHeadersAndBodies(string method, bool hasBody)
@@ -194,7 +194,7 @@ namespace SlopWorld.Tests
         }
 
         [Test]
-        public async Task QueuedPlannerMutationRetainsItsEndpointAndCredentials()
+        public async Task QueuedBoardMutationRetainsItsEndpointAndCredentials()
         {
             using var first = new Peer();
             using var second = new Peer();
@@ -208,9 +208,9 @@ namespace SlopWorld.Tests
                 {
                     // All permits are held, so this mutation cannot reach either peer yet.
                     queued = transport.Send<Wire.Empty>(
-                        "PUT",
-                        "/api/planner",
-                        new Wire.PlannerSaveReq { Text = "Keep this on the first daemon" },
+                        "POST",
+                        "/api/boards",
+                        new Wire.BoardEdit { Text = "Keep this on the first daemon" },
                         null,
                         5000
                     );
@@ -222,7 +222,7 @@ namespace SlopWorld.Tests
             );
             await queued;
             await server;
-            Assert.That(first.Header, Does.StartWith("PUT /api/planner "));
+            Assert.That(first.Header, Does.StartWith("POST /api/boards "));
             Assert.That(
                 first.Header,
                 Does.Contain(WireProtocol.TokenHeader + ": secret").IgnoreCase

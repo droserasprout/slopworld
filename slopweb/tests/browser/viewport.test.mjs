@@ -44,3 +44,9 @@ test('responsive geometry follows browser size and density, with bounded allocat
   assert.deepEqual(workspaceViewport(parameters, {innerWidth:10000,innerHeight:10000,devicePixelRatio:8}),
     {width:7680,height:4320,uiScale:4});
 });
+
+test('responsive keyboard viewport keeps the bottom composer above the keyboard',()=>{
+  assert.deepEqual(workspaceViewport(new URLSearchParams('responsive'),{
+    innerWidth:400,innerHeight:830,devicePixelRatio:2,visualViewport:{height:380}
+  }),{width:800,height:760,uiScale:2});
+});

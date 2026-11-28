@@ -11,6 +11,8 @@ pub(crate) async fn start_sessions(
     tmux: Tmux,
     authority: Arc<ConfigAuthority>,
 ) -> Result<super::Application> {
+    let projects = super::boards::identities(&*authority.read_config().await);
+    services.boards.sync_projects(projects).await?;
     services
         .music
         .configure_output(authority.read_config().await.daemon.audio_output.clone())

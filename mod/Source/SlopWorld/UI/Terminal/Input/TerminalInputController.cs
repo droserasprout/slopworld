@@ -138,7 +138,8 @@ namespace SlopWorld
             {
                 if (_panel.Content == null && HandleEscapeKey(e))
                     return;
-                _panel.Leave();
+                if (!(_panel.Content is BoardView board && board.Back()))
+                    _panel.Leave();
                 e.Use();
                 return;
             }
@@ -220,7 +221,7 @@ namespace SlopWorld
             if (Bound(ModDefOf.SlopTogglePlanner, e))
             {
                 UiMenu.CloseAll();
-                PlannerView.Toggle();
+                BoardView.Toggle();
                 return true;
             }
             if (Bound(ModDefOf.SlopQuickTerminal, e))

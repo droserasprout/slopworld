@@ -2,8 +2,8 @@
 //! Command and log modules own reusable argument schemas and execution.
 
 use super::commands::{
-    AgentAction, ConfigArgs, InboxFilter, ProjectArgs, RemoteCommand, SpawnArgs, UpdateAction,
-    WorktreeArgs,
+    AgentAction, BoardArgs, ConfigArgs, InboxFilter, ProjectArgs, RemoteCommand, SpawnArgs,
+    UpdateAction, WorktreeArgs,
 };
 use super::logs::{LogsArgs, LogsOptions};
 use super::shared::application_paths::{self, Mode};
@@ -57,6 +57,9 @@ enum CliCommand {
     /// Inspect configured projects (requires the root token)
     #[command(subcommand)]
     Project(ProjectArgs),
+    /// Collaborate on project boards and archives
+    #[command(subcommand)]
+    Board(BoardArgs),
     /// Discover and inspect agent templates
     #[command(subcommand)]
     Template(TemplateCommand),
@@ -122,6 +125,8 @@ enum WorkerCommand {
 
 #[derive(Debug, Args)]
 struct SpawnOptions {
+    #[arg(long)]
+    card: Option<String>,
     /// Exact worker name; omitted names are generated from the project or caller
     #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
     name: Option<String>,
@@ -187,6 +192,8 @@ enum SandboxCommand {
 enum TaskCommand {
     /// Send TASK to AGENT
     Delegate {
+        #[arg(long)]
+        card: Option<String>,
         agent: String,
         #[arg(required = true, num_args = 1.., trailing_var_arg = true)]
         task: Vec<String>,
@@ -329,6 +336,7 @@ impl CliCommand {
                 });
             }
             Self::Worker(WorkerCommand::Spawn(args)) => RemoteCommand::Spawn(SpawnArgs {
+                card: args.card,
                 name: args.name.unwrap_or_default(),
                 project: args.template.project,
                 template: args.template.template,
@@ -338,6 +346,7 @@ impl CliCommand {
             }),
             Self::Agent(AgentCommand::Action(action)) => RemoteCommand::AgentAction(action),
             Self::Project(args) => RemoteCommand::Project(args),
+            Self::Board(args) => RemoteCommand::Board(args),
             Self::Agent(AgentCommand::Create {
                 name,
                 template,
@@ -385,7 +394,8 @@ impl TaskCommand {
                 .ok_or_else(|| format!("task {name} needs a task id"))
         };
         Ok(match self {
-            Self::Delegate { agent, task } => RemoteCommand::Delegate {
+            Self::Delegate { agent, task, card } => RemoteCommand::Delegate {
+                card,
                 to: agent,
                 body: task.join(" "),
             },

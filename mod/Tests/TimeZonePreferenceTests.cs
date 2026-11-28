@@ -48,11 +48,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(
                 new DateTime(2026, 1, 1),
                 TimeZonePreference.Convert(utc, "America/Montevideo").Date,
-                "Planner day follows zone"
+                "Local day follows zone"
             );
         }
 
-        public static void ProfileChangesUpdateTimestampPresentationAndPlannerDay()
+        public static void ProfileChangesUpdateTimestampPresentation()
         {
             var settings = Settings.S;
             string zone = settings.timeZone;
@@ -65,30 +65,8 @@ namespace SlopWorld.Tests
                 settings.timeZone = "Asia/Kathmandu";
                 var utc = new DateTime(2026, 1, 1, 20, 0, 0, DateTimeKind.Utc);
                 AssertEx.Equal("2026-01-02 01:45:00", Settings.TimeStamp(utc), "profile timestamp");
-                var entry = TodoText.Parse("Review due:2026-01-02")[0];
-                AssertEx.True(
-                    TodoText.Matches(
-                        entry,
-                        TodoFilter.Today,
-                        "",
-                        "",
-                        Settings.InTimeZone(utc).Date
-                    ),
-                    "due today in Kathmandu"
-                );
                 settings.timeZone = "UTC";
                 AssertEx.Equal("2026-01-01 20:00:00", Settings.TimeStamp(utc), "live zone change");
-                AssertEx.Equal(
-                    false,
-                    TodoText.Matches(
-                        entry,
-                        TodoFilter.Today,
-                        "",
-                        "",
-                        Settings.InTimeZone(utc).Date
-                    ),
-                    "due tomorrow in UTC"
-                );
             }
             finally
             {

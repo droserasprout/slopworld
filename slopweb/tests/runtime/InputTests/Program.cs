@@ -159,3 +159,16 @@ foreach (bool profile in new[] { false, true })
     }
 }
 Console.WriteLine("Browser input batch ordering, UTF-16 and repeated-frame checks passed.");
+
+var boardInput = new List<string>();
+BrowserGuiInput.PointerDevice = touch => boardInput.Add(touch ? "touch" : "mouse");
+BrowserGuiInput.CancelPointer = () => boardInput.Add("cancel");
+BrowserGuiInput.Dispatch(
+    """[{"kind":"down","pointerType":"touch","x":15,"y":20},{"kind":"reset"}]""",
+    new BrowserGui(),
+    () => { }
+);
+if (!boardInput.SequenceEqual(new[] { "touch", "cancel" }))
+    throw new Exception(
+        "Board pointer device and cancellation must reach the native view in order"
+    );

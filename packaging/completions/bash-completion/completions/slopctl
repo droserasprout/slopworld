@@ -19,6 +19,9 @@ _slopctl() {
             slopctl,agent)
                 cmd="slopctl__subcmd__agent"
                 ;;
+            slopctl,board)
+                cmd="slopctl__subcmd__board"
+                ;;
             slopctl,completions)
                 cmd="slopctl__subcmd__completions"
                 ;;
@@ -100,6 +103,138 @@ _slopctl() {
             slopctl__subcmd__agent__subcmd__help,stop)
                 cmd="slopctl__subcmd__agent__subcmd__help__subcmd__stop"
                 ;;
+            slopctl__subcmd__board,add-card)
+                cmd="slopctl__subcmd__board__subcmd__add__subcmd__card"
+                ;;
+            slopctl__subcmd__board,add-column)
+                cmd="slopctl__subcmd__board__subcmd__add__subcmd__column"
+                ;;
+            slopctl__subcmd__board,assign)
+                cmd="slopctl__subcmd__board__subcmd__assign"
+                ;;
+            slopctl__subcmd__board,comment)
+                cmd="slopctl__subcmd__board__subcmd__comment"
+                ;;
+            slopctl__subcmd__board,delete-archive)
+                cmd="slopctl__subcmd__board__subcmd__delete__subcmd__archive"
+                ;;
+            slopctl__subcmd__board,describe)
+                cmd="slopctl__subcmd__board__subcmd__describe"
+                ;;
+            slopctl__subcmd__board,edit-comment)
+                cmd="slopctl__subcmd__board__subcmd__edit__subcmd__comment"
+                ;;
+            slopctl__subcmd__board,help)
+                cmd="slopctl__subcmd__board__subcmd__help"
+                ;;
+            slopctl__subcmd__board,link)
+                cmd="slopctl__subcmd__board__subcmd__link"
+                ;;
+            slopctl__subcmd__board,list)
+                cmd="slopctl__subcmd__board__subcmd__list"
+                ;;
+            slopctl__subcmd__board,move-card)
+                cmd="slopctl__subcmd__board__subcmd__move__subcmd__card"
+                ;;
+            slopctl__subcmd__board,move-column)
+                cmd="slopctl__subcmd__board__subcmd__move__subcmd__column"
+                ;;
+            slopctl__subcmd__board,remove-activity)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__activity"
+                ;;
+            slopctl__subcmd__board,remove-card)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__card"
+                ;;
+            slopctl__subcmd__board,remove-column)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__column"
+                ;;
+            slopctl__subcmd__board,remove-comment)
+                cmd="slopctl__subcmd__board__subcmd__remove__subcmd__comment"
+                ;;
+            slopctl__subcmd__board,rename-column)
+                cmd="slopctl__subcmd__board__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__board,set-prefix)
+                cmd="slopctl__subcmd__board__subcmd__set__subcmd__prefix"
+                ;;
+            slopctl__subcmd__board,show)
+                cmd="slopctl__subcmd__board__subcmd__show"
+                ;;
+            slopctl__subcmd__board,title)
+                cmd="slopctl__subcmd__board__subcmd__title"
+                ;;
+            slopctl__subcmd__board,unassign)
+                cmd="slopctl__subcmd__board__subcmd__unassign"
+                ;;
+            slopctl__subcmd__board,unlink)
+                cmd="slopctl__subcmd__board__subcmd__unlink"
+                ;;
+            slopctl__subcmd__board__subcmd__help,add-card)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__add__subcmd__card"
+                ;;
+            slopctl__subcmd__board__subcmd__help,add-column)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__add__subcmd__column"
+                ;;
+            slopctl__subcmd__board__subcmd__help,assign)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__assign"
+                ;;
+            slopctl__subcmd__board__subcmd__help,comment)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__comment"
+                ;;
+            slopctl__subcmd__board__subcmd__help,delete-archive)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__delete__subcmd__archive"
+                ;;
+            slopctl__subcmd__board__subcmd__help,describe)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__describe"
+                ;;
+            slopctl__subcmd__board__subcmd__help,edit-comment)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__edit__subcmd__comment"
+                ;;
+            slopctl__subcmd__board__subcmd__help,help)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__help"
+                ;;
+            slopctl__subcmd__board__subcmd__help,link)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__link"
+                ;;
+            slopctl__subcmd__board__subcmd__help,list)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__list"
+                ;;
+            slopctl__subcmd__board__subcmd__help,move-card)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__move__subcmd__card"
+                ;;
+            slopctl__subcmd__board__subcmd__help,move-column)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__move__subcmd__column"
+                ;;
+            slopctl__subcmd__board__subcmd__help,remove-activity)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__activity"
+                ;;
+            slopctl__subcmd__board__subcmd__help,remove-card)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__card"
+                ;;
+            slopctl__subcmd__board__subcmd__help,remove-column)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__column"
+                ;;
+            slopctl__subcmd__board__subcmd__help,remove-comment)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__comment"
+                ;;
+            slopctl__subcmd__board__subcmd__help,rename-column)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__board__subcmd__help,set-prefix)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__set__subcmd__prefix"
+                ;;
+            slopctl__subcmd__board__subcmd__help,show)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__show"
+                ;;
+            slopctl__subcmd__board__subcmd__help,title)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__title"
+                ;;
+            slopctl__subcmd__board__subcmd__help,unassign)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__unassign"
+                ;;
+            slopctl__subcmd__board__subcmd__help,unlink)
+                cmd="slopctl__subcmd__board__subcmd__help__subcmd__unlink"
+                ;;
             slopctl__subcmd__config,get)
                 cmd="slopctl__subcmd__config__subcmd__get"
                 ;;
@@ -120,6 +255,9 @@ _slopctl() {
                 ;;
             slopctl__subcmd__help,agent)
                 cmd="slopctl__subcmd__help__subcmd__agent"
+                ;;
+            slopctl__subcmd__help,board)
+                cmd="slopctl__subcmd__help__subcmd__board"
                 ;;
             slopctl__subcmd__help,completions)
                 cmd="slopctl__subcmd__help__subcmd__completions"
@@ -177,6 +315,69 @@ _slopctl() {
                 ;;
             slopctl__subcmd__help__subcmd__agent,stop)
                 cmd="slopctl__subcmd__help__subcmd__agent__subcmd__stop"
+                ;;
+            slopctl__subcmd__help__subcmd__board,add-card)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__add__subcmd__card"
+                ;;
+            slopctl__subcmd__help__subcmd__board,add-column)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__add__subcmd__column"
+                ;;
+            slopctl__subcmd__help__subcmd__board,assign)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__assign"
+                ;;
+            slopctl__subcmd__help__subcmd__board,comment)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__comment"
+                ;;
+            slopctl__subcmd__help__subcmd__board,delete-archive)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__delete__subcmd__archive"
+                ;;
+            slopctl__subcmd__help__subcmd__board,describe)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__describe"
+                ;;
+            slopctl__subcmd__help__subcmd__board,edit-comment)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__edit__subcmd__comment"
+                ;;
+            slopctl__subcmd__help__subcmd__board,link)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__link"
+                ;;
+            slopctl__subcmd__help__subcmd__board,list)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__list"
+                ;;
+            slopctl__subcmd__help__subcmd__board,move-card)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__move__subcmd__card"
+                ;;
+            slopctl__subcmd__help__subcmd__board,move-column)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__move__subcmd__column"
+                ;;
+            slopctl__subcmd__help__subcmd__board,remove-activity)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__activity"
+                ;;
+            slopctl__subcmd__help__subcmd__board,remove-card)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__card"
+                ;;
+            slopctl__subcmd__help__subcmd__board,remove-column)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__column"
+                ;;
+            slopctl__subcmd__help__subcmd__board,remove-comment)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__comment"
+                ;;
+            slopctl__subcmd__help__subcmd__board,rename-column)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__rename__subcmd__column"
+                ;;
+            slopctl__subcmd__help__subcmd__board,set-prefix)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__set__subcmd__prefix"
+                ;;
+            slopctl__subcmd__help__subcmd__board,show)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__show"
+                ;;
+            slopctl__subcmd__help__subcmd__board,title)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__title"
+                ;;
+            slopctl__subcmd__help__subcmd__board,unassign)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__unassign"
+                ;;
+            slopctl__subcmd__help__subcmd__board,unlink)
+                cmd="slopctl__subcmd__help__subcmd__board__subcmd__unlink"
                 ;;
             slopctl__subcmd__help__subcmd__config,get)
                 cmd="slopctl__subcmd__help__subcmd__config__subcmd__get"
@@ -425,7 +626,7 @@ _slopctl() {
 
     case "${cmd}" in
         slopctl)
-            opts="-h -V --json --sidecar --endpoint --help --version completions worker agent project template worktree task peers status sandbox config logs paths help"
+            opts="-h -V --json --sidecar --endpoint --help --version completions worker agent project board template worktree task peers status sandbox config logs paths help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -688,6 +889,740 @@ _slopctl() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        slopctl__subcmd__board)
+            opts="-h --json --sidecar --endpoint --help list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__add__subcmd__card)
+            opts="-h --before --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --before)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__add__subcmd__column)
+            opts="-h --before --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --before)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__assign)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__comment)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__delete__subcmd__archive)
+            opts="-h --confirm --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__describe)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__edit__subcmd__comment)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help)
+            opts="list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__add__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__add__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__assign)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__delete__subcmd__archive)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__describe)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__edit__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__link)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__move__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__move__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__activity)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__remove__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__rename__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__set__subcmd__prefix)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__title)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__unassign)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__help__subcmd__unlink)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__link)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__list)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__move__subcmd__card)
+            opts="-h --before --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --before)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__move__subcmd__column)
+            opts="-h --before --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --before)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__activity)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__card)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__column)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__remove__subcmd__comment)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__rename__subcmd__column)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__set__subcmd__prefix)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__show)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__title)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__unassign)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__board__subcmd__unlink)
+            opts="-h --json --sidecar --endpoint --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --endpoint)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         slopctl__subcmd__completions)
             opts="-h --json --sidecar --endpoint --help bash elvish fish powershell zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
@@ -817,7 +1752,7 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help)
-            opts="completions worker agent project template worktree task peers status sandbox config logs paths help"
+            opts="completions worker agent project board template worktree task peers status sandbox config logs paths help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -915,6 +1850,314 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__help__subcmd__agent__subcmd__stop)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board)
+            opts="list show set-prefix edit-comment remove-comment remove-activity add-column rename-column move-column remove-column add-card move-card remove-card title describe assign unassign comment link unlink delete-archive"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__add__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__add__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__assign)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__delete__subcmd__archive)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__describe)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__edit__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__link)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__list)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__move__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__move__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__activity)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__card)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__remove__subcmd__comment)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__rename__subcmd__column)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__set__subcmd__prefix)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__show)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__title)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__unassign)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        slopctl__subcmd__help__subcmd__board__subcmd__unlink)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -1773,12 +3016,16 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__task__subcmd__delegate)
-            opts="-h --json --sidecar --endpoint --help"
+            opts="-h --card --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --card)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --endpoint)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -2347,12 +3594,16 @@ _slopctl() {
             return 0
             ;;
         slopctl__subcmd__worker__subcmd__spawn)
-            opts="-h --name --project --template --one-shot --worktree --json --sidecar --endpoint --help"
+            opts="-h --card --name --project --template --one-shot --worktree --json --sidecar --endpoint --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --card)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

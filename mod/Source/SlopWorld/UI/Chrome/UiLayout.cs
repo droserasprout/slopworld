@@ -223,13 +223,13 @@ namespace SlopWorld
         {
             internal bool Checked;
 
-            public ToggleOption(string label, bool on, Action action)
+            public ToggleOption(string label, bool on, Action action, Func<bool> selected = null)
                 : base(label, action)
             {
                 Checked = on;
                 extraPartWidth = TickColW;
                 extraPartRightJustified = false;
-                extraPartOnGUI = r => DrawTick(r, Checked);
+                extraPartOnGUI = r => DrawTick(r, selected?.Invoke() ?? Checked);
             }
         }
 

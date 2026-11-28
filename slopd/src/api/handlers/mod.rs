@@ -13,13 +13,13 @@ mod actions;
 mod config;
 #[cfg(test)]
 pub(crate) use config::config_patch;
+mod boards;
 mod files;
 mod highlighting;
 mod jukebox;
 mod library;
-mod planner;
 mod presets;
-pub(crate) use planner::*;
+pub(crate) use boards::*;
 mod sessions;
 mod system;
 mod tasks;

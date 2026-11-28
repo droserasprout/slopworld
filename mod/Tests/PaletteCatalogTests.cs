@@ -165,6 +165,69 @@ namespace SlopWorld
                     Assert.That(command.SubAction().Single().Enabled, Is.False, command.Id);
             }
 
+            sealed class CardPanel : ContentView
+            {
+                public readonly BoardSelection Selection = new BoardSelection();
+                public override string Title => "Board";
+
+                public override void Draw(UnityEngine.Rect body) { }
+            }
+
+            [Test]
+            public void CompletedAssignmentOpensFromCardAndPaletteWithReturnContext()
+            {
+                using var fixture = new CatalogFixture();
+                var previous = TaskDetailView.Shown;
+                var previousReturn = TaskDetailView.ReturnTo;
+                try
+                {
+                    var task = new TaskInfo
+                    {
+                        Id = "assignment",
+                        Status = DelegatedTaskStatus.Done,
+                        Note = "review complete",
+                    };
+                    SessionHub.Instance.Tasks.Add(task);
+                    var card = new Wire.BoardCard
+                    {
+                        Id = "card",
+                        Key = "SW-42",
+                        Links =
+                        {
+                            new Wire.BoardLink { Kind = "task", Target = task.Id },
+                        },
+                    };
+                    var board = new Wire.ProjectBoard
+                    {
+                        Id = "project",
+                        Columns = { new Wire.BoardColumn { Cards = { card } } },
+                    };
+                    var panel = new CardPanel();
+                    panel.Selection.Select(card);
+                    TaskDetailView.Open(
+                        panel.Selection.LinkedTasks(SessionHub.Instance.Tasks).Single(),
+                        panel
+                    );
+                    Assert.That(TaskDetailView.Shown.Note, Is.EqualTo("review complete"));
+                    var restored = ((CardPanel)TaskDetailView.ReturnTo).Selection;
+                    Assert.That(restored.Card.Key, Is.EqualTo("SW-42"));
+                    restored.Select(null);
+                    TaskCommands().Single(command => command.Id == "task.open").Action(task.Id);
+                    Assert.That(
+                        restored.SelectLinkedTaskCard(board, card.Id, TaskDetailView.Shown.Id),
+                        Is.True
+                    );
+                    Assert.That(restored.Card.Key, Is.EqualTo("SW-42"));
+                    card.Links.Clear();
+                    Assert.That(restored.SelectLinkedTaskCard(board, card.Id, task.Id), Is.False);
+                }
+                finally
+                {
+                    TaskDetailView.Shown = previous;
+                    TaskDetailView.ReturnTo = previousReturn;
+                }
+            }
+
             [Test]
             public void TaskRegistrationsDispatchCurrentRecordsToTheirOwners()
             {
@@ -173,7 +236,6 @@ namespace SlopWorld
                 var previousRemoved = TaskActions.Removed;
                 var previousShown = TaskDetailView.Shown;
                 var previousReturn = TaskDetailView.ReturnTo;
-                int previousFilters = TasksView.FiltersOpened;
                 try
                 {
                     var commands = TaskCommands();
@@ -187,8 +249,6 @@ namespace SlopWorld
                     replacement.Status = DelegatedTaskStatus.Accepted;
                     commands.Single(c => c.Id == "task.cancel").Action("t");
                     Assert.That(TaskActions.Canceled, Is.SameAs(replacement));
-                    commands.Single(c => c.Id == "task.filter").Action(null);
-                    Assert.That(TasksView.FiltersOpened, Is.EqualTo(previousFilters + 1));
                 }
                 finally
                 {
@@ -196,7 +256,6 @@ namespace SlopWorld
                     TaskActions.Removed = previousRemoved;
                     TaskDetailView.Shown = previousShown;
                     TaskDetailView.ReturnTo = previousReturn;
-                    TasksView.FiltersOpened = previousFilters;
                 }
             }
 

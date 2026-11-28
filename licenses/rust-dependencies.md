@@ -87,6 +87,8 @@ and does not identify which crates are included in a particular binary.
 | enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
 | errno | 0.3.15 | MIT OR Apache-2.0 |
+| fallible-iterator | 0.3.0 | MIT/Apache-2.0 |
+| fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
@@ -111,6 +113,7 @@ and does not identify which crates are included in a particular binary.
 | globset | 0.4.22 | Unlicense OR MIT |
 | hashbrown | 0.15.5 | MIT OR Apache-2.0 |
 | hashbrown | 0.17.2 | MIT OR Apache-2.0 |
+| hashlink | 0.10.0 | MIT OR Apache-2.0 |
 | heck | 0.5.0 | MIT OR Apache-2.0 |
 | hermit-abi | 0.5.3 | MIT OR Apache-2.0 |
 | home | 0.5.12 | MIT OR Apache-2.0 |
@@ -153,6 +156,7 @@ and does not identify which crates are included in a particular binary.
 | libc | 0.2.191 | MIT OR Apache-2.0 |
 | libdbus-sys | 0.2.7 | Apache-2.0/MIT |
 | libredox | 0.1.25 | MIT |
+| libsqlite3-sys | 0.35.0 | MIT |
 | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | litemap | 0.8.3 | Unicode-3.0 |
 | litrs | 1.1.0 | MIT OR Apache-2.0 |
@@ -239,6 +243,7 @@ and does not identify which crates are included in a particular binary.
 | reqwest | 0.12.28 | MIT OR Apache-2.0 |
 | ring | 0.17.14 | Apache-2.0 AND ISC |
 | rodio | 0.22.2 | MIT OR Apache-2.0 |
+| rusqlite | 0.37.0 | MIT |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT |
 | rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | rustix-openpty | 0.2.0 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
@@ -335,6 +340,7 @@ and does not identify which crates are included in a particular binary.
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
 | uuid | 1.29.3 | Apache-2.0 OR MIT |
 | valuable | 0.1.1 | MIT |
+| vcpkg | 0.2.15 | MIT/Apache-2.0 |
 | version_check | 0.9.5 | MIT/Apache-2.0 |
 | vte | 0.15.0 | Apache-2.0 OR MIT |
 | walkdir | 2.5.1 | Unlicense/MIT |

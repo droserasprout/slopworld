@@ -10,6 +10,14 @@ use std::time::{Duration, Instant};
 #[path = "support/daemon_recovery.rs"]
 mod recovery;
 
+#[expect(
+    dead_code,
+    reason = "the shared wire schema includes other API operations"
+)]
+mod wire {
+    include!(concat!(env!("OUT_DIR"), "/slopworld.rs"));
+}
+
 struct Daemon {
     root: PathBuf,
     address: SocketAddr,
@@ -232,4 +240,93 @@ fn lifecycle_occupied_listener_fails_without_publishing_discovery_or_starting_tm
             .starts_with("tmux-")
     }));
     assert!(!daemon.root.join("data").exists());
+}
+
+#[test]
+fn board_cli_edits_are_transactional_and_survive_restart() {
+    let reservation = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut daemon = Daemon::new(reservation.local_addr().unwrap());
+    drop(reservation);
+    use prost::Message;
+    let project = "1111111111111111";
+    let configs = daemon.root.join("config/projects");
+    fs::create_dir_all(&configs).unwrap();
+    fs::write(
+        configs.join(format!("{project}.toml")),
+        format!("storage_order = 0\nid = '{project}'\nname = 'Repo'\ndir = '/tmp'\n"),
+    )
+    .unwrap();
+    daemon.start();
+    daemon.ready();
+    let board = |daemon: &Daemon, args: &[&str]| -> serde_json::Value {
+        let output = Command::new(env!("CARGO_BIN_EXE_slopctl"))
+            .arg("board")
+            .args(args)
+            .env("SLOPD_URL", format!("http://{}", daemon.address))
+            .env("SLOPD_TOKEN", "lifecycle-secret")
+            .env("SLOPWORLD_SESSION", "host")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).unwrap()
+    };
+    assert!(board(&daemon, &["list"]).as_array().unwrap().is_empty());
+    ureq::post(&format!("http://{}/api/boards", daemon.address))
+        .header("x-slop-token", "lifecycle-secret")
+        .header("content-type", "application/x-protobuf")
+        .send(
+            wire::BoardEdit {
+                board: project.into(),
+                action: "enable-board".into(),
+                text: "Repo".into(),
+                ..Default::default()
+            }
+            .encode_to_vec()
+            .as_slice(),
+        )
+        .unwrap();
+    let added = board(&daemon, &["add-column", project, "Review"]);
+    let columns = added["boards"][0]["columns"].as_array().unwrap();
+    let backlog = columns[0]["id"].as_str().unwrap();
+    let review = columns[4]["id"].as_str().unwrap();
+    let added = board(&daemon, &["add-card", project, backlog, "Check protocol"]);
+    let card = added["boards"][0]["columns"][0]["cards"][0]["id"]
+        .as_str()
+        .unwrap();
+    board(&daemon, &["assign", project, card, "reviewer"]);
+    board(&daemon, &["link", project, card, "worktree", "checkout"]);
+    board(&daemon, &["comment", project, card, "Ready"]);
+    board(&daemon, &["move-card", project, review, card]);
+    board(
+        &daemon,
+        &["move-column", project, review, "--before", backlog],
+    );
+    // Inspect through an independent connection while the daemon is live.
+    {
+        let db = rusqlite::Connection::open(daemon.root.join("data/boards.sqlite3")).unwrap();
+        let location: String = db
+            .query_row("SELECT col FROM cards WHERE id=?", [card], |r| r.get(0))
+            .unwrap();
+        assert_eq!(location, review);
+    }
+    assert!(
+        Command::new("kill")
+            .args(["-TERM", &daemon.child.as_ref().unwrap().id().to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(daemon.wait().success());
+    daemon.start();
+    daemon.ready();
+    let shown = board(&daemon, &["show"]);
+    let reviewed = &shown["columns"][0]["cards"][0];
+    assert_eq!(reviewed["id"], card);
+    assert_eq!(reviewed["assignee"], "reviewer");
+    assert_eq!(reviewed["comments"][0]["text"], "Ready");
+    assert_eq!(reviewed["links"][0]["target"], "checkout");
 }

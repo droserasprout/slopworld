@@ -15,6 +15,7 @@ namespace SlopWorld
             General,
             Mounts,
             Worktrees,
+            Boards,
         }
 
         ProjectWorktrees _worktrees;
@@ -26,6 +27,14 @@ namespace SlopWorld
         readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
         readonly TempProjectPreviewState _tempPreview = new TempProjectPreviewState();
+        readonly ScrollableListing _boardsListing = new ScrollableListing();
+        bool _boardLoaded,
+            _boardLoading,
+            _boardEnabled;
+        Wire.ProjectBoard _originalBoard;
+        string _boardName,
+            _boardPrefix,
+            _boardError;
         Tab _tab;
         bool _saving;
 
@@ -101,6 +110,9 @@ namespace SlopWorld
                 case Tab.Mounts:
                     DrawMounts(body);
                     break;
+                case Tab.Boards:
+                    _boardsListing.Draw(body, DrawBoards);
+                    break;
                 case Tab.Worktrees:
                     if (_worktrees == null)
                         Widgets.Label(body, "Save the project before managing worktrees.");
@@ -123,6 +135,7 @@ namespace SlopWorld
                 {
                     ("General", Tab.General),
                     ("Mounts", Tab.Mounts),
+                    ("Boards", Tab.Boards),
                     ("Worktrees", Tab.Worktrees),
                 },
                 ref _tab
@@ -174,6 +187,56 @@ namespace SlopWorld
                 _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
                 if (UiLayout.Button(l, "Choose directory"))
                     WorkspaceWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
+            }
+        }
+
+        void DrawBoards(Listing_Standard l)
+        {
+            if (_identity.IsNew)
+            {
+                l.Label("Save the project before managing its board.");
+                return;
+            }
+            if (!_boardLoaded)
+            {
+                if (_boardError != null)
+                {
+                    l.Label(_boardError);
+                    if (UiLayout.Button(l, "Retry"))
+                        _boardError = null;
+                    return;
+                }
+                l.Label("Loading board settings…");
+                if (_boardLoading)
+                    return;
+                _boardLoading = true;
+                DaemonClient.Get<Wire.BoardCatalog>(
+                    WireProtocol.Routes.Boards,
+                    result =>
+                    {
+                        var board = result.Boards.FirstOrDefault(b => b.Id == _p.Id);
+                        _originalBoard = board;
+                        _boardEnabled = board != null;
+                        _boardName = board?.Name ?? _p.Name;
+                        _boardPrefix = board?.Prefix ?? "";
+                        _boardLoaded = true;
+                        _boardLoading = false;
+                    },
+                    error =>
+                    {
+                        _boardError = error;
+                        _boardLoading = false;
+                    }
+                );
+                return;
+            }
+            _boardEnabled = UiControls.Checkbox(l, "Enable board", _boardEnabled);
+            if (_boardEnabled)
+            {
+                l.Label("Name");
+                _boardName = UiControls.Field(l, "project.board.name", _boardName);
+                l.Label("Prefix");
+                _boardPrefix = UiControls.Field(l, "project.board.prefix", _boardPrefix);
             }
         }
 
@@ -328,18 +391,58 @@ namespace SlopWorld
             // The form remains editable while the request is in flight.
             string submittedName = _p.Name;
             _saving = true;
-            SessionHub.Instance.Catalog.SaveProject(
-                _p,
-                _identity.IsNew,
-                _identity.OriginalName,
-                ok: () =>
+            var submittedProject = _p.Copy();
+            void SaveProject() =>
+                SessionHub.Instance.Catalog.SaveProject(
+                    submittedProject,
+                    _identity.IsNew,
+                    _identity.OriginalName,
+                    ok: () =>
+                    {
+                        if (_identity.IsNew)
+                            Sidebar.IncludeProject(submittedName);
+                        Close();
+                        _onSaved?.Invoke(submittedName);
+                    },
+                    fail: error =>
+                    {
+                        _saving = false;
+                        UiLayout.Fail(error);
+                    }
+                );
+            bool boardChanged =
+                _boardLoaded
+                && (
+                    _boardEnabled != (_originalBoard != null)
+                    || (
+                        _boardEnabled
+                        && (
+                            _boardName != _originalBoard?.Name
+                            || _boardPrefix != _originalBoard?.Prefix
+                        )
+                    )
+                );
+            if (!boardChanged)
+            {
+                SaveProject();
+                return;
+            }
+            DaemonClient.Post<Wire.BoardCatalog>(
+                WireProtocol.Routes.Boards,
+                new Wire.BoardEdit
                 {
-                    if (_identity.IsNew)
-                        Sidebar.IncludeProject(submittedName);
-                    Close();
-                    _onSaved?.Invoke(submittedName);
+                    Board = _p.Id,
+                    Action = _boardEnabled ? "enable-board" : "disable-board",
+                    Text = _boardName,
+                    Prefix = _boardPrefix.Trim(),
                 },
-                fail: error =>
+                result =>
+                {
+                    _originalBoard = result.Boards.FirstOrDefault(b => b.Id == _p.Id);
+                    _boardPrefix = _originalBoard?.Prefix ?? _boardPrefix;
+                    SaveProject();
+                },
+                error =>
                 {
                     _saving = false;
                     UiLayout.Fail(error);

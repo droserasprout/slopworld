@@ -17,7 +17,6 @@ pub struct WorkerSpawn {
 
 struct WorkerCommitContext {
     config: Config,
-    planner_id: String,
     prompt: Option<String>,
 }
 
@@ -162,6 +161,9 @@ pub(crate) fn prepare(
     let template = template(&caller, context, &project, name.trim(), templates)?;
     let mut session =
         worker_session_from_template(&template, "worker-validation".into(), &project, &caller);
+    let p = cfg
+        .project(&project)
+        .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
     if let Caller::Agent {
         identity,
         policy,
@@ -170,7 +172,7 @@ pub(crate) fn prepare(
     } = context
     {
         session.parent_id.clone_from(identity);
-        session.permissions = session.permissions.intersect(*permissions);
+        session.permissions = session.permissions.intersect(permissions, &p.id);
         session.workers.enabled &= policy.recursive;
         session.workers.recursive &= policy.recursive;
         if !policy.all_templates {
@@ -190,9 +192,6 @@ pub(crate) fn prepare(
         session.parent_id = crate::tasks::HOST.into();
         session.workers.enabled = false;
     }
-    let p = cfg
-        .project(&project)
-        .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
     // Workers must reach the task API; their template supplies execution settings.
     if cfg.network_of(&session, p) == NetworkMode::None {
         bail!(
@@ -352,18 +351,9 @@ impl Workers {
     /// Validate and allocate under one accepted configuration and identity boundary.
     /// Abandoned allocation rolls back; once startup begins its owned operation finishes
     /// commit or failure cleanup even if the requesting transport disappears.
-    #[cfg(test)]
     pub(crate) async fn create_worker(&self, request: WorkerRequest) -> Result<WorkerSpawn> {
-        self.create_linked_worker(request, String::new()).await
-    }
-
-    pub(crate) async fn create_linked_worker(
-        &self,
-        request: WorkerRequest,
-        planner_id: String,
-    ) -> Result<WorkerSpawn> {
         self.configuration()
-            .session_request(self.create_worker_inner(request, planner_id, None))
+            .session_request(self.create_worker_inner(request, None))
             .await
     }
 
@@ -373,23 +363,15 @@ impl Workers {
         prompt: String,
     ) -> Result<WorkerSpawn> {
         self.configuration()
-            .session_request(self.create_worker_inner(request, String::new(), Some(prompt)))
+            .session_request(self.create_worker_inner(request, Some(prompt)))
             .await
     }
 
     async fn create_worker_inner(
         &self,
         request: WorkerRequest,
-        planner_id: String,
         prompt: Option<String>,
     ) -> Result<WorkerSpawn> {
-        if !planner_id.is_empty() {
-            anyhow::ensure!(
-                request.caller == crate::tasks::HOST,
-                "Planner workers must be host-owned."
-            );
-            self.services.planner.require_item(&planner_id).await?;
-        }
         let cfg = self.configuration().config().await;
         let caller = request.caller.trim();
         let context = self.sessions.worker_caller(caller).await;
@@ -453,7 +435,6 @@ impl Workers {
                         durable,
                         WorkerCommitContext {
                             config: cfg,
-                            planner_id,
                             prompt,
                         },
                     )
@@ -514,26 +495,6 @@ impl Workers {
             .spawn_task_summary(self.config_authority.daemon_settings(), task.clone());
         session.task_id = task.id.clone();
 
-        // Persist both associations before startup so failures remain inspectable.
-        if !context.planner_id.is_empty() {
-            let result = self
-                .services
-                .planner
-                .link_worker(&context.planner_id, &task)
-                .await;
-            if let Err(error) = result {
-                sessions
-                    .record_worker_failure(
-                        &session,
-                        crate::session::WorkerFailureCause::RegistrationFailed(format!(
-                            "Planner links: {error:#}"
-                        )),
-                    )
-                    .await;
-                return Err(error);
-            }
-        }
-
         if let Err(error) = self.register_task_worker(&session, durable).await {
             sessions
                 .record_worker_failure(
@@ -592,7 +553,7 @@ impl Workers {
                     !expected_task.is_empty() && session.task_id == expected_task,
                     "Worker relationship changed. Reload the worker before editing access."
                 );
-                session.permissions = permissions;
+                session.permissions.clone_from(&permissions);
                 if let Some(policy) = policy {
                     session.workers = policy;
                 }

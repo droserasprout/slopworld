@@ -170,16 +170,9 @@ pub(crate) async fn spawn_worker(
             "new_worktree",
             "base",
             "worktree_name",
-            "planner_id",
         ],
     )?;
     let from = task_principal(&cap, &headers)?;
-    if !q.planner_id.is_empty() && !matches!(cap, Cap::Root) {
-        return Err(err(
-            StatusCode::FORBIDDEN,
-            "Only root can link Planner items.",
-        ));
-    }
     if q.new_worktree && !m.sessions.manage_worktrees_ok(&cap).await {
         return Err(err(StatusCode::FORBIDDEN, "Worktree management is denied."));
     }
@@ -204,18 +197,15 @@ pub(crate) async fn spawn_worker(
         crate::application::workers::WorkerCheckout::Existing(q.worktree)
     };
     let worker = Workers::new(&m)
-        .create_linked_worker(
-            crate::application::workers::WorkerRequest {
-                caller: from.clone(),
-                name: q.name,
-                project: q.project,
-                template: q.template,
-                body: q.body,
-                durable: q.durable,
-                checkout,
-            },
-            q.planner_id,
-        )
+        .create_worker(crate::application::workers::WorkerRequest {
+            caller: from.clone(),
+            name: q.name,
+            project: q.project,
+            template: q.template,
+            body: q.body,
+            durable: q.durable,
+            checkout,
+        })
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Proto(wire::WorkerResult {

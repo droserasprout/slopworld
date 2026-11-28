@@ -27,7 +27,7 @@ This example creates a persistent worker so you can inspect its terminal afterwa
    slopctl worker spawn --project repo --template review "Review the README and report unclear setup steps. Do not edit files."
    ```
 
-2. Keep the returned task ID. Open **Tasks** in the sidebar to read its dialogue,
+2. Keep the returned task ID. Choose **Task: Open** in the command palette to read its dialogue,
    or run `slopctl task wait ID` to wait for its final result. Workers receive
    their task ID and connection credentials automatically.
 3. The worker reads and accepts the task, reports progress, and finishes or fails
@@ -85,9 +85,7 @@ read the failure and create a new task to retry. See
 
 ## Task mailboxes
 
-<img src="../images/task-mailboxes.jpg" alt="Tasks sidebar with completed worker assignments and a selected task's dialogue" align="right" width="320">
-
-The Tasks view is global; the workspace Project filter does not hide its rows.
+For shared project planning, open [Board](../workspace/board.md).
 For delegation to an existing agent, use `slopctl task delegate AGENT "description"`
 within the permissions below. Mailbox arrival does not wake the recipient. Keep
 the returned ID and, for immediate delivery to a running interactive agent, use
@@ -101,7 +99,7 @@ commands, statuses, and lifecycle.
 
 Tasks are shared by sender and recipient. Only the recipient can update an
 uncanceled task. Recipients can cancel queued or accepted tasks. The root token
-can cancel those and unfinished worker assignments through the task board, API, or
+can cancel those and unfinished worker assignments through task details, the API, or
 `slopctl task cancel ID`. Agents with **Cancel tasks** permission can cancel
 unfinished tasks addressed to recipients within that scope, including ordinary
 working tasks without being a participant. Cancellation does not stop the process.

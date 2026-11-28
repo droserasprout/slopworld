@@ -1,0 +1,42 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS board_prefixes (prefix TEXT PRIMARY KEY COLLATE NOCASE NOT NULL, owner TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS board_counters (owner TEXT PRIMARY KEY NOT NULL, issued INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS boards (
+    id TEXT PRIMARY KEY NOT NULL, prefix TEXT NOT NULL REFERENCES board_prefixes(prefix), name TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS columns (
+    id TEXT PRIMARY KEY NOT NULL, board TEXT NOT NULL REFERENCES boards ON DELETE CASCADE,
+    position INTEGER NOT NULL, name TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS columns_location ON columns(board, position);
+CREATE TABLE IF NOT EXISTS cards (
+    id TEXT PRIMARY KEY NOT NULL, public_key TEXT NOT NULL UNIQUE, col TEXT NOT NULL REFERENCES columns ON DELETE CASCADE,
+    position INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+    assignee TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS cards_location ON cards(col, position);
+CREATE TABLE IF NOT EXISTS card_key_aliases (
+    public_key TEXT PRIMARY KEY NOT NULL, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS aliases_card ON card_key_aliases(card);
+CREATE TRIGGER IF NOT EXISTS recycle_card_key AFTER UPDATE OF public_key ON cards
+WHEN OLD.public_key != NEW.public_key
+BEGIN
+    DELETE FROM card_key_aliases WHERE card=OLD.id;
+    INSERT INTO card_key_aliases(public_key,card) VALUES(OLD.public_key,OLD.id);
+END;
+CREATE TABLE IF NOT EXISTS comments (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
+    author TEXT NOT NULL, text TEXT NOT NULL, timestamp_ms INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS comments_card ON comments(card, sequence);
+CREATE TABLE IF NOT EXISTS links (
+    card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE, kind TEXT NOT NULL, target TEXT NOT NULL,
+    PRIMARY KEY(card,kind,target)
+);
+CREATE INDEX IF NOT EXISTS task_link_targets ON links(target,card) WHERE kind='task';
+CREATE TABLE IF NOT EXISTS card_activity (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT, card TEXT NOT NULL REFERENCES cards ON DELETE CASCADE,
+    author TEXT NOT NULL, text TEXT NOT NULL, timestamp_ms INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS activity_card ON card_activity(card, sequence);

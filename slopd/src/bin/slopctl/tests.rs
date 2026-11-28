@@ -87,6 +87,7 @@ fn command_parser_builds_delegation_and_update_commands() {
     assert_eq!(
         parse_command(&words("task delegate agent fix the pane")),
         Ok(Command::Remote(RemoteCommand::Delegate {
+            card: None,
             to: "agent".to_string(),
             body: "fix the pane".to_string(),
         }))
@@ -110,6 +111,7 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --project repo --template codex inspect the build"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            card: None,
             name: Default::default(),
             worktree: Default::default(),
             project: "repo".to_string(),
@@ -123,6 +125,7 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --project repo --template codex run the checks"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            card: None,
             name: Default::default(),
             worktree: Default::default(),
             project: "repo".to_string(),
@@ -294,6 +297,7 @@ fn task_text_preserves_help_words_and_flags() {
         assert_eq!(
             parse_command(&args),
             Ok(Command::Remote(RemoteCommand::Delegate {
+                card: None,
                 to: "agent".into(),
                 body: text.into(),
             }))
@@ -337,6 +341,7 @@ fn spawn_preserves_task_text_after_template_options() {
                 assert_eq!(
                     parse_command(&args),
                     Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+                        card: None,
                         name: Default::default(),
                         worktree: Default::default(),
                         project: "repo".into(),
@@ -370,6 +375,7 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
                 assert_eq!(
                     parsed.command,
                     Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+                        card: None,
                         name: Default::default(),
                         worktree: Default::default(),
                         project: "repo".into(),
@@ -437,6 +443,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         "host",
         true,
         &SpawnArgs {
+            card: None,
             name: "build-review".into(),
             worktree: "review-checkout".into(),
             project: "repo".into(),
@@ -895,6 +902,7 @@ fn template_lookup_respects_caller_scope_and_encodes_project() {
 fn command_dispatch_propagates_daemon_rejection() {
     let (endpoint, server) = serve("403 Forbidden", r#"{"error":"outside grant"}"#);
     let result = RemoteCommand::Delegate {
+        card: None,
         to: "other".into(),
         body: "do work".into(),
     }
@@ -986,6 +994,7 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
             "worker spawn --project repo --template codex --worktree feature task"
         )),
         Ok(Command::Remote(RemoteCommand::Spawn(SpawnArgs {
+            card: None,
             name: Default::default(),
             project: "repo".into(),
             template: "codex".into(),
@@ -1389,4 +1398,88 @@ fn worker_spawn_accepts_custom_name_before_task_text() {
     };
     assert_eq!(args.name, "review-build");
     assert_eq!(args.body, "inspect this");
+}
+
+#[test]
+fn board_removals_send_the_entry_id_and_moves_require_one_board() {
+    for (action, entry) in [("remove-comment", "13"), ("remove-activity", "47")] {
+        let (endpoint, server) = serve("200 OK", r#"{"boards":[]}"#);
+        let Command::Remote(cmd) =
+            parse_command(&words(&format!("board {action} root SW-42 {entry}"))).unwrap()
+        else {
+            panic!("expected board command")
+        };
+        cmd.run(&endpoint, "agent", true).unwrap();
+        let request = server.join().unwrap().unwrap();
+        let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(body["card"], "SW-42");
+        assert_eq!(body["action"], action);
+        assert_eq!(body["text"], entry);
+    }
+    let (endpoint, server) = serve(
+        "200 OK",
+        r#"{"can_write":true,"boards":[{"id":"project","columns":[{"cards":[{"key":"SW-42"}]}]}]}"#,
+    );
+    let Command::Remote(cmd) = parse_command(&words("board move-card root done SW-42")).unwrap()
+    else {
+        panic!("expected board command")
+    };
+    assert!(
+        cmd.run(&endpoint, "agent", true)
+            .unwrap_err()
+            .contains("same board")
+    );
+    assert!(
+        server
+            .join()
+            .unwrap()
+            .unwrap()
+            .starts_with("GET /api/boards")
+    );
+}
+
+#[test]
+fn linked_spawn_and_delegation_report_created_task_if_linking_fails() {
+    for command in [
+        "worker spawn --project repo --template agent --card SW-42 review",
+        "task delegate --card SW-42 agent review",
+    ] {
+        let (endpoint, server) = http_fixture::serve_sequence(vec![
+            (
+                "200 OK",
+                r#"{"can_write":true,"boards":[{"id":"project","columns":[{"cards":[{"key":"SW-42"}]}]}]}"#.into(),
+            ),
+            ("200 OK", r#"{"task":{"id":"existing"}}"#.into()),
+            ("403 Forbidden", r#"{"error":"denied"}"#.into()),
+        ]);
+        let Command::Remote(cmd) = parse_command(&words(command)).unwrap() else {
+            panic!("expected command")
+        };
+        let error = cmd.run(&endpoint, "agent", true).unwrap_err();
+        assert!(error.contains("task existing"), "{error}");
+        let requests = server.join().unwrap().unwrap();
+        assert_eq!(requests.matches("POST ").count(), 2);
+        assert!(requests.contains(r#""text":"existing""#));
+    }
+}
+
+#[test]
+fn read_only_card_cannot_start_a_linked_assignment() {
+    let (endpoint, server) = serve("200 OK", r#"{"can_write":false,"boards":[]}"#);
+    let Command::Remote(cmd) =
+        parse_command(&words("task delegate --card SW-42 agent review")).unwrap()
+    else {
+        panic!("expected delegation")
+    };
+    assert_eq!(
+        cmd.run(&endpoint, "agent", true).unwrap_err(),
+        "board write access required"
+    );
+    assert!(
+        server
+            .join()
+            .unwrap()
+            .unwrap()
+            .starts_with("GET /api/boards")
+    );
 }

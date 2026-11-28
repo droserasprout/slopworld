@@ -12,8 +12,7 @@ cannot occupy both workspace slots or both split children.
 
 Explicit drill-down content can name its current origin as a return target. The origin
 closes normally and reopens as the same instance on Escape/Close; ordinary navigation
-and host teardown clear the target. Planner Task links use this to retain selection and
-drafts. F12 returns directly to the backing terminal.
+and host teardown clear the target. F12 returns directly to the backing terminal.
 
 The host handles global shortcuts before drawing content; hidden terminals do not
 receive the content view's remaining keys. Keyboard navigation between panels is

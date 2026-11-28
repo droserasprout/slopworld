@@ -309,3 +309,33 @@ test('window blur and hidden tabs release shared IME ownership before physical k
     } finally {f.dispose();}
   }
 });
+
+test('a primary touch drag retains device identity and interruption supplies a reset',()=>{
+  const f=fixture(),at={clientX:22,clientY:34,pointerType:'touch',button:0,buttons:1};
+  try {
+    emit(f.canvas,'pointerdown',at);
+    emit(f.canvas,'pointerdown',{...at,isPrimary:false});
+    emit(f.canvas,'pointermove',{...at,clientX:73,button:-1});
+    emit(f.canvas,'pointercancel',at);
+    assert.deepEqual(f.frame().map(e=>[e.kind,e.pointerType]),[
+      ['down','touch'],['drag','touch'],['reset',undefined],
+    ]);
+  }finally{f.dispose();}
+});
+
+test('native touch hit test focuses the editable proxy only for a text field',()=>{
+  const dom=installInputDom(),canvas=dom.canvas();
+  const device=attachInput(canvas,{InputFrame(){}},true);
+  let edit=false,dispatched=false;
+  const gui=attachGuiInput(canvas,{
+    GuiInputFrame(batch){dispatched=JSON.parse(batch).some(item=>item.kind==='down');return '{"commands":[]}';},
+    touchKeyboard(){assert.equal(dispatched,true);return edit;},
+  });
+  try {
+    const down=()=>emit(canvas,'pointerdown',{clientX:12,clientY:24,button:0,buttons:1,pointerType:'touch'});
+    down();
+    assert.equal(dom.document.activeElement,null);
+    edit=true;down();
+    assert.equal(dom.document.activeElement,gui.textInput);
+  }finally{device.dispose();gui.dispose();}
+});

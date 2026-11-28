@@ -18,7 +18,7 @@ namespace SlopWorld
             }
             catch (Exception error)
             {
-                Log.Warning($"[SlopWorld] planner delivery: {error.Message}");
+                Log.Warning($"[SlopWorld] board delivery: {error.Message}");
                 // A partial delivery may already own the bench. Never duplicate its cargo.
                 if (!bench.Destroyed && !bench.Spawned && bench.ParentHolder == null)
                 {
@@ -43,7 +43,7 @@ namespace SlopWorld
                 Mathf.Abs(b.x - a.x),
                 Mathf.Abs(b.y - a.y)
             );
-            TooltipHandler.TipRegion(rect, "Planner · TODO.txt");
+            TooltipHandler.TipRegion(rect, "Board");
             if (
                 Event.current.type != EventType.MouseDown
                 || Event.current.button != 0
@@ -51,7 +51,7 @@ namespace SlopWorld
             )
                 return;
             Event.current.Use();
-            PlannerView.Open();
+            BoardView.Open();
         }
     }
 }

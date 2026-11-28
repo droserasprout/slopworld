@@ -15,7 +15,7 @@ game machine, also back up the game profile, saved connections in
 | Data | Default location | Include |
 | --- | --- | --- |
 | Configuration and catalogs | `~/.config/slopworld/` | `config.toml`, project records, user libraries, presets, and the entire `agent_templates/` directory including its index and generations. |
-| Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, Planner `TODO.txt` and `planner/`, `timer-state.json`, and any pending workspace recovery journal. |
+| Workspace records and authority | `~/.local/share/slopworld/` | Agent definitions and permissions, host-shell definitions, worktree/task records, `boards.sqlite3`, `timer-state.json`, and any pending workspace recovery journal. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Tool state, history, configuration copies, and recoverable trash. |
 | Game profile | `~/.local/share/slopworld/profiles/` | Saves and mod settings. |
 | Jukebox | `~/.config/slopworld/jukebox/` and `~/.local/share/slopworld/jukebox.toml` | Stations and liked songs. |

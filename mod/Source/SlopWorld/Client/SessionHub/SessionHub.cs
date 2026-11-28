@@ -233,7 +233,7 @@ namespace SlopWorld
             Action<string> fail,
             WorkerWorktreeOptions worktree = null,
             string name = null,
-            string plannerId = null
+            Action<string> taskCreated = null
         )
         {
             var request = new Wire.SpawnWorkerReq
@@ -243,7 +243,6 @@ namespace SlopWorld
                 Template = template ?? "",
                 Body = body ?? "",
                 Durable = durable,
-                PlannerId = plannerId ?? "",
             };
             (worktree ?? new WorkerWorktreeOptions()).ApplyTo(request);
             DaemonClient.Send<Wire.WorkerResult>(
@@ -252,6 +251,7 @@ namespace SlopWorld
                 request,
                 j =>
                 {
+                    taskCreated?.Invoke(j.Task.Id);
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();

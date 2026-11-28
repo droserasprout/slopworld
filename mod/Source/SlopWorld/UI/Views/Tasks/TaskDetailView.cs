@@ -1,57 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using static SlopWorld.ConversationReader;
 
 namespace SlopWorld
 {
     // Full task reader shown as a WorkspaceWindow content view.
-    public sealed partial class TaskDetailView : ContentView
+    public sealed class TaskDetailView : ContentView
     {
-        const float AvatarSize = 38f;
-        const float AvatarOverlap = 18f;
-        static float MessageTextInset => AvatarSize - AvatarOverlap + UiTheme.GapS;
-        static float MessageTextX => AvatarOverlap + MessageTextInset;
-
+        readonly BoardView _feed = new BoardView();
+        BoardView _origin;
         readonly string _taskId;
         TaskInfo _task;
         IDisposable _pollingDemand;
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly TaskTextSelection _selection = new TaskTextSelection();
-        readonly MouseClickSequence _selectionClicks = new MouseClickSequence();
-        List<TaskTextSelection.Line> _selectionLines => _selection.Lines;
-        readonly List<SenderHit> _senderHits = new List<SenderHit>();
-        readonly List<MessageLayout> _messages = new List<MessageLayout>();
-        readonly Dictionary<string, float> _smallElementWidths = new Dictionary<string, float>();
-        TaskInfo _layoutTask;
-        float _layoutWidth = -1f;
-        float _layoutScale = -1f;
-        int _layoutFontSize = -1;
-        string _layoutFontName = "";
-        int _layoutRevision = int.MinValue;
-        float _contentHeight;
-
-        sealed class MessageLayout
-        {
-            public string Sender;
-            public long Timestamp;
-            public string Status;
-            public float Y;
-            public float Height;
-        }
-
-        float _metricsScale = -1f;
-        int _metricsFontSize = -1;
-        string _metricsFontName = "";
-
-        struct SenderHit
-        {
-            public string Sender;
-            public Rect Avatar;
-            public Rect Name;
-        }
 
         public TaskDetailView(TaskInfo task)
         {
@@ -84,13 +47,18 @@ namespace SlopWorld
                 return;
             if (remember)
                 Sidebar.RememberTask(task.Id);
-            WorkspaceWindow.OpenContent(new TaskDetailView(task), returnTo);
+            WorkspaceWindow.OpenContent(
+                new TaskDetailView(task) { _origin = returnTo as BoardView },
+                returnTo
+            );
         }
 
         public override string Title => "Task " + (_taskId ?? "");
 
         public override void Opened()
         {
+            _feed.OpenTaskFeed(_origin);
+            _origin = null;
             _pollingDemand ??= SessionHub.Instance.TaskStore.OpenReader();
         }
 
@@ -98,8 +66,7 @@ namespace SlopWorld
         {
             _pollingDemand?.Dispose();
             _pollingDemand = null;
-            _scroll.JumpTo(Vector2.zero);
-            ClearSelection();
+            _feed.CloseTaskFeed();
         }
 
         public override void Draw(Rect body)
@@ -113,20 +80,9 @@ namespace SlopWorld
             UiLayout.Title(rect, Title);
 
             var current = SessionHub.Instance.Tasks.FirstOrDefault(task => task.Id == _taskId);
-            if (!ReferenceEquals(current, _task))
-            {
-                if (
-                    current?.Body != _task?.Body
-                    || current?.Note != _task?.Note
-                    || current?.History.Count != _task?.History.Count
-                )
-                    ClearSelection();
-                _task = current;
-            }
+            _task = current;
             if (_task == null)
             {
-                _senderHits.Clear();
-                ClearSelection();
                 UiText.PlainStatusLabel(
                     new Rect(rect.x, rect.y + UiTheme.HeaderH, rect.width, UiTheme.LineH * 2f),
                     "This task is no longer available.",
@@ -141,44 +97,12 @@ namespace SlopWorld
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float bottom = rect.yMax - UiTheme.BtnH - UiTheme.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
-            float width = Mathf.Max(1f, outer.width - UiTheme.ScrollbarW);
-            EnsureLayout(width);
-            float contentH = _contentHeight;
-
-            using (WidgetState.Save())
-            using (_scroll.Scope(outer, new Rect(0f, 0f, width, Mathf.Max(outer.height, contentH))))
-            {
-                _senderHits.Clear();
-                float y = 0f;
-                Text.Font = GameFont.Tiny;
-                GUI.color = UiTheme.Dim;
-                UiText.RowLabel(
-                    new Rect(0f, y, width, UiTheme.TinyRowH),
-                    _task.Direction
-                        + "  ·  "
-                        + TaskInfo.StatusText(_task.Status)
-                        + "  ·  Created: "
-                        + Timestamp(_task.CreatedMs)
-                        + "  ·  Updated: "
-                        + Timestamp(_task.UpdatedMs)
-                );
-                GUI.color = Color.white;
-                y += UiTheme.TinyRowH + UiTheme.GapS;
-
-                foreach (var message in _messages)
-                    DrawMessage(
-                        new Rect(0f, message.Y, width, message.Height),
-                        message.Sender,
-                        message.Timestamp,
-                        message.Status
-                    );
-                DrawSelectableText(outer.height);
-            }
-
-            if (HandleSenderClicks(outer))
-                return;
-            HandleSelectionInput(outer);
-
+            UiText.RowLabel(
+                new Rect(outer.x, outer.y, outer.width, 24),
+                _task.Direction + " · " + TaskInfo.StatusText(_task.Status)
+            );
+            outer.yMin += 26;
+            _feed.DrawTaskFeed(outer, _task);
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
                 DesktopClipboard.Copy(DialogueText());
@@ -199,151 +123,33 @@ namespace SlopWorld
                 Find.WindowStack?.WindowOfType<WorkspaceWindow>()?.Leave();
         }
 
-        static float MessageCardHeight(int lineCount)
+        string DialogueText()
         {
-            float headerH = UiTheme.LineHOf(GameFont.Tiny);
-            return Mathf.Max(
-                AvatarSize + UiTheme.GapS,
-                UiTheme.FieldPadY * 2f
-                    + headerH
-                    + UiTheme.GapXS
-                    + lineCount * UiTheme.LineHOf(GameFont.Small)
-            );
-        }
-
-        void DrawMessage(Rect r, string sender, long timestamp, string status = null)
-        {
-            var card = new Rect(
-                r.x + AvatarOverlap,
-                r.y,
-                Mathf.Max(1f, r.width - AvatarOverlap),
-                r.height
-            );
-            Slab.Box(card, UiTheme.Well, UiTheme.Edge);
-
-            var icon = new Rect(r.x, r.y + UiTheme.GapS, AvatarSize, AvatarSize);
-            DrawSenderIcon(icon, sender);
-
-            float textWidth = Mathf.Max(1f, card.width - MessageTextInset - UiTheme.FieldPadX);
-            float y = card.y + UiTheme.FieldPadY;
-            var header = new Rect(
-                card.x + MessageTextInset,
-                y,
-                textWidth,
-                UiTheme.LineHOf(GameFont.Tiny)
-            );
-            var wrap = Text.WordWrap;
-            var anchor = Text.Anchor;
-            var font = Text.Font;
-            try
+            var messages = new List<string>
             {
-                Text.Font = GameFont.Tiny;
-                Text.WordWrap = true;
-                Text.Anchor = TextAnchor.UpperLeft;
-                string prefix = status == null ? "Message from " : status + "  ·  Message from ";
-                string label = SenderLabel(sender);
-                string suffix = "  ·  " + Timestamp(timestamp);
-                float prefixW = UiTheme.Wide(prefix);
-                float labelW = UiTheme.Wide(label);
-                float suffixW = UiTheme.Wide(suffix);
-                float nameX = header.x + prefixW;
-                float nameW = Mathf.Min(labelW, Mathf.Max(0f, header.xMax - nameX));
-                if (IsAgentSender(sender))
-                {
-                    var name = new Rect(nameX, header.y, nameW, header.height);
-                    _senderHits.Add(
-                        new SenderHit
-                        {
-                            Sender = sender,
-                            Avatar = icon,
-                            Name = name,
-                        }
-                    );
-                    if (nameW > 0f)
-                        TooltipHandler.TipRegion(name, "Click to open " + sender + "'s terminal.");
-                }
-
-                if (prefixW + labelW + suffixW <= header.width)
-                {
-                    GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(new Rect(header.x, header.y, prefixW, header.height), prefix);
-                    GUI.color = IsAgentSender(sender) ? UiTheme.Lead : UiTheme.Dim;
-                    UiText.RowLabel(new Rect(nameX, header.y, labelW, header.height), label);
-                    GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(
-                        new Rect(nameX + labelW, header.y, suffixW, header.height),
-                        suffix
-                    );
-                }
-                else
-                {
-                    GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(header, prefix + label + suffix);
-                }
-            }
-            finally
+                "Message from " + SenderLabel(_task.From) + "  ·  " + Timestamp(_task.CreatedMs),
+                _task.Body ?? "",
+            };
+            foreach (var update in _task.History)
             {
-                GUI.color = Color.white;
-                Text.WordWrap = wrap;
-                Text.Anchor = anchor;
-                Text.Font = font;
-            }
-        }
-
-        static string Timestamp(long milliseconds)
-        {
-            if (milliseconds <= 0)
-                return "unknown time";
-            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var local = Settings.InTimeZone(epoch.AddMilliseconds(milliseconds));
-            return DateFormat.Short(local, Settings.DateFormat)
-                + " "
-                + TimeFormat.Long(local, Settings.TimeFormat)
-                + " "
-                + local.ToString("zzz", CultureInfo.InvariantCulture);
-        }
-
-        static void DrawSenderIcon(Rect r, string sender)
-        {
-            var pawn =
-                sender == TaskInfo.Host
-                    ? PlayerPawn.Current?.Pawn
-                    : AgentColony.Current?.PawnOf(sender);
-            var portrait = Patch_SidebarPortraitDraw.PortraitFor(pawn);
-            var old = GUI.color;
-
-            Slab.Box(r, UiTheme.Well, UiTheme.Edge);
-            GUI.color = Color.white;
-            if (portrait != null)
-                GUI.DrawTexture(r.ContractedBy(2f), portrait, ScaleMode.ScaleToFit, true);
-            else
-            {
-                GUI.color = sender == TaskInfo.Host ? UiTheme.Lead : UiTheme.Info;
-                GUI.DrawTexture(
-                    r.ContractedBy(8f),
-                    sender == TaskInfo.Host ? Icons.Terminal : Icons.Agents
+                messages.Add(
+                    TaskInfo.StatusText(update.Status)
+                        + "  ·  Message from "
+                        + SenderLabel(update.Sender)
+                        + "  ·  "
+                        + Timestamp(update.TimestampMs)
                 );
+                if (!string.IsNullOrEmpty(update.Note))
+                    messages.Add(update.Note);
             }
-            GUI.color = old;
-
-            TooltipHandler.TipRegion(
-                r,
-                IsAgentSender(sender)
-                    ? "Message from "
-                        + SenderLabel(sender)
-                        + "\nClick to open this agent's terminal."
-                    : "Message from " + SenderLabel(sender)
-            );
+            if (_task.History.Count == 0 && !string.IsNullOrEmpty(_task.Note))
+            {
+                messages.Add(
+                    "Message from " + SenderLabel(_task.To) + "  ·  " + Timestamp(_task.UpdatedMs)
+                );
+                messages.Add(_task.Note);
+            }
+            return string.Join("\n\n", messages.ToArray());
         }
-
-        static string SenderLabel(string sender) =>
-            sender == TaskInfo.Host ? "you"
-            : string.IsNullOrEmpty(sender) ? "unknown"
-            : sender;
-
-        static bool IsAgentSender(string sender) =>
-            !string.IsNullOrEmpty(sender)
-            && sender != TaskInfo.Host
-            && SessionHub.Instance.Get(sender) != null;
     }
 }

@@ -148,3 +148,42 @@ async fn project_rename_persists_library_references_and_keeps_items_runnable() {
     assert_eq!(disk[0].project, "new");
     assert!(!manager.configuration().reload_if_changed().await);
 }
+
+#[tokio::test]
+async fn enabled_board_is_archived_and_recreated_project_starts_without_a_board() {
+    let app = crate::application::test_application(Config::default());
+    let projects = Projects::new(&app);
+    let draft = ProjectCfg {
+        name: "repo".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    projects.add_project(draft.clone()).await.unwrap();
+    let old = projects.projects().await[0].config.id.clone();
+    let ids = crate::application::boards::identities(&app.sessions.config().await);
+    app.services
+        .boards
+        .run(
+            ids,
+            Some((
+                crate::shared::wire::BoardEdit {
+                    action: "enable-board".into(),
+                    board: old.clone(),
+                    text: "repo".into(),
+                    ..Default::default()
+                },
+                "host".into(),
+            )),
+        )
+        .await
+        .unwrap();
+    projects.remove_project("repo").await.unwrap();
+    projects.add_project(draft).await.unwrap();
+    let ids = crate::application::boards::identities(&app.sessions.config().await);
+    let catalog = app.services.boards.run(ids, None).await.unwrap();
+    let archived = catalog.boards.iter().find(|b| b.id == old).unwrap();
+    assert!(archived.archived);
+    assert_eq!(archived.name, "repo");
+    assert_eq!(archived.columns.len(), 4);
+    assert_eq!(catalog.boards.len(), 1);
+}

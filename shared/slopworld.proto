@@ -79,6 +79,10 @@ message AgentPermissions {
   optional string terminal = 3;
   optional string lifecycle = 4;
   optional string delete = 5;
+  reserved 7, 8, 9;
+  optional string board_access = 10;
+  optional bool own_project_board = 11;
+  repeated string visible_boards = 12;
   optional bool worktrees = 6;
 }
 
@@ -477,7 +481,8 @@ message CreateTaskReq {
 }
 
 message SpawnWorkerReq {
-  string planner_id = 10;
+  reserved 10;
+  reserved "planner_id";
   optional string project = 1;
   optional string template = 2;
   optional string body = 3;
@@ -1070,41 +1075,6 @@ message TaskBatchResult {
   uint64 removed = 7;
 }
 
-message PlannerDocument {
-  string text = 1;
-  string revision = 2;
-  string path = 3;
-  repeated PlannerItem items = 4;
-}
-message PlannerItem {
-  uint32 line = 1;
-  string id = 2;
-  string text = 3;
-  reserved 4;
-  reserved "task_id";
-  string status = 5;
-  repeated PlannerLink links = 6;
-  string links_revision = 7;
-}
-message PlannerLink {
-  string kind = 1;
-  string id = 2;
-  string label = 3;
-  string status = 4;
-}
-message PlannerLinksReq {
-  repeated PlannerLink links = 1;
-  string revision = 2;
-}
-message PlannerSaveReq {
-  string text = 1;
-  string revision = 2;
-}
-message PlannerDescription {
-  string text = 1;
-  string revision = 2;
-}
-
 message AudioOutputSettings {
   string backend = 1;
   string device = 2;
@@ -1119,4 +1089,56 @@ message AudioOutputs {
   repeated AudioOutputDevice devices = 1;
   optional string active_device = 2;
   map<string, string> auto_devices = 3;
+}
+
+message BoardCatalog {
+  repeated ProjectBoard boards = 1;
+  bool can_write = 2;
+  bool can_admin = 3;
+}
+message ProjectBoard {
+  string id = 1;
+  string name = 2;
+  bool archived = 3;
+  repeated BoardColumn columns = 4;
+  string prefix = 5;
+}
+message BoardColumn {
+  string id = 1;
+  string name = 2;
+  repeated BoardCard cards = 3;
+}
+message BoardCard {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string assignee = 4;
+  repeated BoardComment comments = 5;
+  repeated BoardLink links = 6;
+  repeated BoardComment activity = 7;
+  string key = 8;
+  repeated string previous_keys = 9;
+}
+message BoardComment {
+  int64 id = 4;
+  string author = 1;
+  string text = 2;
+  int64 timestamp_ms = 3;
+}
+message BoardLink {
+  string kind = 1;
+  string target = 2;
+}
+// Board and column identify the destination. Empty before means append.
+message BoardEdit {
+  string action = 1;
+  string board = 2;
+  string column = 3;
+  string card = 4;
+  string before = 5;
+  string text = 6;
+  string kind = 7;
+  bool confirm = 8;
+  int64 entry_id = 9;
+  string prefix = 10;
 }

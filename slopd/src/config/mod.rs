@@ -1,6 +1,6 @@
 //! Configuration module, project/session lookups, and configured-path resolution.
 mod permissions;
-pub use permissions::AgentPermissions;
+pub use permissions::{AgentPermissions, BoardAccess};
 
 mod accepted;
 pub(crate) use accepted::DaemonSettings;

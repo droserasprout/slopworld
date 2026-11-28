@@ -55,7 +55,7 @@ impl SessionRuntime {
                 live.cfg.state_id == session.state_id,
                 "Worker identity changed"
             );
-            live.cfg.permissions = session.permissions;
+            live.cfg.permissions.clone_from(&session.permissions);
             live.cfg.workers = session.workers.clone();
         }
         Ok(())

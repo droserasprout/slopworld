@@ -10,8 +10,7 @@ Persisted fields require explicit typed entries in `Fields`. Runtime dirty state
 off disk, and failed timed writes remain pending. Formatting preferences must not
 change machine timestamp formats; caches include the selected formats.
 `TimeZonePreference` converts UTC instants to profile wall time. Auto uses the game
-desktop zone, independently of the daemon. Planner calendar dates and the colony
-clock use the same zone; date-only values and elapsed-time clocks do not convert.
+desktop zone, independently of the daemon. The colony clock uses the same zone; date-only values and elapsed-time clocks do not convert.
 Unavailable zone IDs remain saved and fall back to the desktop zone.
 [Settings drafts](ui-settings.md) owns apply/save timing.
 

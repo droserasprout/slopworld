@@ -28,7 +28,7 @@ namespace SlopWorld
                     if (!IsSelected(line.Task))
                         SelectOnly(line.Task);
                     SetAnchor(line.Task);
-                    TaskActions.OpenMenu(line.Task);
+                    TaskActions.OpenMenu(line.Task, selection: SelectionFor(line.Task));
                 }
                 else if (e.shift)
                 {

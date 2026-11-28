@@ -23,6 +23,7 @@ fn matches(pattern: &str, path: &str) -> bool {
 enum RequestKind {
     AgentPermissionsReq,
     AgentTemplate,
+    BoardEdit,
     ConfigPatch,
     CopyPresetReq,
     CreateAgentTemplateReq,
@@ -35,8 +36,6 @@ enum RequestKind {
     HighlightReq,
     LabelReq,
     LibraryItem,
-    PlannerLinksReq,
-    PlannerSaveReq,
     PresetRequest,
     Project,
     ProjectPreviewReq,
@@ -61,6 +60,7 @@ enum ResponseKind {
     AppsReply,
     AudioOutputs,
     AudioState,
+    BoardCatalog,
     BrowseResult,
     Capabilities,
     ConfigResult,
@@ -73,8 +73,6 @@ enum ResponseKind {
     LibraryReply,
     OutputResult,
     PathResult,
-    PlannerDescription,
-    PlannerDocument,
     PresetsReply,
     Project,
     ProjectPreviewResult,
@@ -104,12 +102,8 @@ use RequestKind as Req;
 use ResponseKind as Resp;
 type Route = (&'static str, RequestKind, ResponseKind);
 const ROUTES: &[Route] = &[
-    ("GET /api/planner", Req::Empty, Resp::PlannerDocument),
-    (
-        "PUT /api/planner",
-        Req::PlannerSaveReq,
-        Resp::PlannerDocument,
-    ),
+    ("GET /api/boards", Req::Empty, Resp::BoardCatalog),
+    ("POST /api/boards", Req::BoardEdit, Resp::BoardCatalog),
     ("GET /api/health", Req::Empty, Resp::Health),
     ("GET /api/sessions", Req::Empty, Resp::SessionsReply),
     ("POST /api/sessions", Req::SessionConfig, Resp::Ack),
@@ -206,21 +200,6 @@ const ROUTES: &[Route] = &[
     ("GET /api/search", Req::Empty, Resp::SearchResult),
     ("GET /api/git", Req::Empty, Resp::GitResult),
     ("POST /api/git", Req::GitMutationReq, Resp::Ack),
-    (
-        "PUT /api/planner/items/:id/links",
-        Req::PlannerLinksReq,
-        Resp::PlannerDocument,
-    ),
-    (
-        "GET /api/planner/items/:id/description",
-        Req::Empty,
-        Resp::PlannerDescription,
-    ),
-    (
-        "PUT /api/planner/items/:id/description",
-        Req::PlannerSaveReq,
-        Resp::PlannerDescription,
-    ),
     ("GET /api/sessions/:name", Req::Empty, Resp::SessionView),
     ("DELETE /api/sessions/:name", Req::Empty, Resp::Ack),
     ("PUT /api/sessions/:name", Req::SessionConfig, Resp::Ack),
@@ -320,6 +299,7 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     match route.1 {
         RequestKind::AgentPermissionsReq => encode_wire::<wire::AgentPermissionsReq>(value),
         RequestKind::AgentTemplate => encode_wire::<wire::AgentTemplate>(value),
+        RequestKind::BoardEdit => encode_wire::<wire::BoardEdit>(value),
         RequestKind::ConfigPatch => encode_wire::<wire::ConfigPatch>(value),
         RequestKind::CopyPresetReq => encode_wire::<wire::CopyPresetReq>(value),
         RequestKind::CreateAgentTemplateReq => encode_wire::<wire::CreateAgentTemplateReq>(value),
@@ -332,8 +312,6 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::HighlightReq => encode_wire::<wire::HighlightReq>(value),
         RequestKind::LabelReq => encode_wire::<wire::LabelReq>(value),
         RequestKind::LibraryItem => encode_wire::<wire::LibraryItem>(value),
-        RequestKind::PlannerLinksReq => encode_wire::<wire::PlannerLinksReq>(value),
-        RequestKind::PlannerSaveReq => encode_wire::<wire::PlannerSaveReq>(value),
         RequestKind::PresetRequest => encode_wire::<wire::PresetRequest>(value),
         RequestKind::Project => encode_wire::<wire::Project>(value),
         RequestKind::ProjectPreviewReq => encode_wire::<wire::ProjectPreviewReq>(value),
@@ -360,6 +338,7 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
         ResponseKind::AppsReply => Ok(serde_json::to_value(wire::AppsReply::decode(value)?)?),
         ResponseKind::AudioOutputs => Ok(serde_json::to_value(wire::AudioOutputs::decode(value)?)?),
         ResponseKind::AudioState => Ok(serde_json::to_value(wire::AudioState::decode(value)?)?),
+        ResponseKind::BoardCatalog => Ok(serde_json::to_value(wire::BoardCatalog::decode(value)?)?),
         ResponseKind::BrowseResult => Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?),
         ResponseKind::Capabilities => Ok(serde_json::to_value(wire::Capabilities::decode(value)?)?),
         ResponseKind::ConfigResult => Ok(serde_json::to_value(wire::ConfigResult::decode(value)?)?),
@@ -378,12 +357,6 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
         ResponseKind::LibraryReply => Ok(serde_json::to_value(wire::LibraryReply::decode(value)?)?),
         ResponseKind::OutputResult => Ok(serde_json::to_value(wire::OutputResult::decode(value)?)?),
         ResponseKind::PathResult => Ok(serde_json::to_value(wire::PathResult::decode(value)?)?),
-        ResponseKind::PlannerDescription => Ok(serde_json::to_value(
-            wire::PlannerDescription::decode(value)?,
-        )?),
-        ResponseKind::PlannerDocument => {
-            Ok(serde_json::to_value(wire::PlannerDocument::decode(value)?)?)
-        }
         ResponseKind::PresetsReply => Ok(serde_json::to_value(wire::PresetsReply::decode(value)?)?),
         ResponseKind::Project => Ok(serde_json::to_value(wire::Project::decode(value)?)?),
         ResponseKind::ProjectPreviewResult => Ok(serde_json::to_value(
@@ -442,6 +415,7 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::AgentTemplate => {
             Ok(serde_json::to_value(wire::AgentTemplate::decode(value)?)?)
         }
+        RequestKind::BoardEdit => Ok(serde_json::to_value(wire::BoardEdit::decode(value)?)?),
         RequestKind::ConfigPatch => Ok(serde_json::to_value(wire::ConfigPatch::decode(value)?)?),
         RequestKind::CopyPresetReq => {
             Ok(serde_json::to_value(wire::CopyPresetReq::decode(value)?)?)
@@ -466,12 +440,6 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::HighlightReq => Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?),
         RequestKind::LabelReq => Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?),
         RequestKind::LibraryItem => Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?),
-        RequestKind::PlannerLinksReq => {
-            Ok(serde_json::to_value(wire::PlannerLinksReq::decode(value)?)?)
-        }
-        RequestKind::PlannerSaveReq => {
-            Ok(serde_json::to_value(wire::PlannerSaveReq::decode(value)?)?)
-        }
         RequestKind::PresetRequest => {
             Ok(serde_json::to_value(wire::PresetRequest::decode(value)?)?)
         }
@@ -521,6 +489,7 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::AppsReply => encode_wire::<wire::AppsReply>(value),
         ResponseKind::AudioOutputs => encode_wire::<wire::AudioOutputs>(value),
         ResponseKind::AudioState => encode_wire::<wire::AudioState>(value),
+        ResponseKind::BoardCatalog => encode_wire::<wire::BoardCatalog>(value),
         ResponseKind::BrowseResult => encode_wire::<wire::BrowseResult>(value),
         ResponseKind::Capabilities => encode_wire::<wire::Capabilities>(value),
         ResponseKind::ConfigResult => encode_wire::<wire::ConfigResult>(value),
@@ -533,8 +502,6 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
         ResponseKind::LibraryReply => encode_wire::<wire::LibraryReply>(value),
         ResponseKind::OutputResult => encode_wire::<wire::OutputResult>(value),
         ResponseKind::PathResult => encode_wire::<wire::PathResult>(value),
-        ResponseKind::PlannerDescription => encode_wire::<wire::PlannerDescription>(value),
-        ResponseKind::PlannerDocument => encode_wire::<wire::PlannerDocument>(value),
         ResponseKind::PresetsReply => encode_wire::<wire::PresetsReply>(value),
         ResponseKind::Project => encode_wire::<wire::Project>(value),
         ResponseKind::ProjectPreviewResult => encode_wire::<wire::ProjectPreviewResult>(value),
