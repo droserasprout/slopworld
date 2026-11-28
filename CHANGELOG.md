@@ -6,14 +6,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog], and this project adheres to [Semantic Versioning].
 
-## [0.2.0] - 2026-11-27
+## [0.2.0] - 2026-11-28
 
 ### Added
 
-- Web: Added `slopweb`, the web version of SlopWorld.
+- Web: Added `slopweb`, the web version of SlopWorld (experimental).
+- Boards: Added kanban-style boards (F10 or chessboard icon in statusbar).
 
 ### Fixed
 
+- Game: Fixed compatibility with the latest RimWorld build (1.7.5021).
 - Jukebox: Fixed the daemon ignoring zero volume from the game.
 - Terminal: Fixed host terminal headers missing the title and process name shown in the sidebar.
 - UI: Fixed selected text failing to copy to PRIMARY on mouse release.
