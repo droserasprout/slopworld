@@ -19,6 +19,7 @@ SlopWorld is an IDE and terminal multiplexer for coding agents built on RimWorld
 ## What's inside
 
 <img src="docs/src/images/introduction-terminal.jpg" alt="Codex session in SlopWorld with the terminal context menu open" width="240" align="right">
+
 - **Alacritty** for [terminal emulation](https://slopworld.space/terminals/terminal-interface.html).
 - **tmux** for [multiplexing and persistent sessions](https://slopworld.space/terminals/terminal.html).
 - **Bubblewrap** for [sandboxing and controlling filesystem access](https://slopworld.space/sandbox/sandboxing.html).
