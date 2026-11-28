@@ -6,6 +6,7 @@
     <AssemblyName>SlopWorld</AssemblyName>
     <RootNamespace>SlopWorld</RootNamespace>
     <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>../../Assemblies/</OutputPath>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
@@ -72,6 +73,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Brutal.ImGui">
+      <HintPath>$(GameReferencePath)/Brutal.ImGui.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- Waylith supplies Unity's API through a single game-owned assembly. -->
     <Reference Include="UnityStubs">
       <HintPath>$(GameReferencePath)/UnityStubs.dll</HintPath>

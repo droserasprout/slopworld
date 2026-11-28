@@ -68,6 +68,24 @@ namespace SlopWorld.Tests
                     "mouse replay must replace both press polls and the release poll"
                 );
                 count++;
+                var bake = (MethodBase)Invoke(mod, "Patch_NativeGlyphBake", "TargetMethod");
+                var guardedBake =
+                    (IEnumerable<CodeInstruction>)
+                        Invoke(
+                            mod,
+                            "Patch_NativeGlyphBake",
+                            "Transpiler",
+                            PatchProcessor.GetOriginalInstructions(bake)
+                        );
+                Require(
+                    guardedBake.Count(i =>
+                        i.operand is MethodInfo m
+                        && m.DeclaringType?.FullName == "SlopWorld.Patch_NativeGlyphBake"
+                        && m.Name == "Lookup"
+                    ) == 1,
+                    "native glyph bake must validate the lookup before reading metrics"
+                );
+                count++;
                 var pacingLoop = (MethodBase)Invoke(mod, "Patch_RenderPacing", "TargetMethod");
                 var loopGenerator = PatchProcessor.CreateILGenerator(pacingLoop);
                 // Exercise the queue counter binding without constructing an engine,
