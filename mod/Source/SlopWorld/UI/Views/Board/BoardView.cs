@@ -13,7 +13,13 @@ namespace SlopWorld
         // SlopWeb supplies device identity for its mouse-style native GUI events.
         public static bool TouchPointer { get; set; }
 
-        public static void CancelPointer() => _current?._gesture.Cancel();
+        public static void CancelPointer() => _current?.CancelBoardInput();
+
+        void CancelBoardInput()
+        {
+            _gesture.Cancel();
+            ReleaseScrollbar();
+        }
 
         readonly string _endpoint = DaemonClient.BaseUrl;
         readonly BoardGesture _gesture = new BoardGesture();
@@ -60,7 +66,7 @@ namespace SlopWorld
             _open = false;
             _cardWindow?.Close(false);
             WorkspaceLayout.CompactBoardOpen = false;
-            _gesture.Cancel();
+            CancelBoardInput();
             _inlineEdit = null;
         }
 
@@ -68,7 +74,7 @@ namespace SlopWorld
         {
             base.FocusChanged(focused);
             if (!focused)
-                _gesture.Cancel();
+                CancelBoardInput();
         }
 
         internal bool Back()

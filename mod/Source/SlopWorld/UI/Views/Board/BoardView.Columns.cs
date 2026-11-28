@@ -12,8 +12,75 @@ namespace SlopWorld
         readonly BoardViewport _viewport = new BoardViewport();
         string _panColumn;
         float _edgeTime;
+        int _scrollControl;
+        float _scrollGrab;
 
         const float Footer = 36;
+
+        void ReleaseScrollbar()
+        {
+            if (_scrollControl != 0 && GUIUtility.hotControl == _scrollControl)
+                GUIUtility.hotControl = 0;
+            _scrollControl = 0;
+        }
+
+        void DrawHorizontalScrollbar(Rect hit, float limit)
+        {
+            float width = Mathf.Min(
+                hit.width,
+                Mathf.Max(UiTheme.ScrollMinThumbH, hit.width * hit.width / (hit.width + limit))
+            );
+            float travel = hit.width - width;
+            float left = hit.x + travel * _viewport.Left / limit;
+            var e = Event.current;
+            int id = GUIUtility.GetControlID(FocusType.Passive, hit);
+            if (
+                Focused
+                && _editor.Card == null
+                && !_gesture.Held
+                && GUIUtility.hotControl == 0
+                && e.type == EventType.MouseDown
+                && e.button == 0
+                && hit.Contains(e.mousePosition)
+            )
+            {
+                float x = e.mousePosition.x;
+                _scrollGrab = x >= left && x <= left + width ? x - left : width / 2f;
+                GUIUtility.hotControl = _scrollControl = id;
+            }
+            bool held = _scrollControl == id && GUIUtility.hotControl == id;
+            if (held && (e.type == EventType.MouseDown || e.type == EventType.MouseDrag))
+            {
+                float fraction = Mathf.InverseLerp(
+                    hit.x,
+                    hit.x + travel,
+                    e.mousePosition.x - _scrollGrab
+                );
+                _viewport.Scroll(fraction * limit - _viewport.Left, 0, limit, null, 0);
+                e.Use();
+            }
+            else if (held && e.rawType == EventType.MouseUp && e.button == 0)
+            {
+                ReleaseScrollbar();
+                e.Use();
+            }
+            if (e.type != EventType.Repaint)
+                return;
+            var rail = new Rect(hit.x, hit.center.y, hit.width, UiTheme.ScrollRailW);
+            var thumb = new Rect(
+                left,
+                hit.center.y - UiTheme.ScrollTrackW / 2f,
+                width,
+                UiTheme.ScrollTrackW
+            );
+            Slab.Fill(rail, UiTheme.ScrollTrough);
+            Slab.Fill(
+                thumb,
+                held ? UiTheme.ScrollThumbHeld
+                    : hit.Contains(e.mousePosition) ? UiTheme.ScrollThumbHover
+                    : UiTheme.ScrollThumb
+            );
+        }
 
         void DrawColumns(Rect frame, Wire.ProjectBoard board, bool narrow)
         {
@@ -26,6 +93,16 @@ namespace SlopWorld
                 float width = narrow ? Mathf.Max(100, area.width - 36) : 264;
                 float limit = Mathf.Max(0, board.Columns.Count * (width + Gap) - Gap - area.width);
                 _viewport.Scroll(0, 0, limit, null, area.height);
+                if (limit > 0)
+                {
+                    area.height -= UiTheme.ScrollbarW;
+                    DrawHorizontalScrollbar(
+                        new Rect(0, area.yMax, area.width, UiTheme.ScrollbarW),
+                        limit
+                    );
+                }
+                else
+                    ReleaseScrollbar();
                 var e = Event.current;
                 var p = e.mousePosition;
                 bool inside = _editor.Card == null && Focused && area.Contains(p);
@@ -118,7 +195,8 @@ namespace SlopWorld
                         if (x >= area.width || x + width <= 0)
                             continue;
                         float footerY = Mathf.Min(cardHeight, Header + column.Cards.Count * Row);
-                        var footer = new Rect(x + 4, footerY + 2, width - 8, Footer - 4);
+                        var footerRow = new Rect(x, footerY, width, Footer);
+                        var footer = footerRow.ContractedBy(4f, 2f);
                         overFooter |= footer.Contains(p);
                         DrawAddCard(footer, board, column);
                     }
@@ -252,10 +330,6 @@ namespace SlopWorld
             float height
         )
         {
-            Slab.Fill(
-                new Rect(x, 0, width, Mathf.Min(height, Header + column.Cards.Count * Row)),
-                UiTheme.Well
-            );
             float top = _viewport.Top(column, height);
             int first = Mathf.FloorToInt(top / Row);
             for (int i = first; i < column.Cards.Count; i++)
