@@ -192,7 +192,7 @@ namespace SlopWorld
                     }
                 }
                 bool overFooter = false;
-                if (Writable(board) && !_gesture.Held && _editor.Card == null)
+                if (Writable(board))
                 {
                     for (int i = 0; i < board.Columns.Count; i++)
                     {
@@ -203,8 +203,7 @@ namespace SlopWorld
                         float footerY = Mathf.Min(cardHeight, Header + column.Cards.Count * Row);
                         var footerRow = new Rect(x, footerY, width, Footer);
                         var footer = footerRow.ContractedBy(4f, 2f);
-                        overFooter |= footer.Contains(p);
-                        DrawAddCard(footer, board, column);
+                        overFooter |= DrawAddCard(footer, column, p);
                     }
                 }
                 if (
@@ -279,13 +278,17 @@ namespace SlopWorld
             return string.Join(" · ", items);
         }
 
-        void DrawAddCard(Rect rect, Wire.ProjectBoard board, Wire.BoardColumn column)
+        bool DrawAddCard(Rect row, Wire.BoardColumn column, Vector2 pointer)
         {
-            if (
-                !DrawInlineField(rect, "add-card", "Card title", column.Id)
-                && UiControls.Button(rect, "+ Add card", on: !_saving)
-            )
+            var add = new Rect(row.x, row.y, row.height, row.height);
+            var field = row;
+            field.xMin = add.xMax + 4;
+            bool editing = DrawInlineField(field, "add-card", "Card title", column.Id);
+            TooltipHandler.TipRegion(add, "Add card");
+            bool enabled = Focused && _editor.Card == null && !_gesture.Held && !_saving;
+            if (UiControls.Button(add, "+", on: enabled) && !editing)
                 BeginInline("add-card", column: column.Id);
+            return add.Contains(pointer) || (editing && field.Contains(pointer));
         }
 
         static float Edge(float coordinate, float extent) =>
