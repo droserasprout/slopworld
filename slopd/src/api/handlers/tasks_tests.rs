@@ -147,16 +147,13 @@ async fn completed_assignment_is_read_through_its_card_link_and_reverse_lookup()
             .await
             .unwrap();
     }
-    let catalog = edit_board(
-        State(app.clone()),
-        Extension(Cap::Root),
-        Proto(wire::BoardEdit {
-            action: "enable-board".into(),
-            board: "0000000000000001".into(),
-            text: "Plan".into(),
-            ..Default::default()
-        }),
-    )
+    let root_edit = |edit| edit_board(State(app.clone()), Extension(Cap::Root), Proto(edit));
+    let catalog = root_edit(wire::BoardEdit {
+        action: "enable-board".into(),
+        board: "0000000000000001".into(),
+        text: "Plan".into(),
+        ..Default::default()
+    })
     .await
     .unwrap()
     .0;
@@ -167,26 +164,12 @@ async fn completed_assignment_is_read_through_its_card_link_and_reverse_lookup()
         text: "plan".into(),
         ..Default::default()
     };
-    let catalog = edit_board(
-        State(app.clone()),
-        Extension(Cap::Root),
-        Proto(edit.clone()),
-    )
-    .await
-    .unwrap()
-    .0;
+    let catalog = root_edit(edit.clone()).await.unwrap().0;
     edit.card = catalog.boards[0].columns[0].cards[0].key.clone();
     edit.action = "link".into();
     edit.kind = "task".into();
     edit.text = task.id.clone();
-    let catalog = edit_board(
-        State(app.clone()),
-        Extension(Cap::Root),
-        Proto(edit.clone()),
-    )
-    .await
-    .unwrap()
-    .0;
+    let catalog = root_edit(edit.clone()).await.unwrap().0;
     let target = &catalog.boards[0].columns[0].cards[0].links[0].target;
     let task_read = |cap, who| {
         one_task(

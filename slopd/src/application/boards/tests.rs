@@ -38,26 +38,19 @@ fn column_transition_is_recorded_once_across_retries() {
     );
 }
 
-#[tokio::test]
-async fn move_from_archive_is_rejected_and_preserves_discussion() {
-    let path = std::env::temp_dir().join(format!("boards-{}.sqlite3", uuid::Uuid::new_v4()));
-    let store = Store::new(path.clone());
-    let projects = vec![
-        ("root".into(), "Root".into()),
-        ("stable".into(), "Project".into()),
-    ];
+async fn enable_project_boards(store: &Store, projects: &[(String, String)]) -> wire::BoardCatalog {
     assert!(
         store
-            .run(projects.clone(), None)
+            .run(projects.to_vec(), None)
             .await
             .unwrap()
             .boards
             .is_empty()
     );
-    for (id, name) in &projects {
+    for (id, name) in projects {
         store
             .run(
-                projects.clone(),
+                projects.to_vec(),
                 Some((
                     BoardEdit {
                         board: id.clone(),
@@ -71,7 +64,18 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
             .await
             .unwrap();
     }
-    let catalog = store.run(projects.clone(), None).await.unwrap();
+    store.run(projects.to_vec(), None).await.unwrap()
+}
+
+#[tokio::test]
+async fn move_from_archive_is_rejected_and_preserves_discussion() {
+    let path = std::env::temp_dir().join(format!("boards-{}.sqlite3", uuid::Uuid::new_v4()));
+    let store = Store::new(path.clone());
+    let projects = vec![
+        ("root".into(), "Root".into()),
+        ("stable".into(), "Project".into()),
+    ];
+    let catalog = enable_project_boards(&store, &projects).await;
     let backlog = catalog.boards[1].columns[0].id.clone();
     let done = catalog.boards[0].columns[3].id.clone();
     let mut edit = BoardEdit {
@@ -99,17 +103,12 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
             .await
             .unwrap();
     }
-    let catalog = store
-        .run(vec![("root".into(), "Root".into())], None)
-        .await
-        .unwrap();
+    let root = vec![("root".into(), "Root".into())];
+    let catalog = store.run(root.clone(), None).await.unwrap();
     assert!(catalog.boards[1].archived);
     assert!(
         store
-            .run(
-                vec![("root".into(), "Root".into())],
-                Some((edit.clone(), "agent".into()))
-            )
+            .run(root.clone(), Some((edit.clone(), "agent".into())))
             .await
             .unwrap_err()
             .to_string()
@@ -120,10 +119,7 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     edit.action = "move-card".into();
     assert!(
         store
-            .run(
-                vec![("root".into(), "Root".into())],
-                Some((edit.clone(), "human".into()))
-            )
+            .run(root.clone(), Some((edit.clone(), "human".into())))
             .await
             .unwrap_err()
             .to_string()
@@ -137,10 +133,7 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     edit.action = "delete-archive".into();
     assert!(
         store
-            .run(
-                vec![("root".into(), "Root".into())],
-                Some((edit.clone(), "human".into()))
-            )
+            .run(root.clone(), Some((edit.clone(), "human".into())))
             .await
             .unwrap_err()
             .to_string()
@@ -148,22 +141,13 @@ async fn move_from_archive_is_rejected_and_preserves_discussion() {
     );
     edit.confirm = true;
     store
-        .run(
-            vec![("root".into(), "Root".into())],
-            Some((edit, "human".into())),
-        )
+        .run(root.clone(), Some((edit, "human".into())))
         .await
         .unwrap();
     let reopened_store = Store::new(path.clone());
-    let reservations = reopened_store
-        .sync_projects(vec![("root".into(), "Root".into())])
-        .await
-        .unwrap();
+    let reservations = reopened_store.sync_projects(root.clone()).await.unwrap();
     assert!(reservations.contains(&"stable".into()));
-    let reopened = reopened_store
-        .run(vec![("root".into(), "Root".into())], None)
-        .await
-        .unwrap();
+    let reopened = reopened_store.run(root, None).await.unwrap();
     assert_eq!(reopened.boards.len(), 1);
     assert!(reopened.boards[0].columns[3].cards.is_empty());
     std::fs::remove_file(path).unwrap();
@@ -238,32 +222,7 @@ async fn concurrent_creation_and_retirement_survive_restart_and_prefix_change() 
         ("root".into(), "Root".into()),
         ("sw".into(), "Before rename".into()),
     ];
-    assert!(
-        store
-            .run(projects.clone(), None)
-            .await
-            .unwrap()
-            .boards
-            .is_empty()
-    );
-    for (id, name) in &projects {
-        store
-            .run(
-                projects.clone(),
-                Some((
-                    BoardEdit {
-                        board: id.clone(),
-                        text: name.clone(),
-                        action: "enable-board".into(),
-                        ..Default::default()
-                    },
-                    "host".into(),
-                )),
-            )
-            .await
-            .unwrap();
-    }
-    let catalog = store.run(projects.clone(), None).await.unwrap();
+    let catalog = enable_project_boards(&store, &projects).await;
     assert_eq!(catalog.boards[0].prefix, "Root");
     let mut edit = BoardEdit {
         action: "add-card".into(),

@@ -25,28 +25,7 @@ impl Store {
             .is_some_and(|(e, _)| projects.iter().any(|(id, _)| id == &e.board));
         self.transaction(projects, move |tx| {
             if let Some((edit, author)) = edit {
-                if matches!(edit.action.as_str(), "enable-board" | "disable-board") {
-                    anyhow::ensure!(live_project, "project no longer exists");
-                    if edit.action == "enable-board" {
-                        anyhow::ensure!(!edit.text.trim().is_empty(), "board name is required");
-                        ensure_board(tx, &edit.board, edit.text.trim(), &edit.prefix)?;
-                        if !edit.prefix.is_empty() {
-                            edits::apply(
-                                tx,
-                                &wire::BoardEdit {
-                                    action: "set-prefix".into(),
-                                    text: edit.prefix.clone(),
-                                    ..edit
-                                },
-                                &author,
-                            )?;
-                        }
-                    } else {
-                        tx.execute("UPDATE boards SET archived=2 WHERE id=?", [&edit.board])?;
-                    }
-                } else {
-                    edits::apply(tx, &edit, &author)?;
-                }
+                apply_board_edit(tx, edit, &author, live_project)?;
             }
             Ok(snapshot::read(tx)?)
         })
@@ -178,6 +157,37 @@ fn default_prefix(tx: &Transaction<'_>, name: &str) -> Result<String> {
         suffix += 1;
     }
     Ok(prefix)
+}
+
+fn apply_board_edit(
+    tx: &Transaction<'_>,
+    edit: wire::BoardEdit,
+    author: &str,
+    live_project: bool,
+) -> Result<()> {
+    if matches!(edit.action.as_str(), "enable-board" | "disable-board") {
+        anyhow::ensure!(live_project, "project no longer exists");
+        if edit.action == "enable-board" {
+            anyhow::ensure!(!edit.text.trim().is_empty(), "board name is required");
+            ensure_board(tx, &edit.board, edit.text.trim(), &edit.prefix)?;
+            if !edit.prefix.is_empty() {
+                edits::apply(
+                    tx,
+                    &wire::BoardEdit {
+                        action: "set-prefix".into(),
+                        text: edit.prefix.clone(),
+                        ..edit
+                    },
+                    author,
+                )?;
+            }
+        } else {
+            tx.execute("UPDATE boards SET archived=2 WHERE id=?", [&edit.board])?;
+        }
+    } else {
+        edits::apply(tx, &edit, author)?;
+    }
+    Ok(())
 }
 
 fn ensure_board(tx: &Transaction<'_>, id: &str, name: &str, requested_prefix: &str) -> Result<()> {
