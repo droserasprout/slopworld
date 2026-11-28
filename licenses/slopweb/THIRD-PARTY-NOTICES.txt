@@ -3140,8 +3140,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-cc 1.11.3 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/cc/1.11.3/download
+cc 1.12.0 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/cc/1.12.0/download
 
 LICENSE-APACHE
 
@@ -7398,8 +7398,8 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-find-msvc-tools 0.1.15 — MIT OR Apache-2.0
-Source: https://crates.io/api/v1/crates/find-msvc-tools/0.1.15/download
+find-msvc-tools 0.1.16 — MIT OR Apache-2.0
+Source: https://crates.io/api/v1/crates/find-msvc-tools/0.1.16/download
 
 LICENSE-APACHE
 

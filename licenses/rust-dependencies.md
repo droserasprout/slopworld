@@ -23,7 +23,7 @@ and does not identify which crates are included in a particular binary.
 | anstyle-wincon | 3.0.11 | MIT OR Apache-2.0 |
 | anyhow | 1.0.105 | MIT OR Apache-2.0 |
 | arbitrary | 1.5.0 | MIT OR Apache-2.0 |
-| arrayvec | 0.7.8 | MIT OR Apache-2.0 |
+| arrayvec | 0.7.9 | MIT OR Apache-2.0 |
 | async-trait | 0.1.92 | MIT OR Apache-2.0 |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
 | audio_thread_priority | 0.34.0 | MPL-2.0 |
@@ -42,7 +42,7 @@ and does not identify which crates are included in a particular binary.
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.2 | MIT |
-| cc | 1.11.3 | MIT OR Apache-2.0 |
+| cc | 1.12.0 | MIT OR Apache-2.0 |
 | cesu8 | 1.1.0 | Apache-2.0/MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | cfg_aliases | 0.1.1 | MIT |
@@ -91,7 +91,7 @@ and does not identify which crates are included in a particular binary.
 | fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 |
-| find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
+| find-msvc-tools | 0.1.16 | MIT OR Apache-2.0 |
 | fixedbitset | 0.5.9 | MIT OR Apache-2.0 |
 | flate2 | 1.1.11 | MIT OR Apache-2.0 |
 | foldhash | 0.1.5 | Zlib |
