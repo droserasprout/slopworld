@@ -4,7 +4,7 @@ Open the chessboard beside Settings, click the chess table in the colony, or pre
 
 ## Organize work
 
-Use **+ Column** to add a column. Use **+ Add card** at the foot of a column, type a title, and press Enter. Open **···** to rename a column or remove an empty one. Drag a header to reorder columns. Click a card to open its details. Drag the card to an insertion line to reorder it or move it into another column. Hold near an edge to scroll. Escape or a release outside the destination cancels a drag.
+Use **+ Column** to add a column. Use **+ Add card** at the foot of a column, type a title, and press Enter. Open **···** to rename a column or remove an empty one. Drag a header to reorder columns. Click a card to open its details in a separate window. Drag the title to move the window or its lower-right corner to resize it. Drag the card to an insertion line to reorder it or move it into another column. Hold near an edge to scroll. Escape or a release outside the destination cancels a drag.
 
 On a narrow screen, swipe across columns or vertically through cards. Tap a card to open its popup and **×** to return. Use the visible grab handle to pick up a card or header on touchscreens. A mouse wheel scrolls the pointed column, and Shift+wheel moves across columns.
 

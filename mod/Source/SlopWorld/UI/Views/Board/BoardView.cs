@@ -58,6 +58,7 @@ namespace SlopWorld
             _taskDemand?.Dispose();
             _taskDemand = null;
             _open = false;
+            _cardWindow?.Close(false);
             WorkspaceLayout.CompactBoardOpen = false;
             _gesture.Cancel();
             _inlineEdit = null;
@@ -84,6 +85,7 @@ namespace SlopWorld
             }
             if (_editor.Card != null)
             {
+                _cardWindow?.Close(false);
                 _editor.Select(null);
                 return true;
             }
@@ -95,7 +97,7 @@ namespace SlopWorld
         Rect TextBox(Rect rect)
         {
             if (
-                Focused
+                (_cardWindow != null ? Find.WindowStack.GetsInput(_cardWindow) : Focused)
                 && Event.current.rawType == EventType.MouseDown
                 && rect.Contains(Event.current.mousePosition)
             )
@@ -298,12 +300,16 @@ namespace SlopWorld
 
         public override void Draw(Rect body)
         {
+            if (!Active || Board == null || _editor.Card == null)
+                _cardWindow?.Close(false);
+            else if (_cardWindow == null)
+                Find.WindowStack.Add(_cardWindow = new CardWindow(this));
             if (!Active)
             {
                 UiText.RowLabel(body, "Reopen Board for the current daemon.");
                 return;
             }
-            if (Event.current.rawType == EventType.MouseDown)
+            if (_cardWindow == null && Event.current.rawType == EventType.MouseDown)
                 TouchTextRequested = false;
             Refresh();
             using (WidgetState.Save())
@@ -347,31 +353,6 @@ namespace SlopWorld
                     separateActions ? 102
                     : stacked ? 68
                     : 34;
-                if (_editor.Card != null)
-                {
-                    if (
-                        Focused
-                        && Event.current.type == EventType.KeyDown
-                        && Event.current.keyCode == KeyCode.Escape
-                    )
-                    {
-                        _editor.Select(null);
-                        Event.current.Use();
-                        return;
-                    }
-                    UiText.RowLabel(picker, BoardLabel(board));
-                    var background = body;
-                    background.yMin += toolbarHeight;
-                    DrawColumns(background, VisibleBoard(board), body.width < 650);
-                    Slab.Fill(body, new Color(0, 0, 0, .65f));
-                    float w = Mathf.Min(920, body.width - 8);
-                    float h = Mathf.Min(600, body.height - 8);
-                    DrawDetails(
-                        new Rect(body.center.x - w / 2, body.center.y - h / 2, w, h),
-                        board
-                    );
-                    return;
-                }
                 UiSelector.DrawInline(
                     picker,
                     BoardLabel(board),

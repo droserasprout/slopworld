@@ -7,6 +7,46 @@ namespace SlopWorld
 {
     public sealed partial class BoardView
     {
+        CardWindow _cardWindow;
+
+        sealed class CardWindow : UiWindow
+        {
+            readonly BoardView _view;
+
+            public CardWindow(BoardView view)
+            {
+                _view = view;
+                resizeable = true;
+            }
+
+            public override Vector2 InitialSize => new Vector2(920f, 600f);
+            protected override Vector2 MinimumSize => new Vector2(320f, 300f);
+
+            protected override void DoBody(Rect body)
+            {
+                var board = _view.Board;
+                if (_view.Active && board != null && _view._editor.Card != null)
+                {
+                    if (Event.current.rawType == EventType.MouseDown)
+                        _view.TouchTextRequested = false;
+                    using (WidgetState.Save())
+                    {
+                        UiLayout.Title(TitleRect(body), _view._editor.Card.Key);
+                        body.yMin += UiTheme.HeaderH;
+                        _view.DrawDetails(body, board);
+                    }
+                }
+            }
+
+            public override void PostClose()
+            {
+                _view._cardWindow = null;
+                if (_view.Active && _view.Board != null)
+                    _view._editor.Select(null);
+                base.PostClose();
+            }
+        }
+
         void SelectCard(Wire.BoardCard card)
         {
             _filter = "All";
@@ -32,8 +72,6 @@ namespace SlopWorld
         void DrawDetails(Rect panel, Wire.ProjectBoard board)
         {
             var card = _editor.Card;
-            Slab.Box(panel, UiTheme.Panel, UiTheme.Edge);
-            panel = panel.ContractedBy(8);
             var column = board.Columns.First(c => c.Cards.Any(item => item.Id == card.Id));
             var selector = new Rect(panel.x, panel.y, Mathf.Min(250, panel.width - 40), 30);
             bool editable = Writable(board) && !_saving;
@@ -62,11 +100,6 @@ namespace SlopWorld
                 );
             else
                 UiText.RowLabel(selector, column.Name);
-            if (UiControls.Button(new Rect(panel.xMax - 32, panel.y, 32, 30), "×"))
-            {
-                _editor.Select(null);
-                return;
-            }
             panel.yMin += 36;
             var discussion = panel;
             if (panel.width >= 620)

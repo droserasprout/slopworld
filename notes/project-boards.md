@@ -6,7 +6,7 @@ Accepted project configuration owns project membership. Project Edit enables a b
 
 The board and task views share ConversationReader for portraits, timestamp formatting, wrapping, and selection. The shared feed selects card transitions from board activity and takes task progress from the visible mailbox. Comment edits retain the entry ID, author and timestamp. Registered worktree links store checkout paths and resolve display names from the scope catalog. Comments and activity carry daemon-recorded timestamps. Older entries retain an unknown time.
 
-BoardView polls only while open. Mutations invalidate earlier reads. Detail selection follows the card ID across snapshots. SlopWeb forwards pointer device and capture cancellation into the native gesture owner. The browser’s visible viewport sets responsive canvas height when a keyboard is present.
+BoardView polls only while open. Mutations invalidate earlier reads. BoardView owns the card detail window and its selection. Selection follows the card ID across snapshots and survives navigation to a linked task. SlopWeb forwards pointer device and capture cancellation into the native gesture owner. The browser’s visible viewport sets responsive canvas height when a keyboard is present.
 
 See the [Board guide](../docs/src/workspace/board.md) and [API contract](../docs/src/reference/api.md#project-boards).
 
